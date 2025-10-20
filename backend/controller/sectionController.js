@@ -1,0 +1,470 @@
+// controllers/sectionController.js
+import Section from "../models/sections.js";
+import Subject from "../models/subjects.js";
+import Instructor from "../models/instructor.js";
+import Student from "../models/student.js";
+import emailService from "../services/emailService.js";
+
+export const createSection = async (req, res) => {
+  try {
+    const { subjectId, instructorId, sectionName, schoolYear, term, gradingSchema } = req.body;
+    
+    // For admin requests, instructorId is provided in the body
+    // For instructor requests, use the authenticated user's ID
+    const finalInstructorId = instructorId || req.user.user._id;
+
+    if (!subjectId || !sectionName || !schoolYear || !term) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const subject = await Subject.findById(subjectId);
+    if (!subject) return res.status(404).json({ message: "Subject not found" });
+
+    // If this is an instructor request (no instructorId provided), verify subject assignment
+    if (!instructorId && req.user.user._id) {
+      if (subject.assignedInstructor.toString() !== req.user.user._id.toString()) {
+        return res.status(403).json({ message: "You can only create sections for subjects assigned to you" });
+      }
+    }
+
+    const instructor = await Instructor.findById(finalInstructorId);
+    if (!instructor) return res.status(404).json({ message: "Instructor not found" });
+
+    // Check uniqueness: same subject+instructor in same sy/term
+    const existing = await Section.findOne({ 
+      subject: subjectId, 
+      instructor: finalInstructorId, 
+      schoolYear, 
+      term,
+      sectionName: sectionName
+    });
+    if (existing) {
+      return res.status(400).json({ 
+        message: "A section with this name already exists for this subject in this term" 
+      });
+    }
+
+    const section = await Section.create({
+      subject: subjectId,
+      instructor: finalInstructorId,
+      sectionName,
+      schoolYear,
+      term,
+      gradingSchema: gradingSchema || {
+        classStanding: 40,
+        laboratory: 30,
+        majorOutput: 30
+      },
+    });
+
+    const populatedSection = await Section.findById(section._id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department");
+
+    // Send email notification to the assigned instructor
+    try {
+      const sectionDetails = {
+        subjectCode: populatedSection.subject.subjectCode,
+        subjectName: populatedSection.subject.subjectName,
+        sectionName: populatedSection.sectionName,
+        schoolYear: populatedSection.schoolYear,
+        term: populatedSection.term,
+        units: populatedSection.subject.units,
+        college: populatedSection.subject.college,
+        department: populatedSection.subject.department
+      };
+
+      // Determine who created the section (admin or self-assignment)
+      const createdBy = instructorId ? "Admin" : "Self-assigned";
+      
+      await emailService.sendSectionAssignmentNotification(
+        populatedSection.instructor.email,
+        populatedSection.instructor.fullName,
+        sectionDetails,
+        createdBy
+      );
+      
+      console.log(`📧 Section assignment email sent to ${populatedSection.instructor.email}`);
+    } catch (emailError) {
+      console.error("❌ Error sending section assignment email:", emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.status(201).json({ success: true, section: populatedSection });
+  } catch (err) {
+    console.error("createSection:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getAllSections = async (req, res) => {
+  try {
+    const sections = await Section.find()
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department")
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, sections });
+  } catch (err) {
+    console.error("getAllSections:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getSectionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const section = await Section.findById(id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department")
+      .populate("students", "studid firstName lastName email yearLevel course");
+    
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+    
+    res.json({ success: true, section });
+  } catch (err) {
+    console.error("getSectionById:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getSubjectsWithMultipleInstructors = async (req, res) => {
+  try {
+    // Aggregate sections to show subjects with multiple instructors
+    const subjectsWithInstructors = await Section.aggregate([
+      {
+        $group: {
+          _id: "$subject",
+          instructors: { $addToSet: "$instructor" },
+          sections: { $push: "$$ROOT" },
+          instructorCount: { $addToSet: "$instructor" }
+        }
+      },
+      {
+        $addFields: {
+          instructorCount: { $size: "$instructorCount" }
+        }
+      },
+      {
+        $lookup: {
+          from: "subjects",
+          localField: "_id",
+          foreignField: "_id",
+          as: "subjectDetails"
+        }
+      },
+      {
+        $lookup: {
+          from: "instructors",
+          localField: "instructors",
+          foreignField: "_id",
+          as: "instructorDetails"
+        }
+      },
+      {
+        $sort: { instructorCount: -1, "_id": 1 }
+      }
+    ]);
+
+    res.json({ success: true, subjects: subjectsWithInstructors });
+  } catch (err) {
+    console.error("getSubjectsWithMultipleInstructors:", err);
+    res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const updateSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subjectId, instructorId, sectionName, schoolYear, term, gradingSchema } = req.body;
+
+    const section = await Section.findById(id);
+    if (!section) return res.status(404).json({ message: "Section not found" });
+
+    // Check if this is an admin request (has instructorId) or instructor request
+    const isAdminRequest = !!instructorId;
+    const finalInstructorId = instructorId || req.user.user._id;
+
+    // If instructor request, verify ownership
+    if (!isAdminRequest && section.instructor.toString() !== req.user.user._id.toString()) {
+      return res.status(403).json({ message: "You can only edit your own sections" });
+    }
+
+    if (subjectId) {
+      const subject = await Subject.findById(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subject not found" });
+      
+      // For instructor requests, verify subject assignment
+      if (!isAdminRequest && subject.assignedInstructor.toString() !== req.user.user._id.toString()) {
+        return res.status(403).json({ message: "You can only assign subjects that are assigned to you" });
+      }
+    }
+
+    // If instructor is being changed (admin only), verify the new instructor exists
+    if (instructorId) {
+      const instructor = await Instructor.findById(instructorId);
+      if (!instructor) return res.status(404).json({ message: "Instructor not found" });
+    }
+
+    // Check uniqueness if changing key fields
+    if (subjectId || sectionName || schoolYear || term) {
+      const existing = await Section.findOne({ 
+        subject: subjectId || section.subject, 
+        instructor: finalInstructorId,
+        schoolYear: schoolYear || section.schoolYear, 
+        term: term || section.term,
+        sectionName: sectionName || section.sectionName,
+        _id: { $ne: id }
+      });
+      if (existing) {
+        return res.status(400).json({ 
+          message: "A section with this name already exists for this subject in this term" 
+        });
+      }
+    }
+
+    const updatedSection = await Section.findByIdAndUpdate(
+      id,
+      {
+        ...(subjectId && { subject: subjectId }),
+        ...(instructorId && { instructor: instructorId }), // Admin can change instructor
+        ...(sectionName && { sectionName }),
+        ...(schoolYear && { schoolYear }),
+        ...(term && { term }),
+        ...(gradingSchema && { gradingSchema }),
+      },
+      { new: true, runValidators: true }
+    ).populate("instructor", "fullName email college department")
+     .populate("subject", "subjectCode subjectName units college department");
+
+    res.json({ success: true, section: updatedSection });
+  } catch (err) {
+    console.error("updateSection:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const section = await Section.findById(id);
+    if (!section) return res.status(404).json({ message: "Section not found" });
+
+    await Section.findByIdAndDelete(id);
+    res.json({ success: true, message: "Section deleted successfully" });
+  } catch (err) {
+    console.error("deleteSection:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getSectionsBySubject = async (req, res) => {
+  try {
+    const { subjectId } = req.params;
+    const sections = await Section.find({ subject: subjectId })
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName");
+    res.json(sections);
+  } catch (err) {
+    console.error("getSectionsBySubject:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get instructor assigned for a specific subject in a sy/term
+export const getInstructorForSubject = async (req, res) => {
+  try {
+    const { subjectId } = req.params;
+    const { schoolYear, term } = req.query; // optional filters
+    const query = { subject: subjectId };
+    if (schoolYear) query.schoolYear = schoolYear;
+    if (term) query.term = term;
+
+    const section = await Section.findOne(query)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName");
+
+    if (!section) return res.status(404).json({ message: "No section/instructor found for this subject in the given term" });
+
+    res.json({
+      subject: section.subject,
+      instructor: section.instructor,
+      sectionName: section.sectionName,
+      schoolYear: section.schoolYear,
+      term: section.term,
+    });
+  } catch (err) {
+    console.error("getInstructorForSubject:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Invite students to a section (Admin only)
+export const inviteStudentsToSection = async (req, res) => {
+  try {
+    const { id } = req.params; // section ID
+    const { studentIds } = req.body;
+
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ message: "Student IDs are required" });
+    }
+
+    const section = await Section.findById(id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department");
+      
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+
+    // Get student details
+    const students = await Student.find({ _id: { $in: studentIds } });
+    if (students.length !== studentIds.length) {
+      return res.status(400).json({ message: "Some students not found" });
+    }
+
+    // Add students to the section if they're not already enrolled
+    const newStudents = studentIds.filter(studentId => 
+      !section.students.includes(studentId)
+    );
+
+    if (newStudents.length === 0) {
+      return res.status(400).json({ message: "All selected students are already enrolled in this section" });
+    }
+
+    section.students.push(...newStudents);
+    await section.save();
+
+    // Send email invitations to newly added students
+    const emailPromises = students
+      .filter(student => newStudents.includes(student._id.toString()))
+      .map(student => {
+        const sectionDetails = {
+          subjectCode: section.subject.subjectCode,
+          subjectName: section.subject.subjectName,
+          sectionName: section.sectionName,
+          schoolYear: section.schoolYear,
+          term: section.term
+        };
+        
+        return emailService.sendSectionInvitation(
+          student.email,
+          `${student.firstName} ${student.lastName}`,
+          sectionDetails,
+          section.instructor.fullName
+        );
+      });
+
+    // Send emails but don't fail the request if emails fail
+    try {
+      await Promise.all(emailPromises);
+      console.log(`📧 Section invitation emails sent to ${newStudents.length} students`);
+    } catch (emailError) {
+      console.error("❌ Error sending some invitation emails:", emailError);
+    }
+
+    const updatedSection = await Section.findById(id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department")
+      .populate("students", "studid firstName lastName email");
+
+    res.json({ 
+      success: true, 
+      message: `Successfully added ${newStudents.length} students to the section and sent email invitations`,
+      section: updatedSection,
+      invitedStudents: newStudents
+    });
+  } catch (err) {
+    console.error("inviteStudentsToSection:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get students in a section (Admin only)
+export const getSectionStudents = async (req, res) => {
+  try {
+    const { id } = req.params; // section ID
+
+    const section = await Section.findById(id)
+      .populate("students", "studid fullName email yearLevel course createdAt")
+      .populate("subject", "subjectCode subjectName")
+      .populate("instructor", "fullName email");
+      
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+
+    // Format student data with invite date
+    const studentsWithInviteDate = section.students.map(student => ({
+      _id: student._id,
+      studid: student.studid,
+      fullName: student.fullName,
+      email: student.email,
+      yearLevel: student.yearLevel,
+      course: student.course,
+      inviteDate: student.createdAt // Using createdAt as a proxy for invite date
+    }));
+
+    res.json({ 
+      success: true, 
+      students: studentsWithInviteDate,
+      section: {
+        _id: section._id,
+        sectionName: section.sectionName,
+        schoolYear: section.schoolYear,
+        term: section.term,
+        subject: section.subject,
+        instructor: section.instructor
+      }
+    });
+  } catch (err) {
+    console.error("getSectionStudents:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Remove student from section (Admin only)
+export const removeStudentFromSection = async (req, res) => {
+  try {
+    const { id } = req.params; // section ID
+    const { studentId } = req.body;
+
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({ message: "Section not found" });
+    }
+
+    // Check if student is in the section
+    if (!section.students.includes(studentId)) {
+      return res.status(400).json({ message: "Student is not enrolled in this section" });
+    }
+
+    // Remove student from section
+    section.students = section.students.filter(student => 
+      student.toString() !== studentId.toString()
+    );
+    
+    await section.save();
+
+    // Get student details for confirmation
+    const student = await Student.findById(studentId);
+    const studentName = student ? student.fullName : 'Student';
+
+    res.json({ 
+      success: true, 
+      message: `${studentName} has been removed from the section successfully`,
+      remainingStudents: section.students.length
+    });
+  } catch (err) {
+    console.error("removeStudentFromSection:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

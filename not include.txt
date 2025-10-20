@@ -1,0 +1,1 @@
+git add . ':!backend/.env' ':!backend/package-lock.json' ':!backend/node_modules/' ':!frontend/.env' ':!frontend/package-lock.json' ':!frontend/node_modules/' ':!frontend/buid/ ' ':!frontend/.env'  

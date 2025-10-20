@@ -1,0 +1,411 @@
+import React, { useState, useEffect } from "react";
+import { 
+  IconBook, 
+  IconPlus, 
+  IconUsers, 
+  IconCalendar,
+  IconSchool,
+  IconChalkboard,
+  IconAlertCircle,
+  IconRefresh,
+  IconClipboardList,
+  IconX,
+  IconCheck
+} from "@tabler/icons-react";
+import { InstructorSidebar } from "./instructorSidebar";
+import { authenticatedFetch } from "../../utils/auth";
+
+export default function AssignedSubjects() {
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [activityForm, setActivityForm] = useState({
+    title: "",
+    description: "",
+    category: "classStanding", // classStanding, laboratory, majorOutput
+    maxScore: "",
+    dueDate: "",
+    instructions: ""
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchAssignedSubjects();
+  }, []);
+
+  const fetchAssignedSubjects = async () => {
+    try {
+      setLoading(true);
+      const res = await authenticatedFetch("http://localhost:5000/api/subjects/assigned");
+      if (res.ok) {
+        const data = await res.json();
+        setSubjects(data.subjects || []);
+      } else {
+        setError("Failed to fetch assigned subjects");
+      }
+    } catch (err) {
+      setError("Error fetching assigned subjects");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateSection = (subjectId) => {
+    // Navigate to create section page with pre-selected subject
+    window.location.href = `/instructor/sections/add?subjectId=${subjectId}`;
+  };
+
+  const openActivityModal = (subject) => {
+    setSelectedSubject(subject);
+    setShowActivityModal(true);
+    setActivityForm({
+      title: "",
+      description: "",
+      category: "classStanding",
+      maxScore: "",
+      dueDate: "",
+      instructions: ""
+    });
+  };
+
+  const handleActivitySubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedSubject) return;
+
+    try {
+      setSubmitting(true);
+      const res = await authenticatedFetch(`http://localhost:5000/api/instructor/subjects/${selectedSubject._id}/activities`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(activityForm),
+      });
+
+      if (res.ok) {
+        setShowActivityModal(false);
+        alert("Activity created successfully!");
+        // You might want to refresh the subjects or navigate to activities page
+      } else {
+        const data = await res.json();
+        setError(data.message || "Failed to create activity");
+      }
+    } catch (err) {
+      setError("Error creating activity");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <IconX size={20} />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <InstructorSidebar />
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-xl sm:text-2xl lg:text-3xl font-bold">
+              My Assigned Subjects
+            </h2>
+            <p className="text-gray-600 mt-1">Subjects assigned to you by the administration</p>
+          </div>
+          <button
+            onClick={fetchAssignedSubjects}
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <IconRefresh size={20} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-2">
+            <IconAlertCircle className="text-red-500" size={20} />
+            <span className="text-red-700">{error}</span>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <>
+            {/* Subjects Grid */}
+            {subjects.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {subjects.map((subject) => (
+                  <div
+                    key={subject._id}
+                    className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {/* Subject Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <IconBook className="text-blue-600" size={24} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-lg">
+                            {subject.subjectCode}
+                          </h3>
+                          <p className="text-gray-600 text-sm">
+                            {subject.units} units
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                        Assigned
+                      </div>
+                    </div>
+                    
+                    {/* Subject Details */}
+                    <div className="space-y-3 mb-4">
+                      <h4 className="font-medium text-gray-900">
+                        {subject.subjectName}
+                      </h4>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <IconSchool size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {subject.college}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <IconUsers size={16} className="text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {subject.department}
+                          </span>
+                        </div>
+                        
+                        {subject.semester && (
+                          <div className="flex items-center gap-2">
+                            <IconCalendar size={16} className="text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                              {subject.semester.schoolYear} - {subject.semester.term} Semester
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleCreateSection(subject._id)}
+                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <IconPlus size={16} />
+                          Create Section
+                        </button>
+                        <button
+                          onClick={() => window.location.href = `/instructor/sections?subjectId=${subject._id}`}
+                          className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <IconChalkboard size={16} />
+                          View Sections
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => openActivityModal(subject)}
+                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <IconClipboardList size={16} />
+                        Add Activity
+                      </button>
+                    </div>
+
+                    {/* Assignment Info */}
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <p className="text-xs text-gray-500">
+                        Assigned on: {new Date(subject.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Empty State */
+              <div className="text-center py-12">
+                <IconBook className="mx-auto text-gray-300 mb-4" size={48} />
+                <h3 className="text-lg font-medium text-gray-600 mb-2">
+                  No subjects assigned yet
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  You haven't been assigned any subjects by the administration yet.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+                  <p className="text-blue-700 text-sm">
+                    📧 You'll receive an email notification when subjects are assigned to you.
+                    Contact your administrator if you believe this is an error.
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Add Activity Modal */}
+        <Modal
+          isOpen={showActivityModal}
+          onClose={() => setShowActivityModal(false)}
+          title="Create New Activity"
+        >
+          <form onSubmit={handleActivitySubmit} className="space-y-4">
+            {selectedSubject && (
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 className="font-medium text-blue-800 mb-2">Subject:</h4>
+                <p className="text-sm text-blue-600">
+                  {selectedSubject.subjectCode} - {selectedSubject.subjectName}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Activity Title *
+              </label>
+              <input
+                type="text"
+                value={activityForm.title}
+                onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                placeholder="e.g., Quiz 1, Assignment 2, Lab Exercise 3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category *
+              </label>
+              <select
+                value={activityForm.category}
+                onChange={(e) => setActivityForm({ ...activityForm, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              >
+                <option value="classStanding">Class Standing</option>
+                <option value="laboratory">Laboratory</option>
+                <option value="majorOutput">Major Output</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum Score *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={activityForm.maxScore}
+                  onChange={(e) => setActivityForm({ ...activityForm, maxScore: e.target.value })}
+                  placeholder="100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Due Date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={activityForm.dueDate}
+                  onChange={(e) => setActivityForm({ ...activityForm, dueDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={activityForm.description}
+                onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                placeholder="Brief description of the activity"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Instructions
+              </label>
+              <textarea
+                value={activityForm.instructions}
+                onChange={(e) => setActivityForm({ ...activityForm, instructions: e.target.value })}
+                placeholder="Detailed instructions for students"
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowActivityModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <IconCheck size={16} />
+                    Create Activity
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      </div>
+    </div>
+  );
+}
