@@ -11,21 +11,31 @@ export const getInstructorDashboardStats = async (req, res) => {
   try {
     const instructorId = req.instructor.id;
 
-    // Get total sections for this instructor
-    const totalSections = await Section.countDocuments({ instructor: instructorId });
+    // Get total sections for this instructor (excluding archived)
+    const totalSections = await Section.countDocuments({ 
+      instructor: instructorId,
+      isArchived: { $ne: true }
+    });
 
-    // Get total students across all sections
-    const sections = await Section.find({ instructor: instructorId }).populate('students');
+    // Get total students across all sections (excluding archived sections)
+    const sections = await Section.find({ 
+      instructor: instructorId,
+      isArchived: { $ne: true }
+    }).populate('students');
     const totalStudents = sections.reduce((count, section) => count + section.students.length, 0);
 
-    // Get unique subjects taught
-    const sectionsWithSubjects = await Section.find({ instructor: instructorId }).populate('subject');
+    // Get unique subjects taught (excluding archived sections)
+    const sectionsWithSubjects = await Section.find({ 
+      instructor: instructorId,
+      isArchived: { $ne: true }
+    }).populate('subject');
     const uniqueSubjects = new Set(sectionsWithSubjects.map(section => section.subject?._id?.toString()));
     const totalSubjects = uniqueSubjects.size;
 
-    // Get pending grades (sections without completed grading)
+    // Get pending grades (sections without completed grading, excluding archived)
     const pendingGrades = await Section.countDocuments({ 
       instructor: instructorId,
+      isArchived: { $ne: true }
       // You might want to add a field to track grading completion status
     });
 
@@ -82,11 +92,16 @@ export const updateInstructorProfile = async (req, res) => {
 export const getInstructorSections = async (req, res) => {
   try {
     const instructorId = req.instructor.id;
-    const { schoolYear, term } = req.query;
+    const { schoolYear, term, includeArchived = false } = req.query;
 
     const query = { instructor: instructorId };
     if (schoolYear) query.schoolYear = schoolYear;
     if (term) query.term = term;
+    
+    // Include archived sections only if explicitly requested
+    if (includeArchived !== 'true') {
+      query.isArchived = { $ne: true };
+    }
 
     const sections = await Section.find(query)
       .populate("subject", "subjectCode subjectName units college department")

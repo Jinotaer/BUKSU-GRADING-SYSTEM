@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { IconArchive } from "@tabler/icons-react";
 
 export default function SemesterManagement() {
   const [semesters, setSemesters] = useState([]);
@@ -140,31 +141,79 @@ export default function SemesterManagement() {
     }
   };
 
-  const handleDelete = async (semesterId) => {
-    showConfirmDialog(
-      'Delete Semester',
-      'Are you sure you want to delete this semester? This action cannot be undone.',
-      async () => {
-        try {
-          const res = await authenticatedFetch(`http://localhost:5000/api/admin/semesters/${semesterId}`, {
-            method: "DELETE",
-          });
+  // const handleDelete = async (semesterId) => {
+  //   showConfirmDialog(
+  //     'Delete Semester',
+  //     'Are you sure you want to delete this semester? This action cannot be undone.',
+  //     async () => {
+  //       try {
+  //         const res = await authenticatedFetch(`http://localhost:5000/api/admin/semesters/${semesterId}`, {
+  //           method: "DELETE",
+  //         });
 
-          if (res.ok) {
-            await fetchSemesters();
-            showNotification('success', 'Success', 'Semester deleted successfully!');
-          } else {
-            const data = await res.json();
-            showNotification('error', 'Error', data.message || 'Failed to delete semester');
-          }
-        } catch (err) {
-          showNotification('error', 'Error', 'There was an error processing your request.');
-          console.error(err);
+  //         if (res.ok) {
+  //           await fetchSemesters();
+  //           showNotification('success', 'Success', 'Semester deleted successfully!');
+  //         } else {
+  //           const data = await res.json();
+  //           showNotification('error', 'Error', data.message || 'Failed to delete semester');
+  //         }
+  //       } catch (err) {
+  //         showNotification('error', 'Error', 'There was an error processing your request.');
+  //         console.error(err);
+  //       }
+  //       hideConfirmDialog();
+  //     }
+  //   );
+  // };
+
+const handleArchiveSemester = async (id) => {
+  if (!id) {
+    showNotification('error', 'Error', 'Invalid semester ID');
+    return;
+  }
+
+  const semester = semesters.find((s) => (s._id || s.id) === id);
+  const semesterLabel = semester
+    ? `${semester.schoolYear} - ${semester.term} Semester`
+    : "this semester";
+
+  showConfirmDialog(
+    "Archive Semester",
+    `Are you sure you want to archive "${semesterLabel}"? This will hide the semester from normal operations but it can be restored later.`,
+    async () => {
+      try {
+        setLoading(true);
+        const res = await authenticatedFetch(
+          `http://localhost:5000/api/admin/semesters/${id}/archive`,
+          { method: "PUT" }
+        );
+
+        if (res.ok) {
+          setSemesters((prev) => prev.filter((s) => (s._id || s.id) !== id));
+          hideConfirmDialog();
+          setTimeout(() => {
+            showNotification('success', 'Success', `Semester "${semesterLabel}" archived successfully!`);
+          }, 100);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          hideConfirmDialog();
+          setTimeout(() => {
+            showNotification('error', 'Error', errorData.message || "Failed to archive semester.");
+          }, 100);
         }
+      } catch (err) {
         hideConfirmDialog();
+        console.error("Archive semester error:", err);
+        setTimeout(() => {
+          showNotification('error', 'Error', "There was an error processing your request.");
+        }, 100);
+      } finally {
+        setLoading(false);
       }
-    );
-  };
+    }
+  );
+};
 
   const resetForm = () => {
     setFormData({
@@ -339,12 +388,18 @@ export default function SemesterManagement() {
                     >
                       <IconEdit size={16} />
                     </button>
-                    <button
+                     <button
+                      onClick={() => handleArchiveSemester(semester._id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <IconArchive size={16} />
+                    </button>
+                    {/* <button
                       onClick={() => handleDelete(semester._id)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <IconTrash size={16} />
-                    </button>
+                    </button> */}
                   </div>
                 </div>
                 

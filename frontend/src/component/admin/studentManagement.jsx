@@ -4,6 +4,7 @@ import { authenticatedFetch } from "../../utils/auth";
 import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { IconArchive, IconArchiveOff } from "@tabler/icons-react";
 
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
@@ -71,21 +72,45 @@ export default function StudentManagement() {
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  const handleDelete = async (studentId) => {
+  // const handleDelete = async (studentId) => {
+  //   showConfirmDialog(
+  //     'Delete Student',
+  //     'Are you sure you want to delete this student? This action cannot be undone.',
+  //     async () => {
+  //       try {
+  //         const res = await authenticatedFetch(`http://localhost:5000/api/admin/students/${studentId}`, {
+  //           method: "DELETE",
+  //         });
+          
+  //         if (res.ok) {
+  //           setStudents(prev => prev.filter(s => s._id !== studentId));
+  //           showSuccess("Student deleted successfully!");
+  //         } else {
+  //           showError("Failed to delete student");
+  //         }
+  //       } catch {
+  //         showError("There was an error processing your request.");
+  //       }
+  //     }
+  //   );
+  // };
+
+  const handleArchive = async (studentId) => {
     showConfirmDialog(
-      'Delete Student',
-      'Are you sure you want to delete this student? This action cannot be undone.',
+      'Archive Student',
+      'Are you sure you want to archive this student? They will be hidden from normal operations but can be restored later.',
       async () => {
         try {
-          const res = await authenticatedFetch(`http://localhost:5000/api/admin/students/${studentId}`, {
-            method: "DELETE",
+          const res = await authenticatedFetch(`http://localhost:5000/api/admin/students/${studentId}/archive`, {
+            method: "PUT",
           });
           
           if (res.ok) {
             setStudents(prev => prev.filter(s => s._id !== studentId));
-            showSuccess("Student deleted successfully!");
+            showSuccess("Student archived successfully!");
           } else {
-            showError("Failed to delete student");
+            const errorData = await res.json();
+            showError(errorData.message || "Failed to archive student");
           }
         } catch {
           showError("There was an error processing your request.");
@@ -157,12 +182,21 @@ export default function StudentManagement() {
                               </span>
                             </td>
                             <td className="px-3 py-3">
-                              <button
-                                onClick={() => handleDelete(student._id)}
-                                className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
-                              >
-                                Delete
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleArchive(student._id)}
+                                  className="inline-flex items-center px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  <IconArchive className="w-3 h-3 mr-1" />
+                                  Archive
+                                </button>
+                                {/* <button
+                                  onClick={() => handleDelete(student._id)}
+                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  Delete
+                                </button> */}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -204,12 +238,21 @@ export default function StudentManagement() {
                               </span>
                             </td>
                             <td className="px-2 py-3">
-                              <button
-                                onClick={() => handleDelete(student._id)}
-                                className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
-                              >
-                                Delete
-                              </button>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleArchive(student._id)}
+                                  className="inline-flex items-center px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  <IconArchive className="w-3 h-3 mr-1" />
+                                  Archive
+                                </button>
+                                {/* <button
+                                  onClick={() => handleDelete(student._id)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  Delete
+                                </button> */}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -253,13 +296,20 @@ export default function StudentManagement() {
                           </div>
                           
                           {/* Actions */}
-                          <div className="flex justify-end pt-2 border-t border-gray-200">
+                          <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
                             <button
+                              onClick={() => handleArchive(student._id)}
+                              className="inline-flex items-center px-3 py-2 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 transition-colors"
+                            >
+                              <IconArchive className="w-3 h-3 mr-1" />
+                              Archive
+                            </button>
+                            {/* <button
                               onClick={() => handleDelete(student._id)}
-                              className="px-4 py-2 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 transition-colors"
+                              className="px-3 py-2 bg-red-500 text-white rounded text-xs font-medium hover:bg-red-600 transition-colors"
                             >
                               Delete
-                            </button>
+                            </button> */}
                           </div>
                         </div>
                       </div>

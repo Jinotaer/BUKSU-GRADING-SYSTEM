@@ -10,7 +10,9 @@ import {
   IconAlertCircle,
   IconSearch,
   IconFilter,
-  IconUser
+  IconUser,
+  IconArchive,
+  IconArchiveOff
 } from "@tabler/icons-react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
@@ -152,6 +154,34 @@ export default function SubjectManagement() {
           }
         } catch (err) {
           showError("Error deleting subject");
+          console.error(err);
+        }
+      }
+    );
+  };
+
+  const handleArchive = async (subjectId) => {
+    const subject = subjects.find(s => s._id === subjectId);
+    const subjectName = subject?.subjectCode || "this subject";
+
+    showConfirmDialog(
+      "Archive Subject",
+      `Are you sure you want to archive "${subjectName}"? It will be hidden from normal operations but can be restored later.`,
+      async () => {
+        try {
+          const res = await authenticatedFetch(`http://localhost:5000/api/admin/subjects/${subjectId}/archive`, {
+            method: "PUT",
+          });
+
+          if (res.ok) {
+            await fetchSubjects();
+            showSuccess("Subject archived successfully!");
+          } else {
+            const data = await res.json();
+            showError(data.message || "Failed to archive subject");
+          }
+        } catch (err) {
+          showError("Error archiving subject");
           console.error(err);
         }
       }
@@ -364,15 +394,24 @@ export default function SubjectManagement() {
                               <button
                                 onClick={() => openEditModal(subject)}
                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit Subject"
                               >
                                 <IconEdit size={16} />
                               </button>
                               <button
+                                onClick={() => handleArchive(subject._id)}
+                                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Archive Subject"
+                              >
+                                <IconArchive size={16} />
+                              </button>
+                              {/* <button
                                 onClick={() => handleDelete(subject._id)}
                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Subject"
                               >
                                 <IconTrash size={16} />
-                              </button>
+                              </button> */}
                             </div>
                           </td>
                         </tr>
@@ -405,12 +444,21 @@ export default function SubjectManagement() {
                             <button
                               onClick={() => openEditModal(subject)}
                               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Subject"
                             >
                               <IconEdit size={16} />
                             </button>
                             <button
+                              onClick={() => handleArchive(subject._id)}
+                              className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                              title="Archive Subject"
+                            >
+                              <IconArchive size={16} />
+                            </button>
+                            <button
                               onClick={() => handleDelete(subject._id)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Subject"
                             >
                               <IconTrash size={16} />
                             </button>

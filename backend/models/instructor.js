@@ -60,6 +60,18 @@ const instructorSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    archivedBy: {
+      type: String, // admin email or ID
+      default: null,
+    },
   },
   { collection: "instructors" }
 );

@@ -14,6 +14,7 @@ import {
   IconSchool,
   IconCalendarEvent,
   IconBook,
+  IconArchive,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../../utils/auth";
@@ -46,6 +47,12 @@ const menuData = [
       { link: "/admin/subjects", label: "Subject", icon: IconBook },
       { link: "/admin/sections", label: "Sections", icon: IconSwitchHorizontal },
     ]
+  },
+  { 
+    link: "/admin/archive", 
+    label: "Archive Management", 
+    icon: IconArchive,
+    type: "single"
   }
 ];
 

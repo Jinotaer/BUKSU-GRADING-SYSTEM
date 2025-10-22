@@ -99,7 +99,14 @@ export const createSection = async (req, res) => {
 
 export const getAllSections = async (req, res) => {
   try {
-    const sections = await Section.find()
+    const { includeArchived = false } = req.query;
+    
+    const filter = {};
+    if (includeArchived !== 'true') {
+      filter.isArchived = { $ne: true };
+    }
+    
+    const sections = await Section.find(filter)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
@@ -466,5 +473,106 @@ export const removeStudentFromSection = async (req, res) => {
   } catch (err) {
     console.error("removeStudentFromSection:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Archive section
+export const archiveSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.admin.email;
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    if (section.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Section is already archived",
+      });
+    }
+
+    section.isArchived = true;
+    section.archivedAt = new Date();
+    section.archivedBy = adminEmail;
+    await section.save();
+
+    const populatedSection = await Section.findById(section._id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department");
+
+    res.status(200).json({
+      success: true,
+      message: "Section archived successfully",
+      section: {
+        id: populatedSection._id,
+        sectionName: populatedSection.sectionName,
+        schoolYear: populatedSection.schoolYear,
+        term: populatedSection.term,
+        isArchived: populatedSection.isArchived,
+        archivedAt: populatedSection.archivedAt,
+        archivedBy: populatedSection.archivedBy,
+      },
+    });
+  } catch (error) {
+    console.error("Archive section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Unarchive section
+export const unarchiveSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    if (!section.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Section is not archived",
+      });
+    }
+
+    section.isArchived = false;
+    section.archivedAt = null;
+    section.archivedBy = null;
+    await section.save();
+
+    const populatedSection = await Section.findById(section._id)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department");
+
+    res.status(200).json({
+      success: true,
+      message: "Section unarchived successfully",
+      section: {
+        id: populatedSection._id,
+        sectionName: populatedSection.sectionName,
+        schoolYear: populatedSection.schoolYear,
+        term: populatedSection.term,
+        isArchived: populatedSection.isArchived,
+      },
+    });
+  } catch (error) {
+    console.error("Unarchive section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };

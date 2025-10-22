@@ -15,6 +15,10 @@ import Semester from "./component/admin/semester";
 import Subject from "./component/admin/subjects";
 import SectionManagement from "./component/admin/sectionManagement";
 import ViewInviteStudentPage from "./component/admin/ViewInviteStudentPage";
+import AdminResetPassword from "./component/admin/adminResetPassword";
+import AdminRequestCode from "./component/admin/adminRequestCode";
+import AdminVerifyCode from "./component/admin/AdminVerifyCode";
+import ArchiveManagement from "./component/admin/archiveManagement";
 import StudentProfile from "./component/student/studentProfile";
 import { Route, Routes, Navigate } from "react-router-dom";
 import ProtectedRoute from "./component/ProtectedRoute";
@@ -29,6 +33,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/admin/adminLogin" element={<AdminLogin />} />
+      <Route path="/admin/adminRequestCode" element={<AdminRequestCode />} />
+      <Route path="/admin/reset-password" element={<AdminResetPassword />} />
+      <Route path="/admin/adminVerifyCode" element={<AdminVerifyCode />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/studentRegister" element={<Register />} />
@@ -104,6 +112,14 @@ export default function App() {
         element={
           <ProtectedRoute role="Admin">
             <ViewInviteStudentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/archive"
+        element={
+          <ProtectedRoute role="Admin">
+            <ArchiveManagement />
           </ProtectedRoute>
         }
       />

@@ -5,6 +5,7 @@ import buksuLogo from "../assets/logo1.png";
 import landingPageBg from "../assets/landingpage1.png";
 import adminAuth from "../utils/adminAuth";
 
+
 const recaptchaKey = "6Lfty3MqAAAAACp-CJm8DFxDW1GfjdR1aXqHbqpg";
 
 export default function AdminLogin() {
@@ -23,7 +24,7 @@ export default function AdminLogin() {
 
     const email = e.target.adminEmail.value;
     const password = e.target.adminPassword.value;
-    
+
     try {
       const data = await adminAuth.login(email, password);
       if (data.success) {
@@ -31,26 +32,34 @@ export default function AdminLogin() {
         sessionStorage.setItem("accessToken", data.tokens.accessToken);
         sessionStorage.setItem("userType", "Admin");
         sessionStorage.setItem("adminInfo", JSON.stringify(data.admin));
-        
+
         navigate("/admin");
       } else {
         setError(data.message || "Admin login failed.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      
+
       // Check if it's an admin auth error with response data
       if (error.response) {
         const errorData = error.response;
-        
+
         // Handle account locked (HTTP 423)
         if (error.response.status === 423) {
-          setError(errorData.message || "Account is temporarily locked due to too many failed login attempts.");
+          setError(
+            errorData.message ||
+              "Account is temporarily locked due to too many failed login attempts."
+          );
         } else {
           // Handle other login failures with remaining attempts info
           let errorMessage = errorData.message || "Login failed.";
-          if (errorData.remainingAttempts !== undefined && errorData.remainingAttempts > 0) {
-            errorMessage += ` ${errorData.remainingAttempts} attempt${errorData.remainingAttempts > 1 ? 's' : ''} remaining.`;
+          if (
+            errorData.remainingAttempts !== undefined &&
+            errorData.remainingAttempts > 0
+          ) {
+            errorMessage += ` ${errorData.remainingAttempts} attempt${
+              errorData.remainingAttempts > 1 ? "s" : ""
+            } remaining.`;
           }
           setError(errorMessage);
         }
@@ -165,13 +174,22 @@ export default function AdminLogin() {
 
             <button
               type="submit"
-              className="w-full px-4 py-3 bg-blue-900 text-white font-semibold rounded-md hover:bg-blue-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2" style={{ backgroundColor: '#091057' }}
+              className="w-full px-4 py-3 bg-blue-900 text-white font-semibold rounded-md hover:bg-blue-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2"
+              style={{ backgroundColor: "#091057" }}
             >
               Login
             </button>
+            <div className="flex justify-end">
+              <a
+                href="#"
+                onClick={e => { e.preventDefault(); navigate("/admin/adminRequestCode"); }}
+                className="text-sm text-blue-600 hover:underline cursor-pointer"
+              >
+                Forgot password?
+              </a>
+            </div>
           </form>
 
-         
           {/* reCAPTCHA */}
           <div className="flex justify-center mt-4 sm:mt-6 mb-4 sm:mb-6">
             <div className="w-full max-w-xs flex justify-center">
@@ -185,12 +203,11 @@ export default function AdminLogin() {
               />
             </div>
           </div>
-           {error && (
+          {error && (
             <div>
               <p className="text-red-600 text-sm text-center">{error}</p>
             </div>
           )}
-
         </div>
       </div>
     </div>

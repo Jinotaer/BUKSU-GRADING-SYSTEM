@@ -25,7 +25,10 @@ class EmailService {
 
       console.log("✅ Email transporter initialized with Gmail service");
     } catch (error) {
-      console.error("❌ Failed to initialize email transporter:", error.message);
+      console.error(
+        "❌ Failed to initialize email transporter:",
+        error.message
+      );
       this.transporter = null;
     }
   }
@@ -188,7 +191,11 @@ class EmailService {
   }
 
   // 📧 Send Subject Assignment Notification to Instructor
-  async sendSubjectAssignmentNotification(instructorEmail, subjectDetails, assignedBy) {
+  async sendSubjectAssignmentNotification(
+    instructorEmail,
+    subjectDetails,
+    assignedBy
+  ) {
     if (!(await this.ensureTransporter())) {
       return {
         success: false,
@@ -220,7 +227,9 @@ class EmailService {
           
           <p>Please log in to the BUKSU Grading System to view this subject and create sections for your students.</p>
           
-          <p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/instructor/login" 
+          <p><a href="${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+          }/instructor/login" 
              style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Grading System
           </a></p>
@@ -233,7 +242,10 @@ class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       console.log(`📧 Subject assignment email sent to ${instructorEmail}`);
-      return { success: true, message: "Subject assignment email sent successfully" };
+      return {
+        success: true,
+        message: "Subject assignment email sent successfully",
+      };
     } catch (error) {
       console.error("❌ Error sending subject assignment email:", error);
       return {
@@ -245,7 +257,12 @@ class EmailService {
   }
 
   // 📧 Send Section Assignment Notification to Instructor
-  async sendSectionAssignmentNotification(instructorEmail, instructorName, sectionDetails, assignedBy) {
+  async sendSectionAssignmentNotification(
+    instructorEmail,
+    instructorName,
+    sectionDetails,
+    assignedBy
+  ) {
     if (!(await this.ensureTransporter())) {
       return {
         success: false,
@@ -256,7 +273,7 @@ class EmailService {
     const subject = "New Section Assignment - BUKSU Grading System";
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: process.env.SMTP_FROM || process.env.SMTP_USER || "u7382361@gmail.com",
       to: instructorEmail,
       subject,
       html: `
@@ -279,7 +296,9 @@ class EmailService {
           
           <p>You can now manage this section, add students, and input grades through the instructor portal.</p>
           
-          <p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/instructor/login" 
+          <p><a href="${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+          }/instructor/login" 
              style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Instructor Portal
           </a></p>
@@ -292,7 +311,10 @@ class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       console.log(`📧 Section assignment email sent to ${instructorEmail}`);
-      return { success: true, message: "Section assignment email sent successfully" };
+      return {
+        success: true,
+        message: "Section assignment email sent successfully",
+      };
     } catch (error) {
       console.error("❌ Error sending section assignment email:", error);
       return {
@@ -304,7 +326,12 @@ class EmailService {
   }
 
   // 📧 Send Section Invitation to Students
-  async sendSectionInvitation(studentEmail, studentName, sectionDetails, instructorName) {
+  async sendSectionInvitation(
+    studentEmail,
+    studentName,
+    sectionDetails,
+    instructorName
+  ) {
     if (!(await this.ensureTransporter())) {
       return {
         success: false,
@@ -326,7 +353,9 @@ class EmailService {
           
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="color: #333; margin-top: 0;">Section Details:</h3>
-            <p><strong>Subject:</strong> ${sectionDetails.subjectCode} - ${sectionDetails.subjectName}</p>
+            <p><strong>Subject:</strong> ${sectionDetails.subjectCode} - ${
+        sectionDetails.subjectName
+      }</p>
             <p><strong>Section:</strong> ${sectionDetails.sectionName}</p>
             <p><strong>Instructor:</strong> ${instructorName}</p>
             <p><strong>School Year:</strong> ${sectionDetails.schoolYear}</p>
@@ -335,7 +364,9 @@ class EmailService {
           
           <p>Please log in to the BUKSU Grading System to view your enrolled sections and track your academic progress.</p>
           
-          <p><a href="${process.env.FRONTEND_URL || "http://localhost:5173"}/student/login" 
+          <p><a href="${
+            process.env.FRONTEND_URL || "http://localhost:5173"
+          }/student/login" 
              style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Grading System
           </a></p>
@@ -348,7 +379,10 @@ class EmailService {
     try {
       await this.transporter.sendMail(mailOptions);
       console.log(`📧 Section invitation email sent to ${studentEmail}`);
-      return { success: true, message: "Section invitation email sent successfully" };
+      return {
+        success: true,
+        message: "Section invitation email sent successfully",
+      };
     } catch (error) {
       console.error("❌ Error sending section invitation email:", error);
       return {
@@ -372,6 +406,48 @@ class EmailService {
       return {
         success: false,
         message: "Email connection test failed",
+        error: error.message,
+      };
+    }
+  }
+
+  // 📧 Send Admin Password Reset Code
+  async sendAdminResetCode(email, adminName, passcode) {
+    if (!(await this.ensureTransporter())) {
+      return {
+        success: false,
+        message: "Email service not configured",
+      };
+    }
+
+    const subject = "BUKSU Grading System - Admin Password Reset Code";
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject,
+      html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #007bff;">BUKSU Grading System</h2>
+        <p>Dear ${adminName},</p>
+        <p>You have requested to reset your admin password.</p>
+        <p>Your one-time passcode is:</p>
+        <h2 style="background:#f8f9fa; padding:10px 20px; border-radius:8px; display:inline-block; letter-spacing:3px;">${passcode}</h2>
+        <p>This code expires in <strong>15 minutes</strong>.</p>
+        <p>If you did not request this, please ignore this message.</p>
+        <p>Best regards,<br>BUKSU Grading System Team</p>
+      </div>
+    `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Admin reset code sent to ${email}`);
+      return { success: true, message: "Reset code email sent successfully" };
+    } catch (error) {
+      console.error("❌ Error sending admin reset email:", error);
+      return {
+        success: false,
+        message: "Failed to send admin reset email",
         error: error.message,
       };
     }

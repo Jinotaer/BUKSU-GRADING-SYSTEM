@@ -17,6 +17,7 @@ import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { IconArchive } from "@tabler/icons-react";
 
 export default function SectionManagement() {
   const navigate = useNavigate();
@@ -279,36 +280,85 @@ export default function SectionManagement() {
     }
   };
 
-  const handleDelete = async (sectionId) => {
-    const section = sections.find((s) => s._id === sectionId);
-    const sectionName = section?.sectionName || "this section";
+  // const handleDelete = async (sectionId) => {
+  //   const section = sections.find((s) => s._id === sectionId);
+  //   const sectionName = section?.sectionName || "this section";
 
-    showConfirmDialog(
-      "Delete Section",
-      `Are you sure you want to delete "${sectionName}"? This action cannot be undone.`,
-      async () => {
-        try {
-          const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/sections/${sectionId}`,
-            {
-              method: "DELETE",
-            }
-          );
+  //   showConfirmDialog(
+  //     "Delete Section",
+  //     `Are you sure you want to delete "${sectionName}"? This action cannot be undone.`,
+  //     async () => {
+  //       try {
+  //         const res = await authenticatedFetch(
+  //           `http://localhost:5000/api/admin/sections/${sectionId}`,
+  //           {
+  //             method: "DELETE",
+  //           }
+  //         );
 
-          if (res.ok) {
-            await fetchSections(); // Refresh sections
-            showSuccess("Section deleted successfully!");
-          } else {
-            const data = await res.json();
-            showError(data.message || "Failed to delete section");
-          }
-        } catch (err) {
-          showError("Error deleting section");
-          console.error(err);
+  //         if (res.ok) {
+  //           await fetchSections(); // Refresh sections
+  //           showSuccess("Section deleted successfully!");
+  //         } else {
+  //           const data = await res.json();
+  //           showError(data.message || "Failed to delete section");
+  //         }
+  //       } catch (err) {
+  //         showError("Error deleting section");
+  //         console.error(err);
+  //       }
+  //     }
+  //   );
+  // };
+
+const handleArchiveSection = async (id) => {
+  if (!id) {
+    showError("Invalid section ID");
+    return;
+  }
+
+  const section = sections.find((s) => (s._id || s.id) === id);
+  const sectionName = section?.sectionName || "this section";
+
+  showConfirmDialog(
+    "Archive Section",
+    `Are you sure you want to archive "${sectionName}"? This will hide the section from normal operations but it can be restored later.`,
+    async () => {
+      try {
+        setLoading(true);
+        const res = await authenticatedFetch(
+          `http://localhost:5000/api/admin/sections/${id}/archive`,
+          { method: "PUT" }
+        );
+
+        if (res.ok) {
+          // Update UI
+          setSections((prev) => prev.filter((s) => (s._id || s.id) !== id));
+          showConfirmDialog();
+          setTimeout(() => {
+            showSuccess(`Section "${sectionName}" archived successfully!`);
+          }, 100);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+         showConfirmDialog();
+          setTimeout(() => {
+            showError(errorData.message || "Failed to archive section.");
+          }, 100);
         }
+      } catch (err) {
+        showConfirmDialog();
+        console.error("Archive section error:", err);
+        setTimeout(() => {
+          showError("There was an error processing your request.");
+        }, 100);
+      } finally {
+        setLoading(false);
       }
-    );
-  };
+    }
+  ); // ✅ make sure this closes showConfirmDialog properly
+};
+
+
 
   const resetForm = () => {
     setFormData({
@@ -469,13 +519,20 @@ export default function SectionManagement() {
                       >
                         <IconEdit size={16} />
                       </button>
-                      <button
+                     <button
+                        onClick={() => handleArchiveSection(section._id || section.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Section"
+                      >
+                        <IconArchive size={16} />
+                      </button>
+                       {/* <button
                         onClick={() => handleDelete(section._id)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Section"
                       >
                         <IconTrash size={16} />
-                      </button>
+                      </button> */}
                     </div>
                   </div>
 

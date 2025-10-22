@@ -10,6 +10,9 @@ const subjectSchema = new mongoose.Schema({
   semester: { type: mongoose.Schema.Types.ObjectId, ref: "Semester", required: true },
   assignedInstructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor", default: null },
   createdAt: { type: Date, default: Date.now },
+  isArchived: { type: Boolean, default: false },
+  archivedAt: { type: Date, default: null },
+  archivedBy: { type: String, default: null }, // admin email or ID
 });
 
 subjectSchema.index({ subjectCode: 1, semester: 1 }, { unique: true });

@@ -133,7 +133,14 @@ export const getSubjectsBySemester = async (req, res) => {
 
 export const listSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find()
+    const { includeArchived = false } = req.query;
+    
+    const filter = {};
+    if (includeArchived !== 'true') {
+      filter.isArchived = { $ne: true };
+    }
+    
+    const subjects = await Subject.find(filter)
       .populate("semester")
       .populate("assignedInstructor", "fullName email college department")
       .sort({ subjectCode: 1 });
@@ -228,5 +235,104 @@ export const deleteSubject = async (req, res) => {
   } catch (err) {
     console.error("deleteSubject:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Archive subject
+export const archiveSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.admin.email;
+
+    const subject = await Subject.findById(id);
+    if (!subject) {
+      return res.status(404).json({
+        success: false,
+        message: "Subject not found",
+      });
+    }
+
+    if (subject.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject is already archived",
+      });
+    }
+
+    subject.isArchived = true;
+    subject.archivedAt = new Date();
+    subject.archivedBy = adminEmail;
+    await subject.save();
+
+    const populatedSubject = await Subject.findById(subject._id)
+      .populate("semester")
+      .populate("assignedInstructor", "fullName email college department");
+
+    res.status(200).json({
+      success: true,
+      message: "Subject archived successfully",
+      subject: {
+        id: populatedSubject._id,
+        subjectCode: populatedSubject.subjectCode,
+        subjectName: populatedSubject.subjectName,
+        isArchived: populatedSubject.isArchived,
+        archivedAt: populatedSubject.archivedAt,
+        archivedBy: populatedSubject.archivedBy,
+      },
+    });
+  } catch (error) {
+    console.error("Archive subject error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Unarchive subject
+export const unarchiveSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const subject = await Subject.findById(id);
+    if (!subject) {
+      return res.status(404).json({
+        success: false,
+        message: "Subject not found",
+      });
+    }
+
+    if (!subject.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject is not archived",
+      });
+    }
+
+    subject.isArchived = false;
+    subject.archivedAt = null;
+    subject.archivedBy = null;
+    await subject.save();
+
+    const populatedSubject = await Subject.findById(subject._id)
+      .populate("semester")
+      .populate("assignedInstructor", "fullName email college department");
+
+    res.status(200).json({
+      success: true,
+      message: "Subject unarchived successfully",
+      subject: {
+        id: populatedSubject._id,
+        subjectCode: populatedSubject.subjectCode,
+        subjectName: populatedSubject.subjectName,
+        isArchived: populatedSubject.isArchived,
+      },
+    });
+  } catch (error) {
+    console.error("Unarchive subject error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };

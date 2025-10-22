@@ -14,6 +14,9 @@ const sectionSchema = new mongoose.Schema({
     majorOutput: { type: Number, default: 30 },
   },
   createdAt: { type: Date, default: Date.now },
+  isArchived: { type: Boolean, default: false },
+  archivedAt: { type: Date, default: null },
+  archivedBy: { type: String, default: null }, // admin email or ID
 });
 
 sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1 }, { unique: true });

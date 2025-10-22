@@ -10,20 +10,31 @@ import {
   deleteStudent,
   getDashboardStats,
   getAdminProfile,
-  changePassword
+  requestResetPassword,
+  verifyResetCode,
+  resetPassword,
+  archiveStudent,
+  unarchiveStudent,
+  archiveInstructor,
+  unarchiveInstructor,
+  // changePassword,
 } from '../controller/adminController.js';
 import {
   addSemester,
   listSemesters,
   updateSemester,
-  deleteSemester
+  deleteSemester,
+  archiveSemester,
+  unarchiveSemester
 } from '../controller/semesterController.js';
 import {
   addSubject,
   listSubjects,
   updateSubject,
   deleteSubject,
-  assignInstructorToSubject
+  assignInstructorToSubject,
+  archiveSubject,
+  unarchiveSubject
 } from '../controller/subjectController.js';
 import {
   createSection,
@@ -33,7 +44,9 @@ import {
   deleteSection,
   inviteStudentsToSection,
   getSectionStudents,
-  removeStudentFromSection
+  removeStudentFromSection,
+  archiveSection,
+  unarchiveSection
 } from '../controller/sectionController.js';
 import { adminAuth } from '../middleware/auth.js';
 import { bruteForceProtection } from '../middleware/bruteForceProtection.js';
@@ -44,12 +57,17 @@ const router = express.Router();
 router.post('/login', bruteForceProtection, loginAdmin);
 router.post('/refresh-token', refreshToken);
 
+// Public reset password routes (must be before adminAuth middleware)
+router.post('/request-reset-password', requestResetPassword);
+router.post('/reset-password', resetPassword);
+router.post("/verify-reset-code", verifyResetCode);
+
 // Protected routes (require admin authentication)
 router.use(adminAuth); // Apply admin authentication to all routes below
 
 // Admin profile routes
 router.get('/profile', getAdminProfile);
-router.put('/change-password', changePassword);
+// router.put('/change-password', changePassword);
 
 // Dashboard
 router.get('/dashboard/stats', getDashboardStats);
@@ -58,17 +76,23 @@ router.get('/dashboard/stats', getDashboardStats);
 router.post('/instructors/invite', inviteInstructor);
 router.get('/instructors', getAllInstructors);
 router.delete('/instructors/:instructorId', deleteInstructor);
+router.put('/instructors/:instructorId/archive', archiveInstructor);
+router.put('/instructors/:instructorId/unarchive', unarchiveInstructor);
 
 // Student management
 router.get('/students', getAllStudents);
 router.put('/students/:studentId/status', updateStudentStatus);
 router.delete('/students/:studentId', deleteStudent);
+router.put('/students/:studentId/archive', archiveStudent);
+router.put('/students/:studentId/unarchive', unarchiveStudent);
 
 // Semester management
 router.get('/semesters', listSemesters);
 router.post('/semesters', addSemester);
 router.put('/semesters/:id', updateSemester);
 router.delete('/semesters/:id', deleteSemester);
+router.put('/semesters/:id/archive', archiveSemester);
+router.put('/semesters/:id/unarchive', unarchiveSemester);
 
 // Subject management
 router.get('/subjects', listSubjects);
@@ -76,6 +100,8 @@ router.post('/subjects', addSubject);
 router.put('/subjects/:id', updateSubject);
 router.delete('/subjects/:id', deleteSubject);
 router.post('/subjects/:subjectId/assign-instructor', assignInstructorToSubject);
+router.put('/subjects/:id/archive', archiveSubject);
+router.put('/subjects/:id/unarchive', unarchiveSubject);
 
 // Section management  
 router.get('/sections', getAllSections);
@@ -86,5 +112,7 @@ router.delete('/sections/:id', deleteSection);
 router.post('/sections/:id/invite-students', inviteStudentsToSection);
 router.get('/sections/:id/students', getSectionStudents);
 router.delete('/sections/:id/remove-student', removeStudentFromSection);
+router.put('/sections/:id/archive', archiveSection);
+router.put('/sections/:id/unarchive', unarchiveSection);
 
 export default router;

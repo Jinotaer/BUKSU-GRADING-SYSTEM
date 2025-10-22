@@ -19,7 +19,14 @@ export const addSemester = async (req, res) => {
 
 export const listSemesters = async (req, res) => {
   try {
-    const semesters = await Semester.find().sort({ schoolYear: -1, term: 1 });
+    const { includeArchived = false } = req.query;
+    
+    const filter = {};
+    if (includeArchived !== 'true') {
+      filter.isArchived = { $ne: true };
+    }
+    
+    const semesters = await Semester.find(filter).sort({ schoolYear: -1, term: 1 });
     res.json({ success: true, semesters });
   } catch (err) {
     console.error("listSemesters:", err);
@@ -78,5 +85,96 @@ export const deleteSemester = async (req, res) => {
   } catch (err) {
     console.error("deleteSemester:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Archive semester
+export const archiveSemester = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.admin.email;
+
+    const semester = await Semester.findById(id);
+    if (!semester) {
+      return res.status(404).json({
+        success: false,
+        message: "Semester not found",
+      });
+    }
+
+    if (semester.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Semester is already archived",
+      });
+    }
+
+    semester.isArchived = true;
+    semester.archivedAt = new Date();
+    semester.archivedBy = adminEmail;
+    await semester.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Semester archived successfully",
+      semester: {
+        id: semester._id,
+        schoolYear: semester.schoolYear,
+        term: semester.term,
+        isArchived: semester.isArchived,
+        archivedAt: semester.archivedAt,
+        archivedBy: semester.archivedBy,
+      },
+    });
+  } catch (error) {
+    console.error("Archive semester error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Unarchive semester
+export const unarchiveSemester = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const semester = await Semester.findById(id);
+    if (!semester) {
+      return res.status(404).json({
+        success: false,
+        message: "Semester not found",
+      });
+    }
+
+    if (!semester.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Semester is not archived",
+      });
+    }
+
+    semester.isArchived = false;
+    semester.archivedAt = null;
+    semester.archivedBy = null;
+    await semester.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Semester unarchived successfully",
+      semester: {
+        id: semester._id,
+        schoolYear: semester.schoolYear,
+        term: semester.term,
+        isArchived: semester.isArchived,
+      },
+    });
+  } catch (error) {
+    console.error("Unarchive semester error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };

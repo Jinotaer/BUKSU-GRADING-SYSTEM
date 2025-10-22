@@ -4,6 +4,7 @@ import { authenticatedFetch } from "../../utils/auth";
 import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { IconArchive, IconArchiveOff } from "@tabler/icons-react";
 
 export default function InstructorManagement() {
   const [instructors, setInstructors] = useState([]);
@@ -153,7 +154,61 @@ export default function InstructorManagement() {
   };
 
   // Delete handler
-  const handleDeleteInstructor = async (id) => {
+  // const handleDeleteInstructor = async (id) => {
+  //   if (!id) {
+  //     showError("Invalid instructor ID");
+  //     return;
+  //   }
+
+  //   const instructor = instructors.find(inst => (inst._id || inst.id) === id);
+  //   const instructorName = instructor?.fullName || instructor?.name || "this instructor";
+
+  //   showConfirmDialog(
+  //     "Delete Instructor",
+  //     `Are you sure you want to delete "${instructorName}"? This action cannot be undone.`,
+  //     async () => {
+  //       try {
+  //         setLoading(true);
+  //         const res = await authenticatedFetch(
+  //           `http://localhost:5000/api/admin/instructors/${id}`,
+  //           { method: "DELETE" }
+  //         );
+
+  //         if (res.ok) {
+  //           setInstructors((prev) =>
+  //             prev.filter((inst) => (inst._id || inst.id) !== id)
+  //           );
+  //           setFilteredInstructors((prev) =>
+  //             prev.filter((inst) => (inst._id || inst.id) !== id)
+  //           );
+  //           // Close confirmation dialog first
+  //           hideConfirmDialog();
+  //           // Then show success notification
+  //           setTimeout(() => {
+  //             showSuccess("Instructor deleted successfully!");
+  //           }, 100);
+  //         } else {
+  //           const errorData = await res.json().catch(() => ({}));
+  //           hideConfirmDialog();
+  //           setTimeout(() => {
+  //             showError(errorData.message || "Failed to delete instructor");
+  //           }, 100);
+  //         }
+  //       } catch (err) {
+  //         hideConfirmDialog();
+  //         setTimeout(() => {
+  //           showError("There was an error processing your request.");
+  //         }, 100);
+  //         console.error("Delete instructor error:", err);
+  //       } finally {
+  //         setLoading(false);
+  //       }
+  //     }
+  //   );
+  // };
+
+  // Archive handler
+  const handleArchiveInstructor = async (id) => {
     if (!id) {
       showError("Invalid instructor ID");
       return;
@@ -163,14 +218,14 @@ export default function InstructorManagement() {
     const instructorName = instructor?.fullName || instructor?.name || "this instructor";
 
     showConfirmDialog(
-      "Delete Instructor",
-      `Are you sure you want to delete "${instructorName}"? This action cannot be undone.`,
+      "Archive Instructor",
+      `Are you sure you want to archive "${instructorName}"? They will be hidden from normal operations but can be restored later.`,
       async () => {
         try {
           setLoading(true);
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/instructors/${id}`,
-            { method: "DELETE" }
+            `http://localhost:5000/api/admin/instructors/${id}/archive`,
+            { method: "PUT" }
           );
 
           if (res.ok) {
@@ -180,17 +235,15 @@ export default function InstructorManagement() {
             setFilteredInstructors((prev) =>
               prev.filter((inst) => (inst._id || inst.id) !== id)
             );
-            // Close confirmation dialog first
             hideConfirmDialog();
-            // Then show success notification
             setTimeout(() => {
-              showSuccess("Instructor deleted successfully!");
+              showSuccess("Instructor archived successfully!");
             }, 100);
           } else {
             const errorData = await res.json().catch(() => ({}));
             hideConfirmDialog();
             setTimeout(() => {
-              showError(errorData.message || "Failed to delete instructor");
+              showError(errorData.message || "Failed to archive instructor");
             }, 100);
           }
         } catch (err) {
@@ -198,7 +251,7 @@ export default function InstructorManagement() {
           setTimeout(() => {
             showError("There was an error processing your request.");
           }, 100);
-          console.error("Delete instructor error:", err);
+          console.error("Archive instructor error:", err);
         } finally {
           setLoading(false);
         }
@@ -302,14 +355,25 @@ export default function InstructorManagement() {
                               {inst.department || "N/A"}
                             </td>
                             <td className="px-4 py-3">
-                              <button
-                                onClick={() =>
-                                  handleDeleteInstructor(inst._id || inst.id)
-                                }
-                                className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                Delete
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() =>
+                                    handleArchiveInstructor(inst._id || inst.id)
+                                  }
+                                  className="inline-flex items-center px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  <IconArchive className="w-3 h-3 mr-1" />
+                                  Archive
+                                </button>
+                                {/* <button
+                                  onClick={() =>
+                                    handleDeleteInstructor(inst._id || inst.id)
+                                  }
+                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  Delete
+                                </button> */}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -351,14 +415,25 @@ export default function InstructorManagement() {
                               {inst.department || "N/A"}
                             </div>
                           </div>
-                          <button
-                            onClick={() =>
-                              handleDeleteInstructor(inst._id || inst.id)
-                            }
-                            className="px-3 py-2 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() =>
+                                handleArchiveInstructor(inst._id || inst.id)
+                              }
+                              className="inline-flex items-center px-3 py-2 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
+                            >
+                              <IconArchive className="w-3 h-3 mr-1" />
+                              Archive
+                            </button>
+                            {/* <button
+                              onClick={() =>
+                                handleDeleteInstructor(inst._id || inst.id)
+                              }
+                              className="px-3 py-2 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
+                            >
+                              Delete
+                            </button> */}
+                          </div>
                         </div>
                       </div>
                     ))}

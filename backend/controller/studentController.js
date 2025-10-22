@@ -333,11 +333,16 @@ export const updateStudentStatus = async (req, res) => {
 export const getStudentSections = async (req, res) => {
   try {
     const studentId = req.student.id;
-    const { schoolYear, term } = req.query;
+    const { schoolYear, term, includeArchived = false } = req.query;
 
     const query = { students: studentId };
     if (schoolYear) query.schoolYear = schoolYear;
     if (term) query.term = term;
+    
+    // Include archived sections only if explicitly requested
+    if (includeArchived !== 'true') {
+      query.isArchived = { $ne: true };
+    }
 
     const sections = await Section.find(query)
       .populate("subject", "subjectCode subjectName units college department")
@@ -361,8 +366,11 @@ export const getStudentGrades = async (req, res) => {
     const studentId = req.student.id;
     const { schoolYear, term, sectionId } = req.query;
 
-    // Build query to find sections where student is enrolled
-    const sectionQuery = { students: studentId };
+    // Build query to find sections where student is enrolled (excluding archived)
+    const sectionQuery = { 
+      students: studentId,
+      isArchived: { $ne: true }
+    };
     if (schoolYear) sectionQuery.schoolYear = schoolYear;
     if (term) sectionQuery.term = term;
     if (sectionId) sectionQuery._id = sectionId;
@@ -439,10 +447,11 @@ export const getAvailableSubjects = async (req, res) => {
       return res.status(404).json({ success: false, message: "Student not found" });
     }
 
-    // Find sections that match student's college and are available for enrollment
+    // Find sections that match student's college and are available for enrollment (excluding archived)
     const query = { 
       schoolYear: schoolYear || new Date().getFullYear().toString() + "-" + (new Date().getFullYear() + 1).toString(),
-      term: term || "1st"
+      term: term || "1st",
+      isArchived: { $ne: true }
     };
 
     const sections = await Section.find(query)

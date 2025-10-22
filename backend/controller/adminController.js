@@ -1,8 +1,10 @@
 import Admin from "../models/admin.js";
+import AdminReset from "../models/adminReset.js";
 import Instructor from "../models/instructor.js";
 import Student from "../models/student.js";
 import Semester from "../models/semester.js";
 import Subject from "../models/subjects.js";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import emailService from "../services/emailService.js";
 import {
@@ -13,6 +15,124 @@ import {
 // Generate JWT token
 const generateToken = (payload, secret, expiresIn) => {
   return jwt.sign(payload, secret, { expiresIn });
+};
+const PASSCODE_TTL = 1000 * 60 * 15; // 15 minutes
+const BCRYPT_ROUNDS = 12;
+
+// Helper: Generate numeric 6-digit passcode
+function generatePasscode(length = 6) {
+  const min = 10 ** (length - 1);
+  const max = 10 ** length - 1;
+  return String(Math.floor(Math.random() * (max - min + 1) + min));
+}
+
+// Request reset code
+export const requestResetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email required" });
+
+    const admin = await Admin.findOne({ email: email.toLowerCase() });
+    if (!admin) return res.json({ ok: true }); // hide existence
+
+    // Remove previous reset requests
+    await AdminReset.deleteMany({ adminId: admin._id });
+
+    // Generate passcode and hash
+    const passcode = generatePasscode();
+    const passcodeHash = await bcrypt.hash(passcode, BCRYPT_ROUNDS);
+    const expiresAt = new Date(Date.now() + PASSCODE_TTL);
+
+    const resetRecord = await AdminReset.create({
+      adminId: admin._id,
+      passcodeHash,
+      expiresAt,
+    });
+
+    // Send reset email via existing EmailService
+    const emailResult = await emailService.sendAdminResetCode(
+      admin.email,
+      `${admin.firstName} ${admin.lastName}`,
+      passcode
+    );
+
+    if (!emailResult?.success) {
+      await AdminReset.deleteOne({ _id: resetRecord._id });
+      return res.status(500).json({
+        error: emailResult?.message || "Failed to send reset code email",
+      });
+    }
+
+    return res.json({ ok: true, message: "Reset code sent to email" });
+  } catch (error) {
+    console.error("Error requesting reset:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// reset password using verified passcode
+export const resetPassword = async (req, res) => {
+  try {
+    const { passcode, newPassword } = req.body;
+
+    if (!passcode || !newPassword) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const resetRecord = await AdminReset.findOne({}).sort({ createdAt: -1 });
+    if (!resetRecord) {
+      return res.status(400).json({ success: false, message: "No reset request found" });
+    }
+
+    const isValid = await bcrypt.compare(passcode, resetRecord.passcodeHash);
+    if (!isValid) {
+      return res.status(400).json({ success: false, message: "Invalid code" });
+    }
+
+    if (resetRecord.expiresAt < new Date()) {
+      await AdminReset.deleteOne({ _id: resetRecord._id });
+      return res.status(400).json({ success: false, message: "Code expired" });
+    }
+
+    const admin = await Admin.findById(resetRecord.adminId);
+    if (!admin) {
+      await AdminReset.deleteMany({ adminId: resetRecord.adminId });
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+
+    admin.password = newPassword;
+    await admin.save();
+    await AdminReset.deleteMany({ adminId: admin._id });
+
+    return res.json({ success: true, message: "Password successfully updated" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const verifyResetCode = async (req, res) => {
+  try {
+    const { passcode } = req.body;
+    if (!passcode)
+      return res.status(400).json({ message: "Code required" });
+
+    const reset = await AdminReset.findOne({}).sort({ createdAt: -1 }); // latest code
+    if (!reset)
+      return res.status(400).json({ message: "No reset request found" });
+
+    const isValid = await bcrypt.compare(passcode, reset.passcodeHash);
+    if (!isValid)
+      return res.status(400).json({ message: "Invalid code" });
+
+    if (reset.expiresAt < new Date())
+      return res.status(400).json({ message: "Code expired" });
+
+    res.json({ ok: true, message: "Code verified successfully" });
+  } catch (err) {
+    console.error("Verify code error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 // Admin login
@@ -49,9 +169,11 @@ export const loginAdmin = async (req, res) => {
 
       let timeMessage;
       if (hoursRemaining >= 1) {
-        timeMessage = `${hoursRemaining} hour${hoursRemaining > 1 ? 's' : ''}`;
+        timeMessage = `${hoursRemaining} hour${hoursRemaining > 1 ? "s" : ""}`;
       } else {
-        timeMessage = `${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}`;
+        timeMessage = `${minutesRemaining} minute${
+          minutesRemaining > 1 ? "s" : ""
+        }`;
       }
 
       return res.status(423).json({
@@ -59,11 +181,10 @@ export const loginAdmin = async (req, res) => {
         message: `Account is temporarily locked due to too many failed login attempts. Please try again in ${timeMessage}.`,
         locked: true,
         timeUntilUnlock: admin.accountLockedUntil,
-        failedAttempts: admin.failedLoginAttempts
+        failedAttempts: admin.failedLoginAttempts,
       });
     }
 
-    
     // Check if account is active
     if (admin.status !== "Active") {
       // Record failed attempt for inactive account
@@ -252,13 +373,20 @@ export const inviteInstructor = async (req, res) => {
 // Get all instructors
 export const getAllInstructors = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, college, department } = req.query;
+    const { page = 1, limit = 10, status, college, department, includeArchived = false } = req.query;
 
     // Build filter object
     const filter = {};
     if (status) filter.status = status;
     if (college) filter.college = college;
     if (department) filter.department = department;
+
+    // Include archived instructors only if explicitly requested
+    if (includeArchived === 'true') {
+      // Show all instructors including archived
+    } else {
+      filter.isArchived = { $ne: true };
+    }
 
     // Get instructors with pagination
     const instructors = await Instructor.find(filter)
@@ -300,6 +428,7 @@ export const getAllStudents = async (req, res) => {
       course,
       yearLevel,
       search,
+      includeArchived = false,
     } = req.query;
 
     // Build filter object
@@ -317,6 +446,13 @@ export const getAllStudents = async (req, res) => {
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
       ];
+    }
+
+    // Include archived students only if explicitly requested
+    if (includeArchived === 'true') {
+      // Show all students including archived
+    } else {
+      filter.isArchived = { $ne: true };
     }
 
     // Get students with pagination
@@ -466,32 +602,34 @@ export const deleteInstructor = async (req, res) => {
 // Get admin dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
-    // Get counts
-    const totalStudents = await Student.countDocuments();
+    // Get counts (excluding archived items)
+    const totalStudents = await Student.countDocuments({ isArchived: { $ne: true } });
     const approvedStudents = await Student.countDocuments({
       status: "Approved",
+      isArchived: { $ne: true }
     });
     // No more pending students since they are automatically approved
     const pendingStudents = 0;
     const rejectedStudents = 0; // Not tracking rejected students anymore
 
-    const totalInstructors = await Instructor.countDocuments();
+    const totalInstructors = await Instructor.countDocuments({ isArchived: { $ne: true } });
     const activeInstructors = await Instructor.countDocuments({
       status: "Active",
+      isArchived: { $ne: true }
     });
     const invitedInstructors = 0; // No longer tracking invited since auto-approved
 
-    // Get semester and subject counts
-    const totalSemesters = await Semester.countDocuments();
-    const totalSubjects = await Subject.countDocuments();
+    // Get semester and subject counts (excluding archived)
+    const totalSemesters = await Semester.countDocuments({ isArchived: { $ne: true } });
+    const totalSubjects = await Subject.countDocuments({ isArchived: { $ne: true } });
 
-    // Get recent activities (last 10 students and instructors)
-    const recentStudents = await Student.find()
+    // Get recent activities (last 10 students and instructors, excluding archived)
+    const recentStudents = await Student.find({ isArchived: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(5)
       .select("fullName email status createdAt");
 
-    const recentInstructors = await Instructor.find()
+    const recentInstructors = await Instructor.find({ isArchived: { $ne: true } })
       .sort({ createdAt: -1 })
       .limit(5)
       .select("fullName email status createdAt");
@@ -615,58 +753,185 @@ export const refreshToken = async (req, res) => {
   }
 };
 
-// Change admin password
-export const changePassword = async (req, res) => {
+// Archive student
+export const archiveStudent = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { studentId } = req.params;
+    const adminEmail = req.admin.email;
 
-    // Validate input
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Current password and new password are required",
-      });
-    }
-
-    // Validate new password length
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "New password must be at least 8 characters long",
-      });
-    }
-
-    // Find admin
-    const admin = await Admin.findById(req.admin.id);
-    if (!admin) {
+    const student = await Student.findById(studentId);
+    if (!student) {
       return res.status(404).json({
         success: false,
-        message: "Admin not found",
+        message: "Student not found",
       });
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = await admin.comparePassword(currentPassword);
-    if (!isCurrentPasswordValid) {
+    if (student.isArchived) {
       return res.status(400).json({
         success: false,
-        message: "Current password is incorrect",
+        message: "Student is already archived",
       });
     }
 
-    // Update password
-    admin.password = newPassword;
-    await admin.save();
+    student.isArchived = true;
+    student.archivedAt = new Date();
+    student.archivedBy = adminEmail;
+    await student.save();
 
     res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message: "Student archived successfully",
+      student: {
+        id: student._id,
+        email: student.email,
+        fullName: student.fullName,
+        isArchived: student.isArchived,
+        archivedAt: student.archivedAt,
+        archivedBy: student.archivedBy,
+      },
     });
   } catch (error) {
-    console.error("Change password error:", error);
+    console.error("Archive student error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
+
+// Unarchive student
+export const unarchiveStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    if (!student.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Student is not archived",
+      });
+    }
+
+    student.isArchived = false;
+    student.archivedAt = null;
+    student.archivedBy = null;
+    await student.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Student unarchived successfully",
+      student: {
+        id: student._id,
+        email: student.email,
+        fullName: student.fullName,
+        isArchived: student.isArchived,
+      },
+    });
+  } catch (error) {
+    console.error("Unarchive student error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Archive instructor
+export const archiveInstructor = async (req, res) => {
+  try {
+    const { instructorId } = req.params;
+    const adminEmail = req.admin.email;
+
+    const instructor = await Instructor.findById(instructorId);
+    if (!instructor) {
+      return res.status(404).json({
+        success: false,
+        message: "Instructor not found",
+      });
+    }
+
+    if (instructor.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Instructor is already archived",
+      });
+    }
+
+    instructor.isArchived = true;
+    instructor.archivedAt = new Date();
+    instructor.archivedBy = adminEmail;
+    await instructor.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Instructor archived successfully",
+      instructor: {
+        id: instructor._id,
+        email: instructor.email,
+        fullName: instructor.fullName,
+        isArchived: instructor.isArchived,
+        archivedAt: instructor.archivedAt,
+        archivedBy: instructor.archivedBy,
+      },
+    });
+  } catch (error) {
+    console.error("Archive instructor error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Unarchive instructor
+export const unarchiveInstructor = async (req, res) => {
+  try {
+    const { instructorId } = req.params;
+
+    const instructor = await Instructor.findById(instructorId);
+    if (!instructor) {
+      return res.status(404).json({
+        success: false,
+        message: "Instructor not found",
+      });
+    }
+
+    if (!instructor.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Instructor is not archived",
+      });
+    }
+
+    instructor.isArchived = false;
+    instructor.archivedAt = null;
+    instructor.archivedBy = null;
+    await instructor.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Instructor unarchived successfully",
+      instructor: {
+        id: instructor._id,
+        email: instructor.email,
+        fullName: instructor.fullName,
+        isArchived: instructor.isArchived,
+      },
+    });
+  } catch (error) {
+    console.error("Unarchive instructor error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
