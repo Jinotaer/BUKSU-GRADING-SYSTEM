@@ -12,10 +12,6 @@ const activitySchema = new mongoose.Schema(
       type: String,
       trim: true
     },
-    instructions: {
-      type: String,
-      trim: true
-    },
     category: {
       type: String,
       required: true,
@@ -26,9 +22,6 @@ const activitySchema = new mongoose.Schema(
       required: true,
       min: 1
     },
-    dueDate: {
-      type: Date
-    },
     subject: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subject",
@@ -37,7 +30,7 @@ const activitySchema = new mongoose.Schema(
     instructor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Instructor",
-      required: true
+      required: false
     },
     semester: {
       type: mongoose.Schema.Types.ObjectId,

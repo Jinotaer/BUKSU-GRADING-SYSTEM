@@ -67,59 +67,50 @@ export const adminAuth = async (req, res, next) => {
   }
 };
 
-// Instructor authentication middleware
+// Instructor authentication middleware (disabled for activities)
 export const instructorAuth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'No token, authorization denied' 
-      });
+      return res.status(401).json({ success: false, message: 'No token, authorization denied' });
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Check if this is an instructor token (from Google OAuth)
+
+    // token must be for an instructor
     if (decoded.role !== 'instructor') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Access denied. Instructor token required.' 
-      });
+      return res.status(401).json({ success: false, message: 'Access denied. Instructor token required.' });
     }
-    
+
     const instructor = await Instructor.findById(decoded.id);
-    
     if (!instructor) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Token is not valid' 
-      });
+      return res.status(401).json({ success: false, message: 'Instructor not found' });
     }
-
     if (instructor.status !== 'Active') {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Account not active' 
-      });
+      return res.status(401).json({ success: false, message: 'Instructor account not active' });
     }
 
+    // normalize for controllers
     req.instructor = {
       id: instructor._id,
       email: instructor.email,
-      role: instructor.role,
-      fullName: instructor.fullName
+      role: 'instructor',
+      fullName: instructor.fullName,
     };
+    // (optional) also expose a generic user
+    req.user = { ...req.instructor, userType: 'instructor' };
+
     next();
   } catch (error) {
     console.error('Instructor auth error:', error);
-    res.status(401).json({ 
-      success: false, 
-      message: 'Token is not valid' 
-    });
+    const message =
+      error.name === 'TokenExpiredError' ? 'Token expired' :
+      error.name === 'JsonWebTokenError' ? 'Invalid token' :
+      'Unauthorized';
+    return res.status(401).json({ success: false, message });
   }
 };
+
 
 // Student authentication middleware
 export const studentAuth = async (req, res, next) => {

@@ -452,6 +452,57 @@ class EmailService {
       };
     }
   }
+
+// 📧 Notify student: a score was posted/updated
+async sendActivityScoreNotification({
+  studentEmail,
+  studentName,
+  instructorName,
+  sectionName,
+  subjectCode,
+  subjectName,
+  activityTitle,
+  score,
+  maxScore,
+  viewUrl, // optional link to student portal page
+}) {
+  if (!(await this.ensureTransporter())) {
+    return { success: false, message: "Email service not configured" };
+  }
+
+  const subject = `[${subjectCode}] Score posted: ${activityTitle}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
+      <h2 style="color:#1E3A5F;margin-bottom:8px;">BUKSU Grading System</h2>
+      <p>Hi <strong>${studentName || "Student"}</strong>,</p>
+      <p>Your instructor <strong>${instructorName || "Instructor"}</strong> posted a score:</p>
+      <ul>
+        <li><strong>Course:</strong> ${subjectCode} — ${subjectName}</li>
+        <li><strong>Section:</strong> ${sectionName}</li>
+        <li><strong>Activity:</strong> ${activityTitle}</li>
+        <li><strong>Score:</strong> ${score} / ${maxScore}</li>
+      </ul>
+      ${viewUrl ? `<p><a href="${viewUrl}">View in portal</a></p>` : ""}
+      <p style="color:#666">This is an automated notification.</p>
+    </div>
+  `;
+
+  try {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: studentEmail,
+      subject,
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Error sending score email:", error?.message || error);
+    return { success: false, message: "Failed to send score email" };
+  }
 }
+
+}
+
+
 
 export default new EmailService();

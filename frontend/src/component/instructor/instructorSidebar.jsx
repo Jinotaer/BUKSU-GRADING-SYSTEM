@@ -31,16 +31,33 @@ const menuData = [
     icon: IconTableDashed,
     type: "single"
   },
-
-  {
-    label: "Section Management",
-    icon: IconChalkboard,
-    type: "dropdown",
-    children: [
-      { link: "/instructor/my-sections", label: "My Sections", icon: IconUsers },
-      { link: "/instructor/semester-view", label: "Semester View", icon: IconCalendarEvent },
-    ]
+  { 
+    link: "/instructor/my-sections", 
+    label: "My Sections", 
+    icon: IconUsers,
+    type: "single"
   },
+  { 
+    link: "/instructor/semester-view", 
+    label: "Activity Management", 
+    icon: IconCalendarEvent, 
+    type: "single" 
+  },
+  { 
+    link: "/instructor/semester-view", 
+    label: "Semester View", 
+    icon: IconCalendarEvent, 
+    type: "single" 
+  },
+  
+  // {
+  //   label: "Section Management",
+  //   icon: IconChalkboard,
+  //   type: "dropdown",
+  //   children: [
+      
+  //   ]
+  // },
   {
     label: "Grade Management", 
     icon: IconAward,
@@ -63,9 +80,27 @@ export function InstructorSidebar() {
   const navigate = useNavigate();
   
   // State for dropdown menus
-  const [dropdownStates, setDropdownStates] = useState({
-    "Section Management": false,
-    "Grade Management": false,
+  const [dropdownStates, setDropdownStates] = useState(() => {
+    const initialState = {  
+      "Section Management": false,
+      "Grade Management": false,
+    };
+
+    if (
+      location.pathname.startsWith("/instructor/my-sections") ||
+      location.pathname.startsWith("/instructor/semester-view") ||
+      location.pathname.startsWith("/instructor/students")
+    ) {
+      initialState["Section Management"] = true;
+    }
+
+    if (
+      location.pathname.startsWith("/instructor/grades")
+    ) {
+      initialState["Grade Management"] = true;
+    }
+
+    return initialState;
   });
 
   const [active, setActive] = useState(() => {

@@ -28,6 +28,8 @@ import GradeManagement from "./component/instructor/gradeManagement";
 import SemesterView from "./component/instructor/semesterView";
 import InstructorProfile from "./component/instructor/instructorProfile";
 import SectionsStudent from "./component/instructor/students";
+import SectionsActivities from "./component/instructor/sectionsActivities";
+import ActivityScores from "./component/instructor/activityScores";
 
 export default function App() {
   return (
@@ -200,6 +202,31 @@ export default function App() {
         element={
           <ProtectedRoute role="instructor">
             <SemesterView/>
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/instructor/activity-management"
+        element={
+          <ProtectedRoute role="instructor">
+            <SectionsActivities/>
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/instructor/sections/:sectionId/activities/:activityId/scores"
+        element={
+          <ProtectedRoute role="instructor">
+            <ActivityScores/>
+          </ProtectedRoute>
+        }
+      />
+
+       <Route
+        path="/instructor/sections/:sectionId/activities"
+        element={
+          <ProtectedRoute role="instructor">
+            <SectionsActivities/>
           </ProtectedRoute>
         }
       />

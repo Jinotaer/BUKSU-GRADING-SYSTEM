@@ -9,10 +9,7 @@ import {
   removeStudentFromSection,
   inviteStudentsToSection,
   getAvailableStudents,
-  getInstructorDashboardStats,
-  createActivity,
-  getActivitiesBySubject,
-  getActivitiesBySection
+  getInstructorDashboardStats
 } from "../controller/instructorController.js";
 import { getAllInstructors } from "../controller/adminController.js";
 import { instructorAuth, auth } from "../middleware/auth.js";
@@ -89,25 +86,5 @@ router.post("/sections/:sectionId/invite-students", instructorAuth, inviteStuden
  */
 router.delete("/sections/:sectionId/students/:studentId", instructorAuth, removeStudentFromSection);
 
-/**
- * @route   POST /api/instructor/subjects/:subjectId/activities
- * @desc    Create a new activity for a subject
- * @access  Private (Instructor only)
- */
-router.post("/subjects/:subjectId/activities", instructorAuth, createActivity);
-
-/**
- * @route   GET /api/instructor/subjects/:subjectId/activities
- * @desc    Get all activities for a subject
- * @access  Private (Instructor only)
- */
-router.get("/subjects/:subjectId/activities", instructorAuth, getActivitiesBySubject);
-
-/**
- * @route   GET /api/instructor/sections/:sectionId/activities
- * @desc    Get all activities for a section
- * @access  Private (Instructor only)
- */
-router.get("/sections/:sectionId/activities", instructorAuth, getActivitiesBySection);
 
 export default router;

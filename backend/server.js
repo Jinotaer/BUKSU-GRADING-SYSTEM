@@ -13,7 +13,9 @@ import semesterRoutes from "./routes/semesterRoutes.js";
 import subjectRoutes from "./routes/subjectRoutes.js";
 import sectionRoutes from "./routes/sectionRoutes.js";
 import gradeRoutes from "./routes/gradeRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
 import seedAdminAccount from "./utils/seedAdmin.js";
+import activityScoresRoutes from "./routes/activityScoresRoutes.js";
 
 dotenv.config();
 
@@ -60,6 +62,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/students", studentRoutes); // Add plural route for search functionality
 app.use("/api/instructor", instructorRoutes);
+app.use("/api/instructor", activityRoutes);
+app.use("/api/instructor", activityScoresRoutes);
 app.use("/api/semesters", semesterRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/section", sectionRoutes);

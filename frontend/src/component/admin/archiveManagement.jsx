@@ -87,8 +87,9 @@ export default function ArchiveManagement() {
 
   const archiveItem = async (type, id) => {
     try {
+      const pluralType = type.endsWith('s') ? type : `${type}s`;
       const response = await authenticatedFetch(
-        `http://localhost:5000/api/admin/${type}/${id}/archive`,
+        `http://localhost:5000/api/admin/${pluralType}/${id}/archive`,
         { method: "PUT" }
       );
       
@@ -105,8 +106,9 @@ export default function ArchiveManagement() {
 
   const unarchiveItem = async (type, id) => {
     try {
+      const pluralType = type.endsWith('s') ? type : `${type}s`;
       const response = await authenticatedFetch(
-        `http://localhost:5000/api/admin/${type}/${id}/unarchive`,
+        `http://localhost:5000/api/admin/${pluralType}/${id}/unarchive`,
         { method: "PUT" }
       );
       
