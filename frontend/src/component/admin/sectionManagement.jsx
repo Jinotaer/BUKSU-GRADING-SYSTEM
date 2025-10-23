@@ -13,6 +13,7 @@ import {
   IconEye,
   IconUser,
   IconArchive,
+  IconSearch,
 } from "@tabler/icons-react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
@@ -26,7 +27,10 @@ function Modal({ isOpen, onClose, title, children }) {
       <div className="bg-white/95 backdrop-blur-md rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <IconX size={20} />
           </button>
         </div>
@@ -50,6 +54,10 @@ export default function SectionManagement() {
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   const [selectedSection, setSelectedSection] = useState(null);
+  // Search & filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSemester, setFilterSemester] = useState("");
+  const [filterCollege, setFilterCollege] = useState("");
 
   // Inputs – keep as strings while typing
   const [formData, setFormData] = useState({
@@ -111,11 +119,61 @@ export default function SectionManagement() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Unique college list (from subjects)
+  const collegeOptions = React.useMemo(() => {
+    const set = new Set((subjects || []).map((s) => s.college).filter(Boolean));
+    return Array.from(set).sort();
+  }, [subjects]);
+
+  // Apply search + filters to sections
+  const filteredSections = React.useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+
+    return (sections || []).filter((section) => {
+      // text search across a few fields
+      const matchesSearch = q
+        ? [
+            section.sectionName,
+            section?.subject?.subjectName,
+            section?.subject?.subjectCode,
+            section?.instructor?.fullName,
+          ]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q))
+        : true;
+
+      // college filter (by subject.college)
+      const matchesCollege = filterCollege
+        ? section?.subject?.college === filterCollege
+        : true;
+
+      // semester filter (prefer subject.semester id; fallback to schoolYear+term)
+      let matchesSemester = true;
+      if (filterSemester) {
+        const fromSubject =
+          section?.subject?.semester?._id || section?.subject?.semester;
+        if (fromSubject) {
+          matchesSemester = String(fromSubject) === String(filterSemester);
+        } else {
+          const sem = semesters.find(
+            (s) => String(s._id) === String(filterSemester)
+          );
+          matchesSemester = sem
+            ? section.schoolYear === sem.schoolYear && section.term === sem.term
+            : true;
+        }
+      }
+
+      return matchesSearch && matchesCollege && matchesSemester;
+    });
+  }, [sections, searchTerm, filterCollege, filterSemester, semesters]);
 
   const fetchSections = async () => {
     try {
       setLoading(true);
-      const res = await authenticatedFetch("http://localhost:5000/api/admin/sections");
+      const res = await authenticatedFetch(
+        "http://localhost:5000/api/admin/sections"
+      );
       if (res.ok) {
         const data = await res.json();
         setSections(data.sections || []);
@@ -177,9 +235,12 @@ export default function SectionManagement() {
 
   const openEditModal = (section) => {
     setSelectedSection(section);
-    const semesterId = section.subject?.semester?._id || section.subject?.semester || "";
+    const semesterId =
+      section.subject?.semester?._id || section.subject?.semester || "";
     const filtered = semesterId
-      ? subjects.filter((s) => s.semester && (s.semester._id || s.semester) === semesterId)
+      ? subjects.filter(
+          (s) => s.semester && (s.semester._id || s.semester) === semesterId
+        )
       : [];
     setFilteredSubjects(filtered);
 
@@ -199,8 +260,10 @@ export default function SectionManagement() {
 
   const getSubjectName = (subjectId) => {
     const subject = subjects.find((s) => s._id === subjectId);
-    return subject ? `${subject.subjectCode} - ${subject.subjectName}` : "Unknown Subject";
-    };
+    return subject
+      ? `${subject.subjectCode} - ${subject.subjectName}`
+      : "Unknown Subject";
+  };
   const getInstructorName = (instructorId) => {
     const instructor = instructors.find((i) => i._id === instructorId);
     return instructor ? instructor.fullName : "Unassigned";
@@ -215,7 +278,9 @@ export default function SectionManagement() {
     try {
       setIsSearching(true);
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/admin/students?search=${encodeURIComponent(query)}&limit=50`
+        `http://localhost:5000/api/admin/students?search=${encodeURIComponent(
+          query
+        )}&limit=50`
       );
       if (res.ok) {
         const data = await res.json();
@@ -243,7 +308,9 @@ export default function SectionManagement() {
 
   const handleStudentSelection = (studentId) => {
     setSelectedStudents((prev) =>
-      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId]
     );
   };
 
@@ -268,7 +335,9 @@ export default function SectionManagement() {
         setSelectedSection(null);
         await fetchSections();
         showSuccess(
-          `Successfully invited ${data.invitedStudents?.length || selectedStudents.length} students to the section!`
+          `Successfully invited ${
+            data.invitedStudents?.length || selectedStudents.length
+          } students to the section!`
         );
       } else {
         const data = await res.json();
@@ -331,7 +400,11 @@ export default function SectionManagement() {
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
-        showSuccess(selectedSection ? "Section updated successfully!" : "Section created successfully!");
+        showSuccess(
+          selectedSection
+            ? "Section updated successfully!"
+            : "Section created successfully!"
+        );
       } else {
         const data = await res.json();
         showError(data.message || "Failed to save section");
@@ -392,7 +465,9 @@ export default function SectionManagement() {
               <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-xl sm:text-2xl lg:text-3xl font-bold">
                 Section Management
               </h2>
-              <p className="text-gray-600 mt-1">Create and manage all class sections</p>
+              <p className="text-gray-600 mt-1">
+                Create and manage all class sections
+              </p>
             </div>
             <button
               onClick={() => {
@@ -406,6 +481,52 @@ export default function SectionManagement() {
             </button>
           </div>
 
+          {/* Search and Filters */}
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="relative order-1">
+                <IconSearch
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Search sections / subjects / instructors..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base"
+                />
+              </div>
+
+              <select
+                value={filterSemester}
+                onChange={(e) => setFilterSemester(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base order-2"
+              >
+                <option value="">All Semesters</option>
+                {semesters.map((semester) => (
+                  <option key={semester._id} value={semester._id}>
+                    {semester.schoolYear} - {semester.term} Semester
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterCollege}
+                onChange={(e) => setFilterCollege(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base order-3 sm:col-span-2 lg:col-span-1"
+              >
+                <option value="">All Colleges</option>
+                {collegeOptions.map((college) => (
+                  <option key={college} value={college}>
+                    {college}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Sections Grid */}
           {loading ? (
             <div className="flex justify-center py-12">
@@ -413,7 +534,8 @@ export default function SectionManagement() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sections.map((section) => (
+              {/* ⬇️ change sections.map to filteredSections.map */}
+              {filteredSections.map((section) => (
                 <div
                   key={section._id}
                   className="rounded-lg border border-blue-200 bg-blue-50/30 p-6 shadow-sm hover:shadow-md transition-shadow"
@@ -424,7 +546,9 @@ export default function SectionManagement() {
                         <IconChalkboard className="text-blue-600" size={24} />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-800 text-lg">{section.sectionName}</h3>
+                        <h3 className="font-semibold text-gray-800 text-lg">
+                          {section.sectionName}
+                        </h3>
                         <p className="text-gray-600 text-sm">
                           {section.schoolYear} - {section.term} Semester
                         </p>
@@ -439,7 +563,9 @@ export default function SectionManagement() {
                         <IconEdit size={16} />
                       </button>
                       <button
-                        onClick={() => handleArchiveSection(section._id || section.id)}
+                        onClick={() =>
+                          handleArchiveSection(section._id || section.id)
+                        }
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Archive Section"
                       >
@@ -452,13 +578,18 @@ export default function SectionManagement() {
                     <div className="flex items-center gap-2">
                       <IconBook size={16} className="text-gray-400" />
                       <span className="text-sm text-gray-600">
-                        {getSubjectName(section.subject?._id || section.subject)}
+                        {getSubjectName(
+                          section.subject?._id || section.subject
+                        )}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <IconUser size={16} className="text-gray-400" />
                       <span className="text-sm text-gray-600">
-                        Instructor: {getInstructorName(section.instructor?._id || section.instructor)}
+                        Instructor:{" "}
+                        {getInstructorName(
+                          section.instructor?._id || section.instructor
+                        )}
                       </span>
                     </div>
                     {section.students && (
@@ -472,9 +603,12 @@ export default function SectionManagement() {
 
                     {section.subject && (
                       <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
-                        <p className="text-sm font-medium text-blue-800">Subject Details:</p>
+                        <p className="text-sm font-medium text-blue-800">
+                          Subject Details:
+                        </p>
                         <p className="text-sm text-blue-600">
-                          Units: {section.subject.units || "N/A"} | College: {section.subject.college || "N/A"}
+                          Units: {section.subject.units || "N/A"} | College:{" "}
+                          {section.subject.college || "N/A"}
                         </p>
                       </div>
                     )}
@@ -495,7 +629,11 @@ export default function SectionManagement() {
                           Invite Students
                         </button>
                         <button
-                          onClick={() => navigate(`/admin/view-invite-student/${section._id}`)}
+                          onClick={() =>
+                            navigate(
+                              `/admin/view-invite-student/${section._id}`
+                            )
+                          }
                           className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm"
                         >
                           <IconEye size={16} />
@@ -513,9 +651,16 @@ export default function SectionManagement() {
 
               {sections.length === 0 && (
                 <div className="col-span-full text-center py-12">
-                  <IconChalkboard className="mx-auto text-gray-300 mb-4" size={48} />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">No sections created yet</h3>
-                  <p className="text-gray-500 mb-4">Create your first section to get started</p>
+                  <IconChalkboard
+                    className="mx-auto text-gray-300 mb-4"
+                    size={48}
+                  />
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">
+                    No sections created yet
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    Create your first section to get started
+                  </p>
                   <button
                     onClick={() => {
                       resetForm();
@@ -531,10 +676,16 @@ export default function SectionManagement() {
           )}
 
           {/* Add Section Modal */}
-          <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Section">
+          <Modal
+            isOpen={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            title="Add New Section"
+          >
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Semester *
+                </label>
                 <select
                   name="semesterId"
                   value={formData.semesterId}
@@ -552,7 +703,9 @@ export default function SectionManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject *
+                </label>
                 <select
                   name="subjectId"
                   value={formData.subjectId}
@@ -564,17 +717,22 @@ export default function SectionManagement() {
                   <option value="">Select Subject</option>
                   {filteredSubjects.map((subject) => (
                     <option key={subject._id} value={subject._id}>
-                      {subject.subjectCode} - {subject.subjectName} ({subject.units} units)
+                      {subject.subjectCode} - {subject.subjectName} (
+                      {subject.units} units)
                     </option>
                   ))}
                 </select>
                 {!formData.semesterId && (
-                  <p className="text-xs text-gray-500 mt-1">Please select a semester first</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please select a semester first
+                  </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Instructor *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Instructor *
+                </label>
                 <select
                   name="instructorId"
                   value={formData.instructorId}
@@ -592,7 +750,9 @@ export default function SectionManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Section Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Section Code *
+                </label>
                 <input
                   type="text"
                   name="sectionName"
@@ -612,7 +772,9 @@ export default function SectionManagement() {
                 </label>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Class Standing</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Class Standing
+                    </label>
                     <input
                       type="number"
                       name="classStanding"
@@ -624,7 +786,9 @@ export default function SectionManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Laboratory</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Laboratory
+                    </label>
                     <input
                       type="number"
                       name="laboratory"
@@ -636,7 +800,9 @@ export default function SectionManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Major Output</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Major Output
+                    </label>
                     <input
                       type="number"
                       name="majorOutput"
@@ -648,7 +814,11 @@ export default function SectionManagement() {
                     />
                   </div>
                 </div>
-                <p className={`text-xs mt-1 ${gradingTotal === 100 ? "text-green-600" : "text-orange-600"}`}>
+                <p
+                  className={`text-xs mt-1 ${
+                    gradingTotal === 100 ? "text-green-600" : "text-orange-600"
+                  }`}
+                >
                   Total: {gradingTotal}%
                 </p>
               </div>
@@ -673,10 +843,16 @@ export default function SectionManagement() {
           </Modal>
 
           {/* Edit Section Modal */}
-          <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Section">
+          <Modal
+            isOpen={showEditModal}
+            onClose={() => setShowEditModal(false)}
+            title="Edit Section"
+          >
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Semester *
+                </label>
                 <select
                   name="semesterId"
                   value={formData.semesterId}
@@ -694,7 +870,9 @@ export default function SectionManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject *
+                </label>
                 <select
                   name="subjectId"
                   value={formData.subjectId}
@@ -706,17 +884,22 @@ export default function SectionManagement() {
                   <option value="">Select Subject</option>
                   {filteredSubjects.map((subject) => (
                     <option key={subject._id} value={subject._id}>
-                      {subject.subjectCode} - {subject.subjectName} ({subject.units} units)
+                      {subject.subjectCode} - {subject.subjectName} (
+                      {subject.units} units)
                     </option>
                   ))}
                 </select>
                 {!formData.semesterId && (
-                  <p className="text-xs text-gray-500 mt-1">Please select a semester first</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please select a semester first
+                  </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Instructor *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Instructor *
+                </label>
                 <select
                   name="instructorId"
                   value={formData.instructorId}
@@ -734,7 +917,9 @@ export default function SectionManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Section Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Section Code *
+                </label>
                 <input
                   type="text"
                   name="sectionName"
@@ -754,7 +939,9 @@ export default function SectionManagement() {
                 </label>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Class Standing</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Class Standing
+                    </label>
                     <input
                       type="number"
                       name="classStanding"
@@ -766,7 +953,9 @@ export default function SectionManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Laboratory</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Laboratory
+                    </label>
                     <input
                       type="number"
                       name="laboratory"
@@ -778,7 +967,9 @@ export default function SectionManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Major Output</label>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Major Output
+                    </label>
                     <input
                       type="number"
                       name="majorOutput"
@@ -790,7 +981,11 @@ export default function SectionManagement() {
                     />
                   </div>
                 </div>
-                <p className={`text-xs mt-1 ${gradingTotal === 100 ? "text-green-600" : "text-orange-600"}`}>
+                <p
+                  className={`text-xs mt-1 ${
+                    gradingTotal === 100 ? "text-green-600" : "text-orange-600"
+                  }`}
+                >
                   Total: {gradingTotal}%
                 </p>
               </div>
@@ -815,24 +1010,36 @@ export default function SectionManagement() {
           </Modal>
 
           {/* Invite Students Modal */}
-          <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite Students to Section">
+          <Modal
+            isOpen={showInviteModal}
+            onClose={() => setShowInviteModal(false)}
+            title="Invite Students to Section"
+          >
             <div className="space-y-4">
               {selectedSection && (
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">Section Information:</h4>
+                  <h4 className="font-medium text-blue-800 mb-2">
+                    Section Information:
+                  </h4>
                   <p className="text-sm text-blue-600">
                     <strong>Subject:</strong>{" "}
-                    {getSubjectName(selectedSection.subject?._id || selectedSection.subject)}
+                    {getSubjectName(
+                      selectedSection.subject?._id || selectedSection.subject
+                    )}
                   </p>
                   <p className="text-sm text-blue-600">
                     <strong>Section:</strong> {selectedSection.sectionName}
                   </p>
                   <p className="text-sm text-blue-600">
                     <strong>Instructor:</strong>{" "}
-                    {getInstructorName(selectedSection.instructor?._id || selectedSection.instructor)}
+                    {getInstructorName(
+                      selectedSection.instructor?._id ||
+                        selectedSection.instructor
+                    )}
                   </p>
                   <p className="text-sm text-blue-600">
-                    <strong>Current Students:</strong> {selectedSection.students?.length || 0}
+                    <strong>Current Students:</strong>{" "}
+                    {selectedSection.students?.length || 0}
                   </p>
                 </div>
               )}
@@ -857,21 +1064,30 @@ export default function SectionManagement() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Type the student's ID number or institutional email address to search
+                    Type the student's ID number or institutional email address
+                    to search
                   </p>
                 </div>
 
                 <div className="max-h-64 overflow-y-auto border border-gray-300 rounded-lg">
                   {searchQuery.trim() === "" ? (
                     <div className="p-4 text-center text-gray-500">
-                      <IconUsers className="mx-auto mb-2 text-gray-300" size={24} />
+                      <IconUsers
+                        className="mx-auto mb-2 text-gray-300"
+                        size={24}
+                      />
                       <p>Enter a student ID or email to search for students</p>
-                      <p className="text-xs mt-1">Examples: 2021-001234 or 2301106754@student.buksu.edu.ph</p>
+                      <p className="text-xs mt-1">
+                        Examples: 2021-001234 or 2301106754@student.buksu.edu.ph
+                      </p>
                     </div>
                   ) : searchResults.length > 0 ? (
                     <div className="p-2 space-y-2">
                       {searchResults.map((student) => (
-                        <label key={student._id} className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <label
+                          key={student._id}
+                          className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             checked={selectedStudents.includes(student._id)}
@@ -879,34 +1095,46 @@ export default function SectionManagement() {
                             className="mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500  focus:outline-none "
                           />
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900">{student.fullName}</div>
-                            <div className="text-xs text-gray-500">
-                              {student.studid} • {student.yearLevel} • {student.course}
+                            <div className="text-sm font-medium text-gray-900">
+                              {student.fullName}
                             </div>
-                            <div className="text-xs text-blue-600">Email: {student.email}</div>
+                            <div className="text-xs text-gray-500">
+                              {student.studid} • {student.yearLevel} •{" "}
+                              {student.course}
+                            </div>
+                            <div className="text-xs text-blue-600">
+                              Email: {student.email}
+                            </div>
                           </div>
                         </label>
                       ))}
                     </div>
                   ) : !isSearching && searchQuery.trim() !== "" ? (
                     <div className="p-4 text-center text-gray-500">
-                      <IconAlertCircle className="mx-auto mb-2 text-orange-400" size={24} />
+                      <IconAlertCircle
+                        className="mx-auto mb-2 text-orange-400"
+                        size={24}
+                      />
                       <p>No students found for: "{searchQuery}"</p>
-                      <p className="text-xs mt-1">Please check the student ID or email and try again</p>
+                      <p className="text-xs mt-1">
+                        Please check the student ID or email and try again
+                      </p>
                     </div>
                   ) : null}
                 </div>
 
                 {selectedStudents.length > 0 && (
                   <p className="text-sm text-blue-600 mt-2">
-                    {selectedStudents.length} student{selectedStudents.length !== 1 ? "s" : ""} selected
+                    {selectedStudents.length} student
+                    {selectedStudents.length !== 1 ? "s" : ""} selected
                   </p>
                 )}
               </div>
 
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-green-700">
-                  📧 Selected students will receive email invitations with section details and login instructions.
+                  📧 Selected students will receive email invitations with
+                  section details and login instructions.
                 </p>
               </div>
 
@@ -931,7 +1159,8 @@ export default function SectionManagement() {
                   className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <IconUsers size={16} />
-                  Invite {selectedStudents.length} Student{selectedStudents.length !== 1 ? "s" : ""}
+                  Invite {selectedStudents.length} Student
+                  {selectedStudents.length !== 1 ? "s" : ""}
                 </button>
               </div>
             </div>

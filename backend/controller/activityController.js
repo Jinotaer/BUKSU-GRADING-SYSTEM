@@ -183,10 +183,10 @@ export const deleteActivity = async (req, res) => {
       return res.status(404).json({ success: false, message: "Activity not found" });
     }
 
-    // Only the owner can delete (if owner is set)
-    if (activity.instructor && activity.instructor.toString() !== instructorId) {
-      return res.status(403).json({ success: false, message: "Forbidden" });
-    }
+    // // Only the owner can delete (if owner is set)
+    // if (activity.instructor && activity.instructor.toString() !== instructorId) {
+    //   return res.status(403).json({ success: false, message: "Forbidden" });
+    // }
 
     activity.isActive = false;
     await activity.save();

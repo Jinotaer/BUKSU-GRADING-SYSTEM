@@ -38,7 +38,7 @@ const menuData = [
     type: "single"
   },
   { 
-    link: "/instructor/semester-view", 
+    link: "/instructor/activity-management", 
     label: "Activity Management", 
     icon: IconCalendarEvent, 
     type: "single" 

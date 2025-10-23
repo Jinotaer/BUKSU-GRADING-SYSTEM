@@ -30,6 +30,7 @@ import InstructorProfile from "./component/instructor/instructorProfile";
 import SectionsStudent from "./component/instructor/students";
 import SectionsActivities from "./component/instructor/sectionsActivities";
 import ActivityScores from "./component/instructor/activityScores";
+import ActivityManagement from "./component/instructor/activityManagement";
 
 export default function App() {
   return (
@@ -209,7 +210,7 @@ export default function App() {
         path="/instructor/activity-management"
         element={
           <ProtectedRoute role="instructor">
-            <SectionsActivities/>
+            <ActivityManagement/>
           </ProtectedRoute>
         }
       />
