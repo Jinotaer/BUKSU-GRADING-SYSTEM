@@ -301,10 +301,10 @@ export default function SemesterView() {
                                   Manage Grades
                                 </button>
                                 <button
-                                  onClick={() => window.location.href = `/instructor/add-sections?edit=${section._id}`}
+                                  onClick={() => window.location.href = `/instructor/sections/${section._id}/activities`}
                                   className="text-xs bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
                                 >
-                                  View Details
+                                  View Activities
                                 </button>
                               </div>
                             </div>

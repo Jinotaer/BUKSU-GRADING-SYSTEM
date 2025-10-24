@@ -9,7 +9,8 @@ import {
   removeStudentFromSection,
   inviteStudentsToSection,
   getAvailableStudents,
-  getInstructorDashboardStats
+  getInstructorDashboardStats,
+  searchStudents
 } from "../controller/instructorController.js";
 import { getAllInstructors } from "../controller/adminController.js";
 import { instructorAuth, auth } from "../middleware/auth.js";
@@ -64,6 +65,13 @@ router.get("/sections/:sectionId/students", instructorAuth, getStudentsInSection
  * @access  Private (Instructor only)
  */
 router.get("/sections/:sectionId/available-students", instructorAuth, getAvailableStudents);
+
+/**
+ * @route   GET /api/instructor/search-students
+ * @desc    Search for students by name, ID, or email
+ * @access  Private (Instructor only)
+ */
+router.get("/search-students", instructorAuth, searchStudents);
 
 /**
  * @route   POST /api/instructor/sections/:sectionId/students

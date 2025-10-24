@@ -478,3 +478,47 @@ export const getActivitiesBySection = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const searchStudents = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length === 0) {
+      return res.json({ success: true, students: [] });
+    }
+
+    const searchTerm = q.trim();
+    
+    // Search students by name, student ID, or email
+    const students = await Student.find({
+      status: "Approved", // Only approved students
+      $or: [
+        { fullName: { $regex: searchTerm, $options: 'i' } },
+        { studid: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } }
+      ]
+    })
+    .select("fullName studid email yearLevel college course")
+    .limit(20); // Limit results to avoid overwhelming the UI
+
+    // Transform the data to match frontend expectations
+    const transformedStudents = students.map(student => ({
+      _id: student._id,
+      first_name: student.fullName ? student.fullName.split(' ')[0] : '',
+      last_name: student.fullName ? student.fullName.split(' ').slice(1).join(' ') : '',
+      student_id: student.studid,
+      email: student.email,
+      yearLevel: student.yearLevel,
+      college: student.college,
+      course: student.course
+    }));
+
+    res.json({ 
+      success: true, 
+      students: transformedStudents 
+    });
+  } catch (err) {
+    console.error("searchStudents:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

@@ -14,9 +14,9 @@ import {
   IconSchool,
   IconCalendarEvent,
   IconBook,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { logout } from "../../utils/auth";
 
 import buksuLogo from "../../assets/logo1.png";
 
@@ -67,6 +67,12 @@ export function NavbarSimple() {
 
   const [collapsed] = useState(false);
   const [opened, setOpened] = useState(false); // for burger menu
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [notification, setNotification] = useState({
+    show: false,
+    message: "",
+    type: "",
+  });
 
   const toggleDropdown = (label) => {
     setDropdownStates(prev => ({
@@ -81,8 +87,36 @@ export function NavbarSimple() {
     setOpened(false); // close sidebar when navigating (mobile)
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await fetch("http://localhost:5000/api/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+      localStorage.removeItem("token");
+      sessionStorage.clear();
+      document.cookie =
+        "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      setShowLogoutModal(false);
+      setNotification({
+        show: true,
+        message: "You have been successfully logged out.",
+        type: "success",
+      });
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setNotification({
+        show: true,
+        message: "Logout failed. Please try again.",
+        type: "error",
+      });
+    }
   };
 
   const renderMenuItem = (item) => {
@@ -226,13 +260,70 @@ export function NavbarSimple() {
             className="flex items-center gap-3 px-4 py-3 text-white/90 no-underline rounded-lg transition-all duration-150 text-sm cursor-pointer hover:bg-white/20"
             onClick={(event) => {
               event.preventDefault();
-              handleLogout();
+              setShowLogoutModal(true);
             }}
             title={!collapsed ? undefined : "Logout"}
           >
             <IconLogout className="w-5 h-5 flex-shrink-0" stroke={1.5} />
             {!collapsed && <span>Logout</span>}
           </a>
+
+          {/* Logout Confirmation Modal */}
+          {showLogoutModal && (
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9999]">
+              <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
+                <div className="flex justify-center mb-2">
+                  <IconAlertTriangle
+                    className="w-12 h-12 text-red-600"
+                    stroke={1.5}
+                  />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-center">
+                  Logout
+                </h3>
+                <p className="mb-4 text-center">Are you sure you want to log out?</p>
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowLogoutModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    onClick={handleLogout}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notification Modal */}
+          {notification.show && (
+            <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+              <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full text-center">
+                <p
+                  className={`mb-2 ${
+                    notification.type === "success"
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {notification.message}
+                </p>
+                <button
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  onClick={() =>
+                    setNotification({ show: false, message: "", type: "" })
+                  }
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 

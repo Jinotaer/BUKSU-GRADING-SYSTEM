@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   IconUsers,
   IconBook,
   IconX,
-  IconAlertCircle,
   IconChalkboard,
-  IconEye,
   IconUserPlus,
   IconRefresh,
+  IconSearch,
 } from "@tabler/icons-react";
 
 import { InstructorSidebar } from "./instructorSidebar";
@@ -16,59 +14,95 @@ import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 
-export default function SectionsStudent() {
-  const navigate = useNavigate();
-
+export default function SectionsStudentTable() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // UI state
   const [selectedSection, setSelectedSection] = useState(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Search (for invite modal)
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Search for students in current section
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+
   // Notifications
   const notifications = useNotifications();
-  const { showError, showSuccess } = notifications;
+  const { showError, showSuccess, showConfirmDialog } = notifications;
 
-  // Fetch initial data
+  // ===== Effects =====
   useEffect(() => {
-    fetchSections();
+    fetchSections({ setDefault: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchSections = async () => {
+  // Debounced search for invite modal
+  useEffect(() => {
+    const t = setTimeout(() => {
+      performStudentSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  // ===== Data fetching =====
+  const fetchSections = async ({
+    keepSelected = false,
+    setDefault = false,
+  } = {}) => {
     try {
       setLoading(true);
-      const res = await authenticatedFetch("http://localhost:5000/api/instructor/sections");
-
-      if (res.ok) {
-        const data = await res.json();
-        setSections(data.sections || []);
-      } else {
-        const errorData = await res.json();
-        showError(errorData.message || "Failed to fetch assigned sections");
+      const res = await authenticatedFetch(
+        "http://localhost:5000/api/instructor/sections"
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        showError(err.message || "Failed to fetch sections");
+        console.error("Sections fetch error:", err);
+        setSections([]);
+        return;
       }
-    } catch (err) {
-      console.error("Error fetching sections:", err);
-      showError("Error fetching assigned sections");
+      const data = await res.json();
+      console.log("Fetched sections data:", data);
+      const fetched = Array.isArray(data.sections) ? data.sections : [];
+      setSections(fetched);
+
+      if (keepSelected && selectedSection) {
+        const updated =
+          fetched.find((s) => s._id === selectedSection._id) || null;
+        setSelectedSection(updated);
+      } else if (setDefault && !selectedSection && fetched.length > 0) {
+        setSelectedSection(fetched[0]);
+      } else if (fetched.length === 0) {
+        setSelectedSection(null);
+      }
+    } catch (e) {
+      console.error("Error fetching sections", e);
+      showError("Error fetching sections");
+      setSections([]);
+      setSelectedSection(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Search for students
-  const searchStudents = async (query) => {
+  const performStudentSearch = async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
       return;
     }
-
     try {
       setIsSearching(true);
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/instructor/search-students?q=${encodeURIComponent(query)}`
+        `http://localhost:5000/api/instructor/search-students?q=${encodeURIComponent(
+          query
+        )}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -76,23 +110,15 @@ export default function SectionsStudent() {
       } else {
         setSearchResults([]);
       }
-    } catch (err) {
-      console.error("Error searching students:", err);
+    } catch (e) {
+      console.error("Error searching students", e);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Debounce search
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      searchStudents(searchQuery);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
-  // Checkbox selection for students
+  // ===== Invite flow =====
   const handleStudentSelection = (studentId) => {
     setSelectedStudents((prev) =>
       prev.includes(studentId)
@@ -101,274 +127,496 @@ export default function SectionsStudent() {
     );
   };
 
-  // Remove selected student by id
-  // const removeSelectedStudent = (id) => {
-  //   setSelectedStudents(selectedStudents.filter((studentId) => studentId !== id));
-  // };
-
   const inviteStudents = async () => {
     if (!selectedSection || selectedStudents.length === 0) return;
-
     try {
       setSubmitting(true);
-      const studentIds = selectedStudents;
       const res = await authenticatedFetch(
         `http://localhost:5000/api/instructor/sections/${selectedSection._id}/invite-students`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentIds }),
+          body: JSON.stringify({ studentIds: selectedStudents }),
         }
       );
       if (res.ok) {
         showSuccess("Students invited successfully!");
         setShowInviteModal(false);
         setSelectedStudents([]);
-        setSelectedSection(null);
-        fetchSections();
+        setSearchQuery("");
+        setSearchResults([]);
+        // refresh and keep the same section selected
+        await fetchSections({ keepSelected: true });
       } else {
-        const errorData = await res.json();
-        showError(errorData.message || "Failed to invite students");
+        const err = await res.json();
+        showError(err.message || "Failed to invite students");
       }
-    } catch (err) {
-      console.error("Error inviting students:", err);
+    } catch (e) {
+      console.error("Error inviting students", e);
       showError("Error inviting students");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const openInviteModal = (section) => {
-    setSelectedSection(section);
+  const openInvite = () => {
+    if (!selectedSection) return;
     setShowInviteModal(true);
     setSelectedStudents([]);
     setSearchQuery("");
     setSearchResults([]);
   };
 
-  const closeInviteModal = () => {
-    setShowInviteModal(false);
-    setSelectedSection(null);
-    setSelectedStudents([]);
-    setSearchQuery("");
-    setSearchResults([]);
+  const handleRemoveStudent = (studentId) => {
+    if (!selectedSection || !studentId) return;
+    
+    // Find the student name for confirmation
+    const student = students.find(s => s._id === studentId);
+    const studentName = student ? `${student.first_name} ${student.last_name}`.trim() : 'this student';
+    
+    showConfirmDialog(
+      'Remove Student',
+      `Are you sure you want to remove ${studentName} from this section? This action cannot be undone.`,
+      async () => {
+        try {
+          const res = await authenticatedFetch(
+            `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students/${studentId}`,
+            {
+              method: "DELETE",
+            }
+          );
+          
+          if (res.ok) {
+            showSuccess("Student removed successfully!");
+            // Refresh sections to update the student list
+            await fetchSections({ keepSelected: true });
+          } else {
+            const err = await res.json();
+            showError(err.message || "Failed to remove student");
+          }
+        } catch (e) {
+          console.error("Error removing student", e);
+          showError("Error removing student");
+        }
+      }
+    );
   };
 
-  const viewSectionStudents = (section) => {
-    navigate(`/instructor/sections/${section._id}/students`);
+  // ===== Derived =====
+  const students = useMemo(() => {
+    if (!selectedSection) return [];
+    if (!Array.isArray(selectedSection.students)) {
+      console.warn(
+        "selectedSection.students is not an array",
+        selectedSection.students
+      );
+      return [];
+    }
+    console.log("Processing students:", selectedSection.students);
+    return selectedSection.students.map((s) => ({
+      _id: s._id,
+      first_name: s.fullName
+        ? s.fullName.split(" ")[0]
+        : s.first_name || s.firstName || "",
+      last_name: s.fullName
+        ? s.fullName.split(" ").slice(1).join(" ")
+        : s.last_name || s.lastName || "",
+      student_id: s.studid || s.student_id || s.studentId || "",
+      email: s.email || "",
+      status: s.status || "Active",
+    }));
+  }, [selectedSection]);
+
+  // Filter students based on search query
+  const filteredStudents = useMemo(() => {
+    if (!studentSearchQuery.trim()) {
+      return students;
+    }
+    
+    const query = studentSearchQuery.toLowerCase();
+    return students.filter((student) => {
+      const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
+      const studentId = student.student_id.toLowerCase();
+      const email = student.email.toLowerCase();
+      
+      return fullName.includes(query) || 
+             studentId.includes(query) || 
+             email.includes(query);
+    });
+  }, [students, studentSearchQuery]);
+
+  const totalStudents = students.length;
+  const filteredStudentsCount = filteredStudents.length;
+
+  // ===== Helpers =====
+  const sectionLabel = (sec) => {
+    // Backend uses different field names
+    const subject =
+      sec.subject?.subjectName || sec.subject?.subject_name || "No Subject";
+    const schoolYear = sec.schoolYear || sec.semester?.academic_year || "N/A";
+    const term = sec.term || sec.semester?.semester_name || "No Term";
+    return `${
+      sec.sectionName || sec.section_name
+    } — ${subject} — ${term} ${schoolYear}`;
   };
 
+  // ===== Render =====
   return (
     <NotificationProvider notifications={notifications}>
-      <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-        <div className="w-full md:w-64">
+      <div className="flex min-h-screen bg-gray-50">
+        {/* Sidebar */}
+        <div className="hidden md:block md:w-64">
           <InstructorSidebar />
         </div>
 
-        <div className="flex-1 p-2 sm:p-4 md:p-6">
+        <div className="flex-1 p-4 md:p-6">
+          {/* Header */}
           <div className="max-w-7xl mx-auto w-full">
-            {/* Header */}
-            <div className="mb-4 sm:mb-6 px-2 sm:px-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">My Sections</h1>
-              <p className="text-gray-600 text-sm sm:text-base">Manage your assigned sections and students</p>
+            <div className="mb-4">
+              <h1 className="text-2xl font-bold text-gray-900">Students</h1>
+              <p className="text-gray-600">
+                Select a section, review students in a table, and add more.
+              </p>
             </div>
 
-            {/* Loading */}
+            {/* Controls Row */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Section
+                </label>
+                <select
+                  className="w-full md:w-auto min-w-[260px] rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm p-1.5 border"
+                  value={selectedSection?._id || ""}
+                  onChange={(e) => {
+                    const sec = sections.find((s) => s._id === e.target.value);
+                    setSelectedSection(sec || null);
+                  }}
+                  disabled={loading || sections.length === 0}
+                >
+                  {sections.length === 0 ? (
+                    <option value="">No sections</option>
+                  ) : (
+                    sections.map((sec) => (
+                      <option key={sec._id} value={sec._id}>
+                        {sectionLabel(sec)}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchSections({ keepSelected: true })}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm bg-white hover:bg-gray-50 border-gray-300 disabled:opacity-50"
+                >
+                  <IconRefresh
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                  Refresh
+                </button>
+                <button
+                  onClick={openInvite}
+                  disabled={!selectedSection}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <IconUserPlus className="h-4 w-4" />
+                  Add Students
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
             {loading ? (
-              <div className="flex justify-center items-center py-12">
+              <div className="flex justify-center items-center py-16">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
+            ) : sections.length === 0 ? (
+              <div className="mt-6 bg-white rounded-xl border border-gray-200 p-10 text-center">
+                <IconBook className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  No Sections Assigned
+                </h3>
+                <p className="text-gray-500 mt-1">
+                  You don't have any sections yet.
+                </p>
+              </div>
+            ) : !selectedSection ? (
+              <div className="mt-6 bg-white rounded-xl border border-gray-200 p-10 text-center">
+                <IconChalkboard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Choose a section
+                </h3>
+                <p className="text-gray-500 mt-1">
+                  Use the dropdown above to view students.
+                </p>
+              </div>
             ) : (
-              <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {sections.length === 0 ? (
-                  <div className="col-span-full text-center py-12">
-                    <IconBook className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Sections Assigned</h3>
-                    <p className="text-gray-500">You don't have any sections assigned yet.</p>
-                  </div>
-                ) : (
-                  sections.map((section) => (
-                    <div
-                      key={section._id}
-                      className="bg-white rounded-lg shadow-md p-4 sm:p-6 hover:shadow-lg transition-shadow flex flex-col justify-between h-full"
-                    >
-                      {/* Section Header */}
-                      <div className="flex flex-col sm:flex-row items-start justify-between mb-2 sm:mb-4 gap-2">
-                        <div>
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
-                            {section.section_name}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">
-                            {section.subject?.subject_name || "No Subject"}
-                          </p>
-                          <div className="flex items-center text-xs sm:text-sm text-gray-500">
-                            <IconChalkboard className="h-4 w-4 mr-1" />
-                            <span>
-                              {section.semester?.semester_name || "No Semester"} -{" "}
-                              {section.semester?.academic_year || "N/A"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center text-xs sm:text-sm text-gray-500">
-                          <IconUsers className="h-4 w-4 mr-1" />
-                          <span>{section.students?.length || 0}</span>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <div className="space-y-1 sm:space-y-2 mb-2 sm:mb-4">
-                        <div className="text-xs sm:text-sm">
-                          <span className="font-medium text-gray-700">Schedule:</span>
-                          <span className="ml-2 text-gray-600">{section.schedule || "Not specified"}</span>
-                        </div>
-                        <div className="text-xs sm:text-sm">
-                          <span className="font-medium text-gray-700">Room:</span>
-                          <span className="ml-2 text-gray-600">{section.room || "Not specified"}</span>
-                        </div>
-                      </div>
-
-                      {/* Buttons */}
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          onClick={() => viewSectionStudents(section)}
-                          className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                          <IconEye className="h-4 w-4 mr-1" />
-                          <span className="hidden sm:inline">View Students</span>
-                          <span className="sm:hidden">View</span>
-                        </button>
-                        <button
-                          onClick={() => openInviteModal(section)}
-                          className="flex items-center justify-center px-3 py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
-                        >
-                          <IconUserPlus className="h-4 w-4" />
-                        </button>
-                      </div>
+              <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+                {/* Table header */}
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-base md:text-lg font-semibold text-gray-900">
+                        {selectedSection.sectionName ||
+                          selectedSection.section_name}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {selectedSection.subject?.subjectName ||
+                          selectedSection.subject?.subject_name ||
+                          "No Subject"}{" "}
+                        ·{" "}
+                        {selectedSection.term ||
+                          selectedSection.semester?.semester_name ||
+                          "No Term"}{" "}
+                        {selectedSection.schoolYear ||
+                          selectedSection.semester?.academic_year ||
+                          ""}
+                      </p>
                     </div>
-                  ))
-                )}
+                    <div className="text-sm text-gray-600 flex items-center gap-1">
+                      <IconUsers className="h-4 w-4" /> 
+                      {studentSearchQuery.trim() ? `${filteredStudentsCount} of ${totalStudents}` : totalStudents}
+                    </div>
+                  </div>
+                  
+                  {/* Search input */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 max-w-xs relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <IconSearch className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search students..."
+                        value={studentSearchQuery}
+                        onChange={(e) => setStudentSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    {studentSearchQuery.trim() && (
+                      <button
+                        onClick={() => setStudentSearchQuery("")}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Student ID
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Name
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Email
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {students.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-gray-500"
+                          >
+                            No students yet. Click{" "}
+                            <span className="font-medium">Add Students</span> to
+                            invite.
+                          </td>
+                        </tr>
+                      ) : filteredStudents.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-4 py-8 text-center text-gray-500"
+                          >
+                            No students match your search criteria.{" "}
+                            <button
+                              onClick={() => setStudentSearchQuery("")}
+                              className="text-blue-600 hover:underline font-medium"
+                            >
+                              Clear search
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredStudents.map((s) => (
+                          <tr key={s._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {s.student_id || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                              {`${s.first_name} ${s.last_name}`.trim() || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {s.email ? (
+                                <a
+                                  href={`mailto:${s.email}`}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {s.email}
+                                </a>
+                              ) : (
+                                <span className="text-gray-600">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <button
+                                onClick={() => handleRemoveStudent(s._id)}
+                                className="inline-flex items-center px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
-
-            {/* Refresh Button */}
-            <div className="mt-4 sm:mt-6 flex justify-center">
-              <button
-                onClick={fetchSections}
-                disabled={loading}
-                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 transition-colors text-xs sm:text-sm"
-              >
-                <IconRefresh className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh Sections
-              </button>
-            </div>
           </div>
         </div>
 
         {/* Invite Modal */}
         {showInviteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-lg w-full max-w-md sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
+            <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl">
+              {/* Header */}
               <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Invite Students to Section</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                    Invite Students
+                  </h2>
                   <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                    {selectedSection?.section_name} - {selectedSection?.subject?.subject_name}
+                    {selectedSection?.sectionName ||
+                      selectedSection?.section_name}{" "}
+                    ·{" "}
+                    {selectedSection?.subject?.subjectName ||
+                      selectedSection?.subject?.subject_name}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Current Students: {selectedSection?.students?.length || 0}
+                    Current students: {totalStudents}
                   </p>
                 </div>
                 <button
-                  onClick={closeInviteModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  onClick={() => setShowInviteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <IconX className="h-6 w-6" />
                 </button>
               </div>
 
-              {/* Modal Content */}
+              {/* Body */}
               <div className="p-4 sm:p-6 space-y-4">
-                {/* Search */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                    Search Students by Name, ID, or Email:
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Search by name, ID, or email
                   </label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, student ID, or email..."
-                    className="w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                    placeholder="Start typing…"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
-                {/* Search Results */}
-                <div className="max-h-32 sm:max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
                   {searchQuery.trim() === "" ? (
-                    <div className="p-4 text-center text-gray-500">
+                    <div className="p-6 text-center text-gray-500">
                       <IconUsers className="mx-auto mb-2 text-gray-300" />
-                      <p>Enter a student name, ID, or email to search for students</p>
+                      <p>Enter a query to find students</p>
                     </div>
                   ) : isSearching ? (
-                    <div className="p-2 sm:p-3 text-center text-gray-500">Searching...</div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="p-2 space-y-2">
+                    <div className="p-4 text-center text-gray-500">
+                      Searching…
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      No students found
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-100">
                       {searchResults.map((student) => (
-                        <label
+                        <li
                           key={student._id}
-                          className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer border-b border-gray-100 last:border-b-0"
+                          className="p-3 flex items-center gap-3 hover:bg-gray-50"
                         >
                           <input
                             type="checkbox"
                             checked={selectedStudents.includes(student._id)}
                             onChange={() => handleStudentSelection(student._id)}
-                            className="mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <div className="flex-1">
-                            <div className="text-xs sm:text-sm font-medium text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
                               {student.first_name} {student.last_name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {student.student_id} • {student.email}
-                            </div>
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {student.student_id} · {student.email}
+                            </p>
                           </div>
-                        </label>
+                        </li>
                       ))}
-                    </div>
-                  ) : (
-                    <div className="p-2 sm:p-3 text-center text-gray-500">No students found</div>
+                    </ul>
                   )}
                 </div>
 
                 {selectedStudents.length > 0 && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    {selectedStudents.length} student{selectedStudents.length !== 1 ? "s" : ""} selected
+                  <p className="text-sm text-blue-600">
+                    {selectedStudents.length} selected
                   </p>
                 )}
 
-                <div className="bg-green-50 p-2 sm:p-4 rounded-lg">
-                  <p className="text-xs sm:text-sm text-green-700">
-                    📧 Selected students will receive email invitations with section details and login instructions.
-                  </p>
+                <div className="bg-green-50 p-3 rounded-lg text-sm text-green-700">
+                  📧 Selected students will receive email invitations with
+                  section details and login instructions.
                 </div>
 
-                {/* Modal Actions */}
-                <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200">
+                {/* Actions */}
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
                   <button
-                    onClick={closeInviteModal}
-                    className="px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-xs sm:text-sm"
+                    onClick={() => setShowInviteModal(false)}
+                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={inviteStudents}
                     disabled={selectedStudents.length === 0 || submitting}
-                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
                   >
                     {submitting
-                      ? "Inviting..."
-                      : `Invite ${selectedStudents.length} Student${
+                      ? "Inviting…"
+                      : `Invite ${selectedStudents.length} student${
                           selectedStudents.length !== 1 ? "s" : ""
                         }`}
                   </button>

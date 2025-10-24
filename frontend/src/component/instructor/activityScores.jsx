@@ -66,8 +66,8 @@ export default function ActivityScores() {
   }, [activityId, sectionId]);
 
   // Helpers
-  const setAllZero = () => setRows((prev) => prev.map((r) => ({ ...r, score: 0 })));
-  const clearAll = () => setRows((prev) => prev.map((r) => ({ ...r, score: "" })));
+  // const setAllZero = () => setRows((prev) => prev.map((r) => ({ ...r, score: 0 })));
+  // const clearAll = () => setRows((prev) => prev.map((r) => ({ ...r, score: "" })));
 
   const setScore = useCallback(
     (id, val) => {
@@ -142,7 +142,7 @@ export default function ActivityScores() {
             <IconChevronLeft size={18} /> Back
           </button>
 
-          <div className="flex flex-wrap gap-2">
+          {/* <div className="flex flex-wrap gap-2">
             <button
               onClick={setAllZero}
               className="px-3 py-2 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-100"
@@ -155,7 +155,7 @@ export default function ActivityScores() {
             >
               Clear
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Title */}
@@ -188,7 +188,7 @@ export default function ActivityScores() {
                       <th className="px-5 py-3 font-semibold">NAME</th>
                       <th className="px-5 py-3 font-semibold">SCORE</th>
                       {/* hide on lg, show at xl to prevent squish */}
-                      <th className="px-5 py-3 font-semibold hidden xl:table-cell">PROGRESS</th>
+                      <th className="px-5 py-3 font-semibold hidden xl:table-cell">PERCENTAGE</th>
                       <th className="px-5 py-3 font-semibold hidden xl:table-cell">RECORDED</th>
                       <th className="px-5 py-3 font-semibold text-right">ACTIONS</th>
                     </tr>
@@ -259,7 +259,7 @@ export default function ActivityScores() {
                                 onClick={() => uploadScore(r.studentId)}
                                 disabled={isSaving}
                                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md
-                                           bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                                           bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                                 title="Upload"
                               >
                                 {isSaving ? "Uploading..." : "Upload"}
