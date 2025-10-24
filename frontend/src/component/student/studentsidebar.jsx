@@ -28,15 +28,15 @@ const menuData = [
     type: "single"
   },
   { 
-    link: "/student/grades", 
-    label: "My Grades", 
-    icon: IconBook,
-    type: "single"
-  },
-  { 
     link: "/student/subjects", 
     label: "My Subjects", 
     icon: IconSchool,
+    type: "single"
+  },
+  { 
+    link: "/student/grades", 
+    label: "My Grades", 
+    icon: IconBook,
     type: "single"
   },
 ];

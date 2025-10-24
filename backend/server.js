@@ -65,6 +65,7 @@ app.use("/api/instructor", instructorRoutes);
 app.use("/api/instructor", activityRoutes);
 app.use("/api/instructor", activityScoresRoutes);
 app.use("/api/activityScores", activityScoresRoutes);
+app.use("/api/student", activityScoresRoutes);
 app.use("/api/semesters", semesterRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/section", sectionRoutes);

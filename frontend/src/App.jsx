@@ -31,6 +31,7 @@ import SectionsStudent from "./component/instructor/students";
 import SectionsActivities from "./component/instructor/sectionsActivities";
 import ActivityScores from "./component/instructor/activityScores";
 import ActivityManagement from "./component/instructor/activityManagement";
+import StudentScores from "./component/student/studentActivityScores";
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="*" element={<Navigate to="/login" />} />
       <Route path="/adminLogin" element={<AdminLogin />} />
 
+      {/* Admin routes */}
       <Route
         path="/admin"
         element={
@@ -126,47 +128,9 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute role="student">
-            <StudentDashboard />
-          </ProtectedRoute>
-        }
-      />
-        <Route
-        path="/student/grades"
-        element={
-          <ProtectedRoute role="student">
-            <StudentGrades />
-          </ProtectedRoute>
-        }
-      />
+
+      {/* Instructor routes */}
        <Route
-        path="/student/subjects"
-        element={
-          <ProtectedRoute role="student">
-            <StudentSubjects />
-          </ProtectedRoute>
-        }
-      />
-       <Route
-        path="/student/subjects/:subjectId/grades"
-        element={
-          <ProtectedRoute role="student">
-            <ClassGrade />
-          </ProtectedRoute>
-        }
-      />
-       <Route
-        path="/student/profile"
-        element={
-          <ProtectedRoute role="student">
-            <StudentProfile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/instructor"
         element={
           <ProtectedRoute role="instructor">
@@ -247,6 +211,65 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      {/* Student routes */}
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoute role="student">
+            <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
+        <Route
+        path="/student/grades"
+        element={
+          <ProtectedRoute role="student">
+            <StudentGrades />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/student/subjects"
+        element={
+          <ProtectedRoute role="student">
+            <StudentSubjects />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/sections/:sectionId/activities"
+        element={
+          <ProtectedRoute role="student">
+            <StudentScores />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/subjects/:subjectId/activities/:activityId/scores"
+        element={
+          <ProtectedRoute role="student">
+            <StudentScores />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/student/subjects/:subjectId/grades"
+        element={
+          <ProtectedRoute role="student">
+            <ClassGrade />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/student/profile"
+        element={
+          <ProtectedRoute role="student">
+            <StudentProfile />
+          </ProtectedRoute>
+        }
+      />
+     
     </Routes>
   );
 }

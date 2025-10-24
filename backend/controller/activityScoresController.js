@@ -17,6 +17,10 @@ export const getActivityScores = async (req, res) => {
       return res.status(400).json({ success:false, message:"sectionId is required" });
     }
 
+    // Check user role to determine access level
+    const userRole = req.user?.role;
+    const userId = req.user?.user?._id;
+
     const section = await Section.findById(sectionId)
       .populate("students", "fullName email studid")
       .populate("subject", "subjectCode subjectName");
@@ -25,19 +29,47 @@ export const getActivityScores = async (req, res) => {
     const activity = await Activity.findById(activityId);
     if (!activity) return res.status(404).json({ success:false, message:"Activity not found" });
 
+    // If student, verify they are enrolled in this section
+    if (userRole === 'student') {
+      const isEnrolled = section.students.some(student => String(student._id) === String(userId));
+      if (!isEnrolled) {
+        return res.status(403).json({ success: false, message: "Access denied. Not enrolled in this section." });
+      }
+    }
+
     const scores = await ActivityScore.find({ activity:activityId, section:sectionId })
       .select("student score maxScore")
       .lean();
 
     const scoreMap = new Map(scores.map(s => [String(s.student), s]));
-    const rows = section.students.map(stu => ({
-      studentId: String(stu._id),
-      fullName: stu.fullName,
-      email: stu.email,
-      studid: stu.studid,
-      score: scoreMap.get(String(stu._id))?.score ?? null,
-      maxScore: scoreMap.get(String(stu._id))?.maxScore ?? activity.maxScore ?? 100,
-    }));
+    
+    let rows;
+    if (userRole === 'student') {
+      // Students only see their own scores
+      const studentRecord = section.students.find(stu => String(stu._id) === String(userId));
+      if (studentRecord) {
+        rows = [{
+          studentId: String(studentRecord._id),
+          fullName: studentRecord.fullName,
+          email: studentRecord.email,
+          studid: studentRecord.studid,
+          score: scoreMap.get(String(studentRecord._id))?.score ?? null,
+          maxScore: scoreMap.get(String(studentRecord._id))?.maxScore ?? activity.maxScore ?? 100,
+        }];
+      } else {
+        rows = [];
+      }
+    } else {
+      // Instructors see all students' scores
+      rows = section.students.map(stu => ({
+        studentId: String(stu._id),
+        fullName: stu.fullName,
+        email: stu.email,
+        studid: stu.studid,
+        score: scoreMap.get(String(stu._id))?.score ?? null,
+        maxScore: scoreMap.get(String(stu._id))?.maxScore ?? activity.maxScore ?? 100,
+      }));
+    }
 
     return res.json({
       success: true,

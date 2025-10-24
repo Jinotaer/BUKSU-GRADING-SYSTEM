@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from '../../utils/auth';
 const academicYears = [
-  { value: '2023-2024', label: '2023-2024' },
   { value: '2024-2025', label: '2024-2025' },
   { value: '2025-2026', label: '2025-2026' },
+  { value: '2023-2024', label: '2023-2024' },
 ];
 
 const semesters = [
@@ -35,44 +35,52 @@ const StudentDashboard = () => {
   const fetchStudentSections = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null); // Reset error state
+      setError(null);
       
-      // First try to get all sections for debugging
-      const allUrl = `http://localhost:5000/api/student/sections`;
-      console.log('Fetching all sections from:', allUrl);
+      // First try to get all sections without filters to see what's available
+      console.log('Fetching all student sections...');
+      const allResponse = await authenticatedFetch('http://localhost:5000/api/student/sections');
       
-      const allResponse = await authenticatedFetch(allUrl);
-      if (allResponse.ok) {
-        const allData = await allResponse.json();
-        console.log('All available sections:', allData);
+      if (!allResponse.ok) {
+        if (allResponse.status === 401) {
+          setError('Authentication required. Please log in again.');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${allResponse.status}`);
       }
       
-      // Now fetch with filters
-      const url = `http://localhost:5000/api/student/sections?schoolYear=${encodeURIComponent(selectedYear)}&term=${getTermFromSemester(selectedSemester)}`;
-      console.log('Fetching filtered sections from:', url);
-      console.log('Filters - schoolYear:', selectedYear, 'term:', getTermFromSemester(selectedSemester));
+      const allData = await allResponse.json();
+      console.log('All sections response:', allData);
       
-      const response = await authenticatedFetch(url);
-      console.log('Raw Response:', response);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!allData.success) {
+        setError(allData.message || 'Failed to fetch sections');
+        return;
       }
       
-      // Parse the JSON response
-      const data = await response.json();
-      console.log('Parsed Response:', data);
+      const allSections = allData.sections || [];
+      console.log(`Found ${allSections.length} total sections`);
       
-      if (data.success) {
-        setSections(data.sections || []);
-        console.log('Sections loaded:', data.sections);
-      } else {
-        setError(data.message || 'Failed to fetch sections');
-        console.error('API Error:', data.message);
+      // Filter sections by selected year and semester
+      const filteredSections = allSections.filter(section => {
+        const matchesYear = !selectedYear || section.schoolYear === selectedYear;
+        const matchesSemester = !selectedSemester || section.term === getTermFromSemester(selectedSemester);
+        return matchesYear && matchesSemester;
+      });
+      
+      console.log(`Filtered to ${filteredSections.length} sections for ${selectedYear} ${getTermFromSemester(selectedSemester)}`);
+      setSections(filteredSections);
+      
+      if (filteredSections.length === 0 && allSections.length > 0) {
+        console.log('No sections match the current filters. Available sections:', allSections.map(s => ({
+          schoolYear: s.schoolYear,
+          term: s.term,
+          subject: s.subject?.subjectCode
+        })));
       }
+      
     } catch (error) {
       console.error('Error fetching sections:', error);
-      setError('Failed to load sections');
+      setError(`Failed to load sections: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -83,15 +91,26 @@ const StudentDashboard = () => {
   }, [fetchStudentSections]);
 
   const filteredClasses = sections.filter((section) => {
+    if (!section || !section.subject) return false;
+    
+    const subjectName = section.subject.subjectName || '';
+    const subjectCode = section.subject.subjectCode || '';
+    const sectionName = section.sectionName || '';
+    
     return (
-      section.subject.subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      section.subject.subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      section.sectionName.toLowerCase().includes(searchTerm.toLowerCase())
+      subjectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subjectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sectionName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
 
   const handleSubjectClick = (section) => {
-    navigate(`/student/subjects/${section.subject._id}/grades`);
+    navigate(`/student/sections/${section._id}/activities`, { 
+      state: { 
+        section: section,
+        subject: section.subject 
+      } 
+    });
   };
 
   if (loading) {
@@ -238,12 +257,33 @@ const StudentDashboard = () => {
       {filteredClasses.length === 0 && !loading && (
         <div className="text-center py-12">
           <div className="text-gray-400 text-6xl mb-4">📚</div>
-          <p className="text-gray-500 text-lg mb-2">
-            No subjects found for the selected criteria
-          </p>
-          <p className="text-gray-400 text-sm">
-            Contact your admin if you think there should be subjects assigned to you.
-          </p>
+          {sections.length === 0 ? (
+            <div>
+              <p className="text-gray-500 text-lg mb-2">
+                No subjects assigned
+              </p>
+              <p className="text-gray-400 text-sm mb-4">
+                You are not enrolled in any subjects for the selected academic year and semester.
+                <br />
+                Contact your instructor or admin to be added to course sections.
+              </p>
+              <button 
+                onClick={fetchStudentSections}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-gray-500 text-lg mb-2">
+                No subjects match your search
+              </p>
+              <p className="text-gray-400 text-sm">
+                Try adjusting your search term or filter criteria.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
