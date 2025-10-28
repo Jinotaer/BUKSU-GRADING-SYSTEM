@@ -109,9 +109,21 @@ const authorizeInstructor = (section, instructorId) => {
   }
 };
 
-const loadActivities = async (sectionId) => {
+const toActivityTerm = (sectionTerm) => {
+  const mapping = { '1st': 'First', '2nd': 'Second', Summer: 'Summer' };
+  return mapping[sectionTerm] || sectionTerm;
+};
+
+const loadActivities = async (section) => {
   try {
-    const activities = await Activity.find({ section: sectionId }).sort({ createdAt: 1 });
+    if (!section?.subject?._id) return [];
+    const query = {
+      subject: section.subject._id,
+      schoolYear: section.schoolYear,
+      term: toActivityTerm(section.term),
+      isActive: true,
+    };
+    const activities = await Activity.find(query).sort({ createdAt: 1 });
     return activities;
   } catch (err) {
     throw new HttpError(500, 'Failed loading activities', { cause: err?.message });
@@ -221,44 +233,65 @@ const toA1Notation = (sheetTitle, targetRange = 'A1') => {
   return `'${escaped}'!${targetRange}`;
 };
 
+const normalizeSheetTitleLength = (title) => {
+  const normalized = sanitizeSheetTitle(title);
+  return normalized.length > 99 ? normalized.slice(0, 99) : normalized;
+};
+
+const buildTitleCandidates = (baseTitle) => {
+  const normalized = normalizeSheetTitleLength(baseTitle);
+  const suffix = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 8);
+  const truncatedBase = normalized.length > 90 ? normalized.slice(0, 90) : normalized;
+  const secondCandidate = `${truncatedBase}_${suffix}`.slice(0, 99);
+  return [normalized, secondCandidate];
+};
+
+const isDuplicateSheetError = (err) => {
+  const message = err?.response?.data?.error?.message || err?.message || '';
+  const lower = message.toLowerCase();
+  return lower.includes('already exist') || lower.includes('duplicate sheet name');
+};
+
 const addSheetToFallback = async (sheets, hubSpreadsheetId, desiredTitle) => {
   if (!hubSpreadsheetId) {
     throw new HttpError(403, 'Fallback spreadsheet not configured');
   }
 
-  const sanitized = sanitizeSheetTitle(desiredTitle);
-  const uniqueSuffix = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 12);
-  const base = sanitized.slice(0, 80);
-  const sheetTitle = `${base}_${uniqueSuffix}`;
+  const candidates = buildTitleCandidates(desiredTitle);
 
-  try {
-    const resp = await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: hubSpreadsheetId,
-      requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: { title: sheetTitle.slice(0, 99) },
+  for (const candidate of candidates) {
+    try {
+      const resp = await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: hubSpreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: { title: candidate },
+              },
             },
-          },
-        ],
-      },
-    });
+          ],
+        },
+      });
 
-    const sheetId = resp?.data?.replies?.[0]?.addSheet?.properties?.sheetId;
-    if (sheetId == null) {
-      throw new HttpError(500, 'Sheets API did not return sheetId for fallback tab');
+      const sheetId = resp?.data?.replies?.[0]?.addSheet?.properties?.sheetId;
+      if (sheetId == null) {
+        throw new HttpError(500, 'Sheets API did not return sheetId for fallback tab');
+      }
+      return { spreadsheetId: hubSpreadsheetId, sheetId, sheetTitle: candidate, fallbackUsed: true };
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      if (isDuplicateSheetError(err)) continue;
+      const meta = {
+        cause: err?.message,
+        code: err?.code ?? err?.status,
+        status: err?.response?.data?.error?.status,
+      };
+      throw new HttpError(500, 'Failed creating fallback sheet', meta);
     }
-    return { spreadsheetId: hubSpreadsheetId, sheetId, sheetTitle: sheetTitle.slice(0, 99), fallbackUsed: true };
-  } catch (err) {
-    if (err instanceof HttpError) throw err;
-    const meta = {
-      cause: err?.message,
-      code: err?.code ?? err?.status,
-      status: err?.response?.data?.error?.status,
-    };
-    throw new HttpError(500, 'Failed creating fallback sheet', meta);
   }
+
+  throw new HttpError(500, 'Could not create unique fallback sheet tab');
 };
 
 const writeValues = async (sheets, spreadsheetId, sheetTitle, values) => {
@@ -313,13 +346,18 @@ const moveFileToFolder = async (drive, spreadsheetId, targetFolderId) => {
   if (!targetFolderId) return { ok: false, message: 'No drive folder configured' };
 
   try {
-    const file = await drive.files.get({ fileId: spreadsheetId, fields: 'parents' });
+    const file = await drive.files.get({
+      fileId: spreadsheetId,
+      fields: 'parents',
+      supportsAllDrives: true,
+    });
     const previousParents = file?.data?.parents?.join(',') || null;
     await drive.files.update({
       fileId: spreadsheetId,
       addParents: targetFolderId,
       removeParents: previousParents || undefined,
       fields: 'id, parents',
+      supportsAllDrives: true,
     });
     return { ok: true };
   } catch (err) {
@@ -329,7 +367,10 @@ const moveFileToFolder = async (drive, spreadsheetId, targetFolderId) => {
 
 const resolveExistingSheet = async (sheets, spreadsheetId, preferredSheetId, preferredTitle) => {
   try {
-    const resp = await sheets.spreadsheets.get({ spreadsheetId });
+    const resp = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets(properties(sheetId,title))',
+    });
     const sheetsList = resp?.data?.sheets || [];
     if (!sheetsList.length) throw new HttpError(404, 'Spreadsheet contains no sheets');
 
@@ -340,7 +381,12 @@ const resolveExistingSheet = async (sheets, spreadsheetId, preferredSheetId, pre
     if (!target && preferredTitle) {
       target = sheetsList.find((s) => s?.properties?.title === preferredTitle) || null;
     }
-    if (!target) target = sheetsList[0];
+    if (!target) {
+      if (preferredSheetId != null || preferredTitle) {
+        throw new HttpError(404, 'Expected sheet not found in spreadsheet');
+      }
+      target = sheetsList[0];
+    }
 
     const props = target?.properties || {};
     if (props.sheetId == null) {
@@ -362,32 +408,75 @@ const resolveExistingSheet = async (sheets, spreadsheetId, preferredSheetId, pre
   }
 };
 
-const applyFormatting = async (sheets, spreadsheetId, sheetId, categoryColCount, headerRowsToFreeze) => {
+const setSheetTitle = async (sheets, spreadsheetId, sheetId, desiredTitle) => {
+  const candidates = buildTitleCandidates(desiredTitle);
+  for (const candidate of candidates) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: { sheetId, title: candidate },
+                fields: 'title',
+              },
+            },
+          ],
+        },
+      });
+      return candidate;
+    } catch (err) {
+      if (isDuplicateSheetError(err)) continue;
+      const meta = {
+        cause: err?.message,
+        code: err?.code ?? err?.status,
+        status: err?.response?.data?.error?.status,
+      };
+      throw new HttpError(500, 'Failed renaming sheet', meta);
+    }
+  }
+  throw new HttpError(500, 'Could not assign unique sheet title');
+};
+
+const applyFormatting = async (
+  sheets,
+  spreadsheetId,
+  sheetId,
+  columnCount,
+  titleRowCount,
+  headerStartRow,
+  headerRowCount,
+  colorRanges = [],
+  staticColumnCount = 0,
+  finalGradeColumnStart = columnCount - 1
+) => {
+  const frozenRowCount = headerStartRow + headerRowCount;
   const requests = [
     // Merge top title row
     {
       mergeCells: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: categoryColCount },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: columnCount },
         mergeType: 'MERGE_ALL',
       },
     },
     // Title region styles
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: categoryColCount },
+        range: { sheetId, startRowIndex: 0, endRowIndex: titleRowCount, startColumnIndex: 0, endColumnIndex: columnCount },
         cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontSize: 11 } } },
         fields: 'userEnteredFormat(horizontalAlignment,textFormat)',
       },
     },
-    // Category headers style
+    // Header block styles
     {
       repeatCell: {
         range: {
           sheetId,
-          startRowIndex: 5 /* headerData */ + 6 /* sectionInfo */ + 1,
-          endRowIndex: 5 + 6 + 2,
+          startRowIndex: headerStartRow,
+          endRowIndex: headerStartRow + headerRowCount,
           startColumnIndex: 0,
-          endColumnIndex: categoryColCount,
+          endColumnIndex: columnCount,
         },
         cell: { userEnteredFormat: createHeaderStyle() },
         fields: 'userEnteredFormat',
@@ -396,11 +485,44 @@ const applyFormatting = async (sheets, spreadsheetId, sheetId, categoryColCount,
     // Freeze header rows
     {
       updateSheetProperties: {
-        properties: { sheetId, gridProperties: { frozenRowCount: headerRowsToFreeze } },
+        properties: { sheetId, gridProperties: { frozenRowCount } },
         fields: 'gridProperties.frozenRowCount',
       },
     },
   ];
+
+  for (const range of colorRanges) {
+    if (range.start == null || range.end == null || !range.color) continue;
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: headerStartRow,
+          endRowIndex: headerStartRow + headerRowCount,
+          startColumnIndex: range.start,
+          endColumnIndex: range.end,
+        },
+        cell: { userEnteredFormat: { backgroundColor: range.color } },
+        fields: 'userEnteredFormat.backgroundColor',
+      },
+    });
+  }
+
+  if (finalGradeColumnStart > staticColumnCount) {
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: headerStartRow + 2,
+          endRowIndex: headerStartRow + 3,
+          startColumnIndex: staticColumnCount,
+          endColumnIndex: finalGradeColumnStart,
+        },
+        cell: { userEnteredFormat: { textRotation: { angle: -90 } } },
+        fields: 'userEnteredFormat.textRotation',
+      },
+    });
+  }
 
   try {
     await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
@@ -471,7 +593,7 @@ export const exportToGoogleSheets = async (req, res) => {
   // 3) Activities + Scores
   let activities = [];
   try {
-    activities = await loadActivities(sectionId);
+    activities = await loadActivities(section);
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 500;
     return res.status(status).json({ message: err.message });
@@ -507,8 +629,13 @@ export const exportToGoogleSheets = async (req, res) => {
   }
 
   // 5) Create spreadsheet
-  const spreadsheetTitle = `${section.subject?.subjectCode || 'SUBJ'}_${section.sectionName || ''}_${section.schoolYear || ''}_${section.term || ''}`;
+  const subjectCode = section.subject?.subjectCode || 'SUBJ';
+  const sectionCodeForTitle = section.sectionCode || section.sectionName || '';
+  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}`;
   console.log('[exportController] Preparing spreadsheet with title:', spreadsheetTitle);
+
+  const desiredSheetTitleBase = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
+  const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
 
   const existingExport = section.exportMetadata || {};
   const expectedSpreadsheetId = existingExport?.spreadsheetId || null;
@@ -540,6 +667,11 @@ export const exportToGoogleSheets = async (req, res) => {
     try {
       ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle));
       console.log('[exportController] Spreadsheet created:', spreadsheetId);
+      try {
+        sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+      } catch (renameErr) {
+        warnings.push(`Unable to rename sheet to desired title: ${renameErr.message}`);
+      }
     } catch (err) {
       const canFallback = err instanceof HttpError && err.status === 403 && EXPORT_HUB_SPREADSHEET_ID;
       if (!canFallback) {
@@ -550,7 +682,7 @@ export const exportToGoogleSheets = async (req, res) => {
 
       console.warn('[exportController] Permission denied creating spreadsheet - attempting to use fallback hub');
       try {
-        ({ spreadsheetId, sheetId, sheetTitle } = await addSheetToFallback(sheets, EXPORT_HUB_SPREADSHEET_ID, spreadsheetTitle));
+        ({ spreadsheetId, sheetId, sheetTitle } = await addSheetToFallback(sheets, EXPORT_HUB_SPREADSHEET_ID, desiredSheetTitleBase));
         usedFallbackHub = true;
         console.log('[exportController] Fallback sheet created inside hub spreadsheet:', spreadsheetId, 'sheet:', sheetTitle);
       } catch (fallbackErr) {
@@ -562,6 +694,35 @@ export const exportToGoogleSheets = async (req, res) => {
   }
 
   if (reusedExisting) {
+    const matchesDesiredTitle =
+      sheetTitle === desiredSheetTitleNormalized ||
+      (desiredSheetTitleNormalized && sheetTitle?.startsWith(`${desiredSheetTitleNormalized}_`));
+
+    if (spreadsheetId === EXPORT_HUB_SPREADSHEET_ID && !matchesDesiredTitle) {
+      console.warn('[exportController] Existing fallback sheet belongs to another section; creating a dedicated tab');
+      try {
+        const fallbackSheet = await addSheetToFallback(sheets, EXPORT_HUB_SPREADSHEET_ID, desiredSheetTitleBase);
+        ({ spreadsheetId, sheetId, sheetTitle } = fallbackSheet);
+        usedFallbackHub = true;
+        reusedExisting = false;
+        warnings.push('Created a new fallback tab to avoid overwriting another section.');
+      } catch (fallbackErr) {
+        const status = fallbackErr instanceof HttpError ? fallbackErr.status : 500;
+        return res.status(status).json({ message: fallbackErr.message });
+      }
+    }
+  }
+
+  if (reusedExisting) {
+    const shouldAttemptRename =
+      sheetTitle !== desiredSheetTitleNormalized && spreadsheetId !== EXPORT_HUB_SPREADSHEET_ID;
+    if (shouldAttemptRename) {
+      try {
+        sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+      } catch (renameErr) {
+        warnings.push(`Could not align sheet title with desired format: ${renameErr.message}`);
+      }
+    }
     try {
       await resetSheet(sheets, spreadsheetId, sheetId, sheetTitle);
     } catch (err) {
@@ -605,33 +766,49 @@ export const exportToGoogleSheets = async (req, res) => {
     ['Instructor:', section.instructor?.fullName || 'N/A', '', 'Dean:', section.subject?.dean || 'Dr. Marilou O. Espina'],
   ];
 
-  const categoryHeaders = ['', '', ''];
-  const activityHeaders = ['', '', ''];
-  const maxScoreHeaders = ['', '', ''];
-
-  const pushCategory = (label, list) => {
-    if (list.length) {
-      categoryHeaders.push(label);
-      for (let i = 1; i < list.length; i++) categoryHeaders.push('');
-      list.forEach((act) => {
-        activityHeaders.push(act.title);
-        maxScoreHeaders.push(String(act.maxScore ?? 100));
-      });
-    }
+  const baseColumns = 3;
+  const headerRows = {
+    category: ['', '', ''],
+    index: ['Ctrl No', 'ID Number', 'NAME'],
+    title: ['', '', ''],
+    maxScore: ['', '', ''],
   };
+  const headerColorRanges = [
+    { start: 0, end: baseColumns, color: { red: 0.82, green: 0.82, blue: 0.82 } },
+  ];
+  const categoryConfigs = [
+    { label: 'Class Standing', activities: classStandingActivities, color: { red: 1, green: 0.93, blue: 0.47 } },
+    { label: 'Laboratory', activities: laboratoryActivities, color: { red: 0.68, green: 0.88, blue: 0.65 } },
+    { label: 'Major Output', activities: majorOutputActivities, color: { red: 0.86, green: 0.78, blue: 0.93 } },
+  ];
 
-  pushCategory('Class Standing', classStandingActivities);
-  pushCategory('Laboratory', laboratoryActivities);
-  pushCategory('Major Output', majorOutputActivities);
+  let columnCursor = baseColumns;
+  let activityCounter = 1;
+  const allActs = [];
 
-  // Optional summary column (kept as in original)
-  categoryHeaders.push('');
-  activityHeaders.push('19 20');
-  maxScoreHeaders.push('');
+  for (const cfg of categoryConfigs) {
+    if (!cfg.activities.length) continue;
+    const start = columnCursor;
+    cfg.activities.forEach((activity, idx) => {
+      headerRows.category.push(idx === 0 ? cfg.label : '');
+      headerRows.index.push(String(activityCounter++));
+      headerRows.title.push(activity.title || `Activity ${activityCounter - 1}`);
+      headerRows.maxScore.push(String(activity.maxScore ?? 100));
+      allActs.push(activity);
+      columnCursor += 1;
+    });
+    headerColorRanges.push({ start, end: columnCursor, color: cfg.color });
+  }
 
-  const studentHeaderRow = ['CU No', 'ID Number', 'NAME', ...activityHeaders.slice(3)];
+  const finalGradeStart = columnCursor;
+  // headerRows.category.push('Final Grade');
+  // headerRows.index.push('FG');
+  // headerRows.title.push('Final Grade');
+  headerRows.maxScore.push('');
+  // headerColorRanges.push({ start: finalGradeStart, end: finalGradeStart + 1, color: { red: 0.75, green: 0.75, blue: 0.75 } });
+  columnCursor += 1;
 
-  const allActs = [...classStandingActivities, ...laboratoryActivities, ...majorOutputActivities];
+  const totalColumns = headerRows.category.length;
 
   const studentRows = section.students.map((student, idx) => {
     const row = [String(idx + 1), student.studid || '', student.fullName || ''];
@@ -645,19 +822,19 @@ export const exportToGoogleSheets = async (req, res) => {
     const labAvg = avgFor(laboratoryActivities, student, scoresByStudent);
     const moAvg = avgFor(majorOutputActivities, student, scoresByStudent);
 
-    const finalPercent = (csAvg * csWeight) / 100 + (labAvg * labWeight) / 100 + (moAvg * moWeight) / 100;
-    row.push(percentToGrade(finalPercent).toFixed(2));
+    // const finalPercent = (csAvg * csWeight) / 100 + (labAvg * labWeight) / 100 + (moAvg * moWeight) / 100;
+    // row.push(percentToGrade(finalPercent).toFixed(2));
     return row;
   });
+
+  const tableHeaderRows = [headerRows.category, headerRows.index, headerRows.title, headerRows.maxScore];
 
   const allData = [
     ...headerData,
     [],
     ...sectionInfo,
     [],
-    categoryHeaders,
-    studentHeaderRow,
-    maxScoreHeaders,
+    ...tableHeaderRows,
     ...studentRows,
   ];
 
@@ -670,9 +847,21 @@ export const exportToGoogleSheets = async (req, res) => {
   }
 
   // 9) Apply formatting
-  const headerRowsToFreeze = headerData.length + sectionInfo.length + 3; // same semantics as original
+  const headerRowCount = tableHeaderRows.length;
+  const tableHeaderStartRow = headerData.length + 1 + sectionInfo.length + 1;
   try {
-    await applyFormatting(sheets, spreadsheetId, sheetId, categoryHeaders.length, headerRowsToFreeze);
+    await applyFormatting(
+      sheets,
+      spreadsheetId,
+      sheetId,
+      totalColumns,
+      headerData.length,
+      tableHeaderStartRow,
+      headerRowCount,
+      headerColorRanges,
+      baseColumns,
+      finalGradeStart
+    );
   } catch (err) {
     warnings.push(`Formatting failed: ${err.message}`);
   }
@@ -725,19 +914,21 @@ export const exportToGoogleSheets = async (req, res) => {
   }
 
   try {
-    await Section.findByIdAndUpdate(section._id, {
-      $set: {
-        exportMetadata: {
-          spreadsheetId,
-          sheetId,
-          sheetTitle,
-          usedFallbackHub,
-          spreadsheetTitle,
-          spreadsheetUrl,
-          lastExportedAt: new Date(),
+    await Section.findByIdAndUpdate(
+      section._id,
+      {
+        $set: {
+          'exportMetadata.spreadsheetId': spreadsheetId,
+          'exportMetadata.sheetId': sheetId,
+          'exportMetadata.sheetTitle': sheetTitle,
+          'exportMetadata.usedFallbackHub': usedFallbackHub,
+          'exportMetadata.spreadsheetTitle': spreadsheetTitle,
+          'exportMetadata.spreadsheetUrl': spreadsheetUrl,
+          'exportMetadata.lastExportedAt': new Date(),
         },
       },
-    });
+      { new: false }
+    );
   } catch (err) {
     warnings.push(`Failed to record export metadata: ${err?.message || err}`);
   }
