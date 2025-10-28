@@ -16,6 +16,10 @@ import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
+const API_BASE =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://localhost:5000";
+
 /**
  * Standalone components kept OUTSIDE the main component to avoid
  * accidental brace/closure issues that can lead to
@@ -265,6 +269,10 @@ export default function SemesterManagement() {
     getLockedBy,
     refresh: refreshLocks,
   } = useBatchLockStatus("semester", semesterIds);
+  const refreshLocksWithDelay = useCallback(() => {
+    refreshLocks();
+    setTimeout(() => refreshLocks(), 5000);
+  }, [refreshLocks]);
 
   // Lock for editing - only create when we have a selected semester
   const lockHook = useLock(
@@ -292,7 +300,7 @@ export default function SemesterManagement() {
 
       // Clean up expired locks first
       try {
-        await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+        await authenticatedFetch(`${API_BASE}/api/locks/cleanup`, {
           method: "POST",
         });
         console.log("🧹 Cleaned up expired locks");
@@ -301,7 +309,7 @@ export default function SemesterManagement() {
       }
 
       const res = await authenticatedFetch(
-        "http://localhost:5000/api/admin/semesters"
+        `${API_BASE}/api/admin/semesters`
       );
       if (res.ok) {
         const data = await res.json();
@@ -330,8 +338,8 @@ export default function SemesterManagement() {
     setSubmitting(true);
     try {
       const url = selectedSemester
-        ? `http://localhost:5000/api/admin/semesters/${selectedSemester._id}`
-        : "http://localhost:5000/api/admin/semesters";
+        ? `${API_BASE}/api/admin/semesters/${selectedSemester._id}`
+        : `${API_BASE}/api/admin/semesters`;
       const method = selectedSemester ? "PUT" : "POST";
       const res = await authenticatedFetch(url, {
         method,
@@ -356,7 +364,7 @@ export default function SemesterManagement() {
         setShowEditModal(false);
 
         // Refresh lock statuses
-        await refreshLocks();
+        refreshLocksWithDelay();
 
         showNotification(
           "success",
@@ -411,13 +419,13 @@ export default function SemesterManagement() {
               "Locked",
               "Unable to acquire an edit lock for this semester. Please try again."
             );
-            await refreshLocks();
+            refreshLocksWithDelay();
             return;
           }
           acquired = true;
 
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/semesters/${id}/archive`,
+            `${API_BASE}/api/admin/semesters/${id}/archive`,
             { method: "PUT" }
           );
           if (res.ok) {
@@ -455,7 +463,7 @@ export default function SemesterManagement() {
           setLoading(false);
           if (acquired) {
             await releaseLock(id, "semester");
-            await refreshLocks();
+            refreshLocksWithDelay();
           }
         }
       }
@@ -489,7 +497,7 @@ export default function SemesterManagement() {
     const ok = await acquireLock(id, "semester");
     if (!ok) {
       console.log(`❌ Failed to acquire lock for semester: ${id}`);
-      await refreshLocks(); // reflect who holds it now
+      refreshLocksWithDelay(); // reflect who holds it now
       return;
     }
 
@@ -703,9 +711,11 @@ export default function SemesterManagement() {
           isOpen={showEditModal}
           onClose={async () => {
             const id = selectedSemester?._id || selectedSemester?.id;
-            await releaseLock(id, "semester");
+            if (id) {
+              await releaseLock(id, "semester");
+              refreshLocksWithDelay();
+            }
             setShowEditModal(false);
-            await refreshLocks();
           }}
           title="Edit Semester"
         >
@@ -753,9 +763,11 @@ export default function SemesterManagement() {
                 type="button"
                 onClick={async () => {
                   const id = selectedSemester?._id || selectedSemester?.id;
-                  await releaseLock(id, "semester");
+                  if (id) {
+                    await releaseLock(id, "semester");
+                    refreshLocksWithDelay();
+                  }
                   setShowEditModal(false);
-                  await refreshLocks();
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >

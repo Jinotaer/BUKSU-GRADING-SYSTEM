@@ -16,6 +16,10 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
+const API_BASE =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://localhost:5000";
+
 /* ---------- Small shared Modal (kept outside to avoid parser issues) ---------- */
 function Modal({ isOpen, onClose, title, children }) {
   if (!isOpen) return null;
@@ -61,11 +65,23 @@ export default function SubjectManagement() {
 
   // Notification system
   const notifications = useNotifications();
-  const { showError, showSuccess, showConfirmDialog } = notifications;
+  const {
+    // showNotification,
+    // hideNotification,
+    showError,
+    showSuccess,
+    showConfirmDialog,
+    // notification,
+    // confirmDialog
+  } = notifications;
 
   // Lock management
-  const subjectIds = subjects.map(s => s._id);
-  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus('subject', subjectIds);
+  const subjectIds = subjects.map((s) => s._id);
+  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus("subject", subjectIds);
+  const refreshLocksWithDelay = useCallback(() => {
+    refreshLocks();
+    setTimeout(() => refreshLocks(), 5000);
+  }, [refreshLocks]);
   
   // Lock for editing
   const {
@@ -96,7 +112,7 @@ export default function SubjectManagement() {
     try {
       // Clean up expired locks first
       try {
-        const cleanupRes = await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+        const cleanupRes = await authenticatedFetch(`${API_BASE}/api/locks/cleanup`, {
           method: "POST",
         });
         if (cleanupRes.ok) {
@@ -108,7 +124,7 @@ export default function SubjectManagement() {
       }
       
       setLoading(true);
-      const res = await authenticatedFetch("http://localhost:5000/api/admin/subjects");
+      const res = await authenticatedFetch(`${API_BASE}/api/admin/subjects`);
       if (res.ok) {
         const data = await res.json();
         setSubjects(data.subjects || []);
@@ -125,7 +141,7 @@ export default function SubjectManagement() {
 
   const fetchSemesters = async () => {
     try {
-      const res = await authenticatedFetch("http://localhost:5000/api/admin/semesters");
+      const res = await authenticatedFetch(`${API_BASE}/api/admin/semesters`);
       if (res.ok) {
         const data = await res.json();
         setSemesters(data.semesters || []);
@@ -165,7 +181,7 @@ export default function SubjectManagement() {
     const lockAcquired = await acquireLock(subjectId, "subject");
     if (!lockAcquired) {
       showError("Unable to acquire lock for editing. Another admin may have started editing.");
-      await refreshLocks();
+      refreshLocksWithDelay();
       return;
     }
 
@@ -187,8 +203,8 @@ export default function SubjectManagement() {
 
     try {
       const url = selectedSubject
-        ? `http://localhost:5000/api/admin/subjects/${selectedSubject._id}`
-        : "http://localhost:5000/api/admin/subjects";
+        ? `${API_BASE}/api/admin/subjects/${selectedSubject._id}`
+        : `${API_BASE}/api/admin/subjects`;
 
       const method = selectedSubject ? "PUT" : "POST";
 
@@ -205,8 +221,8 @@ export default function SubjectManagement() {
         await fetchSubjects();
         
         // Release lock if editing
-        if (selectedSubject) {
-          await releaseLock();
+        if (selectedSubject?._id) {
+          await releaseLock(selectedSubject._id, "subject");
         }
         
         resetForm();
@@ -214,7 +230,7 @@ export default function SubjectManagement() {
         setShowEditModal(false);
         
         // Refresh lock statuses
-        await refreshLocks();
+        refreshLocksWithDelay();
         
         showSuccess(selectedSubject ? "Subject updated successfully!" : "Subject added successfully!");
       } else {
@@ -239,7 +255,7 @@ export default function SubjectManagement() {
       async () => {
         try {
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/subjects/${subjectId}`,
+            `${API_BASE}/api/admin/subjects/${subjectId}`,
             { method: "DELETE" }
           );
           if (res.ok) {
@@ -258,6 +274,13 @@ export default function SubjectManagement() {
   };
 
   const handleArchive = async (subjectId) => {
+    if (!subjectId) return;
+    if (isLocked(subjectId)) {
+      const lockedBy = getLockedBy(subjectId);
+      showError(`This subject is currently being edited by ${lockedBy}. Please try again later.`);
+      return;
+    }
+
     const subject = subjects.find((s) => s._id === subjectId);
     const subjectName = subject?.subjectCode || "this subject";
 
@@ -265,9 +288,15 @@ export default function SubjectManagement() {
       "Archive Subject",
       `Are you sure you want to archive "${subjectName}"? It will be hidden from normal operations but can be restored later.`,
       async () => {
+        const ok = await acquireLock(subjectId, "subject");
+        if (!ok) {
+          showError("Unable to acquire lock for archiving. Another admin may have started editing.");
+          refreshLocksWithDelay();
+          return;
+        }
         try {
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/subjects/${subjectId}/archive`,
+            `${API_BASE}/api/admin/subjects/${subjectId}/archive`,
             { method: "PUT" }
           );
 
@@ -281,6 +310,9 @@ export default function SubjectManagement() {
         } catch (err) {
           console.error(err);
           showError("Error archiving subject");
+        } finally {
+          await releaseLock(subjectId, "subject");
+          refreshLocksWithDelay();
         }
       }
     );
@@ -714,9 +746,12 @@ export default function SubjectManagement() {
           <Modal 
             isOpen={showEditModal} 
             onClose={async () => {
-              await releaseLock();
+              const id = selectedSubject?._id;
+              if (id) {
+                await releaseLock(id, "subject");
+              }
               setShowEditModal(false);
-              await refreshLocks();
+              refreshLocksWithDelay();
             }} 
             title="Edit Subject"
           >
@@ -819,9 +854,12 @@ export default function SubjectManagement() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await releaseLock();
+                    const id = selectedSubject?._id;
+                    if (id) {
+                      await releaseLock(id, "subject");
+                    }
                     setShowEditModal(false);
-                    await refreshLocks();
+                    refreshLocksWithDelay();
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
                 >

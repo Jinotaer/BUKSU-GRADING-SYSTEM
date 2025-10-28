@@ -21,6 +21,10 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
+const API_BASE =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://localhost:5000";
+
 function Modal({ isOpen, onClose, title, children }) {
   if (!isOpen) return null;
   return (
@@ -81,11 +85,23 @@ export default function SectionManagement() {
 
   // Notifications
   const notifications = useNotifications();
-  const { showError, showSuccess, showConfirmDialog } = notifications;
+  const {
+    // showNotification,
+    // hideNotification,
+    showError,
+    showSuccess,
+    showConfirmDialog,
+    // notification,
+    // confirmDialog
+  } = notifications;
 
   // Lock management
-  const sectionIds = sections.map(s => s._id);
-  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus('section', sectionIds);
+  const sectionIds = sections.map((s) => s._id);
+  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus("section", sectionIds);
+  const refreshLocksWithDelay = useCallback(() => {
+    refreshLocks();
+    setTimeout(() => refreshLocks(), 5000);
+  }, [refreshLocks]);
   
   // Lock for editing
   const {
@@ -99,10 +115,10 @@ export default function SectionManagement() {
       try {
         setLoading(true);
         const [secRes, subRes, instRes, semRes] = await Promise.all([
-          authenticatedFetch("http://localhost:5000/api/admin/sections"),
-          authenticatedFetch("http://localhost:5000/api/admin/subjects"),
-          authenticatedFetch("http://localhost:5000/api/admin/instructors"),
-          authenticatedFetch("http://localhost:5000/api/semesters"),
+          authenticatedFetch(`${API_BASE}/api/admin/sections`),
+          authenticatedFetch(`${API_BASE}/api/admin/subjects`),
+          authenticatedFetch(`${API_BASE}/api/admin/instructors`),
+          authenticatedFetch(`${API_BASE}/api/semesters`),
         ]);
 
         if (secRes.ok) {
@@ -183,7 +199,7 @@ export default function SectionManagement() {
     try {
       // Clean up expired locks first
       try {
-        const cleanupRes = await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+        const cleanupRes = await authenticatedFetch(`${API_BASE}/api/locks/cleanup`, {
           method: "POST",
         });
         if (cleanupRes.ok) {
@@ -196,7 +212,7 @@ export default function SectionManagement() {
       
       setLoading(true);
       const res = await authenticatedFetch(
-        "http://localhost:5000/api/admin/sections"
+        `${API_BASE}/api/admin/sections`
       );
       if (res.ok) {
         const data = await res.json();
@@ -269,7 +285,7 @@ export default function SectionManagement() {
     const lockAcquired = await acquireLock(sectionId, "section");
     if (!lockAcquired) {
       showError("Unable to acquire lock for editing. Another admin may have started editing.");
-      await refreshLocks();
+      refreshLocksWithDelay();
       return;
     }
 
@@ -317,7 +333,7 @@ export default function SectionManagement() {
     try {
       setIsSearching(true);
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/admin/students?search=${encodeURIComponent(
+        `${API_BASE}/api/admin/students?search=${encodeURIComponent(
           query
         )}&limit=50`
       );
@@ -360,7 +376,7 @@ export default function SectionManagement() {
     }
     try {
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/admin/sections/${selectedSection._id}/invite-students`,
+        `${API_BASE}/api/admin/sections/${selectedSection._id}/invite-students`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -424,8 +440,8 @@ export default function SectionManagement() {
 
     try {
       const url = selectedSection
-        ? `http://localhost:5000/api/admin/sections/${selectedSection._id}`
-        : "http://localhost:5000/api/admin/sections";
+        ? `${API_BASE}/api/admin/sections/${selectedSection._id}`
+        : `${API_BASE}/api/admin/sections`;
       const method = selectedSection ? "PUT" : "POST";
 
       const res = await authenticatedFetch(url, {
@@ -438,8 +454,8 @@ export default function SectionManagement() {
         await fetchSections();
         
         // Release lock if editing
-        if (selectedSection) {
-          await releaseLock();
+        if (selectedSection?._id) {
+          await releaseLock(selectedSection._id, "section");
         }
         
         resetForm();
@@ -447,7 +463,7 @@ export default function SectionManagement() {
         setShowEditModal(false);
         
         // Refresh lock statuses
-        await refreshLocks();
+        refreshLocksWithDelay();
         
         showSuccess(
           selectedSection
@@ -470,6 +486,11 @@ export default function SectionManagement() {
       showError("Invalid section ID");
       return;
     }
+    if (isLocked(id)) {
+      const lockedBy = getLockedBy(id);
+      showError(`This section is currently being edited by ${lockedBy}. Please try again later.`);
+      return;
+    }
     const section = sections.find((s) => (s._id || s.id) === id);
     const sectionName = section?.sectionName || "this section";
 
@@ -477,9 +498,15 @@ export default function SectionManagement() {
       "Archive Section",
       `Are you sure you want to archive "${sectionName}"? This will hide the section from normal operations but it can be restored later.`,
       async () => {
+        const ok = await acquireLock(id, "section");
+        if (!ok) {
+          showError("Unable to acquire lock for archiving. Another admin may have started editing.");
+          refreshLocksWithDelay();
+          return;
+        }
         try {
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/admin/sections/${id}/archive`,
+            `${API_BASE}/api/admin/sections/${id}/archive`,
             { method: "PUT" }
           );
           if (res.ok) {
@@ -492,6 +519,9 @@ export default function SectionManagement() {
         } catch (err) {
           console.error("Archive section error:", err);
           showError("There was an error processing your request.");
+        } finally {
+          await releaseLock(id, "section");
+          refreshLocksWithDelay();
         }
       }
     );
@@ -905,9 +935,12 @@ export default function SectionManagement() {
           <Modal
             isOpen={showEditModal}
             onClose={async () => {
-              await releaseLock();
+              const id = selectedSection?._id || selectedSection?.id;
+              if (id) {
+                await releaseLock(id, "section");
+                refreshLocksWithDelay();
+              }
               setShowEditModal(false);
-              await refreshLocks();
             }}
             title="Edit Section"
           >
@@ -1057,9 +1090,12 @@ export default function SectionManagement() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await releaseLock();
+                    const id = selectedSection?._id || selectedSection?.id;
+                    if (id) {
+                      await releaseLock(id, "section");
+                    }
                     setShowEditModal(false);
-                    await refreshLocks();
+                    refreshLocksWithDelay();
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >

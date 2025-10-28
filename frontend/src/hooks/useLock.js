@@ -1,293 +1,329 @@
-// frontend/src/hooks/useLock.js
+// frontend/src/hooks/useLock.js (rewritten)
 import { useState, useEffect, useCallback, useRef } from "react";
-import { authenticatedFetch } from "../utils/adminAuth";
+import adminAuth, { authenticatedFetch } from "../utils/adminAuth";
 
-/**
- * Hook for managing resource locks
- * Default targets can be passed, but every API also accepts (id?, type?) overrides
- * to avoid races with setState.
- */
-export const useLock = (defaultType, defaultId) => {
-  const [lockStatus, setLockStatus] = useState({
-    locked: false,
-    by: null,
-    until: null,
-    isYou: false,
-  });
-  const [acquiring, setAcquiring] = useState(false);
-  const [error, setError] = useState(null);
+const API_BASE =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://localhost:5000";
+const LOCKS_BASE = `${API_BASE.replace(/\/$/, "")}/api/locks`;
+const HEARTBEAT_INTERVAL_MS = 8 * 60 * 1000; // refresh before 10-minute lease expires
 
-  // The resource we *actually* operate on (survives renders)
+const initialStatus = { locked: false, by: null, until: null, isYou: false };
+
+const serializeResource = (resourceType, resourceId) =>
+  `${resourceType}-${resourceId}`;
+
+const useStableTarget = (defaultType, defaultId) => {
+  const defaultTypeRef = useRef(defaultType || null);
+  const defaultIdRef = useRef(defaultId || null);
   const currentTypeRef = useRef(defaultType || null);
-  const currentIdRef   = useRef(defaultId || null);
-
-  // Heartbeat / state refs
-  const heartbeatInterval = useRef(null);
-  const lockAcquired = useRef(false);
-  const destroyed = useRef(false);
-
-  const clearHeartbeat = () => {
-    if (heartbeatInterval.current) {
-      clearInterval(heartbeatInterval.current);
-      heartbeatInterval.current = null;
-    }
-  };
-
-  const setTarget = (type, id) => {
-    if (typeof type === "string" && type.length) {
-      currentTypeRef.current = type;
-    }
-    if (id) {
-      currentIdRef.current = id;
-    }
-  };
+  const currentIdRef = useRef(defaultId || null);
 
   useEffect(() => {
-    if (defaultType && defaultType !== currentTypeRef.current) {
-      currentTypeRef.current = defaultType;
+    if (defaultType) {
+      defaultTypeRef.current = defaultType;
+      if (!currentTypeRef.current) currentTypeRef.current = defaultType;
     }
   }, [defaultType]);
 
   useEffect(() => {
-    if (defaultId && defaultId !== currentIdRef.current) {
-      currentIdRef.current = defaultId;
+    if (defaultId) {
+      defaultIdRef.current = defaultId;
+      if (!currentIdRef.current) currentIdRef.current = defaultId;
     }
   }, [defaultId]);
 
-  // --- HEARTBEAT ------------------------------------------------------------
-  const sendHeartbeat = useCallback(async () => {
-    const resourceType = currentTypeRef.current;
-    const resourceId   = currentIdRef.current;
-    if (!resourceType || !resourceId || !lockAcquired.current) return;
-
-    try {
-      const res = await authenticatedFetch(`http://localhost:5000/api/locks/heartbeat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resourceType, resourceId }),
-      });
-      if (!res.ok) {
-        // Lost the lock: stop heartbeats and refresh status
-        lockAcquired.current = false;
-        clearHeartbeat();
-        setError("You lost the edit lock. Your changes may not be saved.");
-        // Note: checkLockStatus will be defined later, but we can call it via setState
-        setLockStatus({ locked: false, by: null, until: null, isYou: false });
+  const resolve = useCallback(
+    (overrideType, overrideId, { preserve = false } = {}) => {
+      const type =
+        overrideType ?? currentTypeRef.current ?? defaultTypeRef.current;
+      const id = overrideId ?? currentIdRef.current ?? defaultIdRef.current;
+      if (!type || !id) return null;
+      if (!preserve) {
+        currentTypeRef.current = type;
+        currentIdRef.current = id;
       }
-    } catch (e) {
-      // Network hiccups shouldn't explode; TTL still protects us
-      // Optionally: log or surface transient error
-      console.warn("Heartbeat error:", e);
+      return { resourceType: type, resourceId: id };
+    },
+    []
+  );
+
+  return {
+    defaultTypeRef,
+    defaultIdRef,
+    currentTypeRef,
+    currentIdRef,
+    resolve,
+  };
+};
+
+export const useLock = (defaultType, defaultId) => {
+  const [lockStatus, setLockStatus] = useState(initialStatus);
+  const [acquiring, setAcquiring] = useState(false);
+  const [error, setError] = useState(null);
+
+  const { resolve, currentTypeRef, currentIdRef } = useStableTarget(
+    defaultType,
+    defaultId
+  );
+
+  const heartbeatRef = useRef(null);
+  const lockAcquiredRef = useRef(false);
+  const destroyedRef = useRef(false);
+
+  const clearHeartbeat = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
     }
   }, []);
 
-  const startHeartbeat = useCallback(() => {
-    clearHeartbeat();
-    // Send every 4 minutes (lease is 5m on your server)
-    heartbeatInterval.current = setInterval(sendHeartbeat, 4 * 60 * 1000);
-  }, [sendHeartbeat]);
+  const updateLockState = useCallback((nextState) => {
+    setLockStatus((prev) => ({ ...prev, ...nextState }));
+  }, []);
 
-  // --- ACQUIRE --------------------------------------------------------------
+  const startHeartbeat = useCallback(
+    (force = false) => {
+      if (!force && heartbeatRef.current) return;
+      clearHeartbeat();
+      heartbeatRef.current = setInterval(async () => {
+        if (!lockAcquiredRef.current) {
+          clearHeartbeat();
+          return;
+        }
+        const target = resolve(null, null, { preserve: true });
+        if (!target) return;
+        try {
+          const res = await authenticatedFetch(`${LOCKS_BASE}/heartbeat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(target),
+          });
+          if (!res.ok) {
+            lockAcquiredRef.current = false;
+            clearHeartbeat();
+            updateLockState(initialStatus);
+          }
+        } catch {
+          // ignore transient heartbeat failures; lease expiration will clean eventually
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+    },
+    [clearHeartbeat, resolve, updateLockState]
+  );
+
   const acquireLock = useCallback(
     async (idOverride, typeOverride) => {
-      const resourceType = typeOverride ?? currentTypeRef.current ?? defaultType;
-      const resourceId   = idOverride   ?? currentIdRef.current   ?? defaultId;
-
-      if (!resourceType || !resourceId) {
+      const target = resolve(typeOverride, idOverride);
+      if (!target) {
         setError("Lock acquisition requires a valid resource target.");
         return false;
       }
-
-      // Remember the target we’re locking (prevents race with setState)
-      setTarget(resourceType, resourceId);
 
       setAcquiring(true);
       setError(null);
 
       try {
-        const res = await authenticatedFetch(`http://localhost:5000/api/locks/acquire`, {
+        const res = await authenticatedFetch(`${LOCKS_BASE}/acquire`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resourceType, resourceId }),
+          body: JSON.stringify(target),
         });
-
         const data = await res.json().catch(() => ({}));
 
+        if (res.status === 200 || res.status === 201) {
+          lockAcquiredRef.current = true;
+          updateLockState({
+            locked: true,
+            by:
+              data?.lock?.ownerName ??
+              data?.ownerName ??
+              data?.lock?.owner ??
+              "You",
+            until: data?.expiresAt ?? data?.lock?.expiresAt ?? null,
+            isYou: true,
+          });
+          startHeartbeat(true);
+          return true;
+        }
+
         if (res.status === 423) {
-          setError(
-            data?.message ||
-              `This ${resourceType} is currently being edited by ${data?.lockedBy || "another admin"}`
-          );
-          setLockStatus({
+          updateLockState({
             locked: true,
             by: data?.lockedBy ?? "Another admin",
             until: data?.until ?? null,
             isYou: false,
           });
+          setError(
+            data?.message ||
+              "This resource is currently being edited by another admin."
+          );
           return false;
         }
 
-        if (res.ok) {
-          lockAcquired.current = true;
-          setLockStatus({
-            locked: true,
-            by: "You",
-            until: data?.expiresAt ?? data?.lock?.expiresAt ?? null,
-            isYou: true,
-          });
-          startHeartbeat();
-          return true;
-        }
-
-        setError(data?.message || "Failed to acquire lock");
+        setError(data?.message || "Failed to acquire lock.");
         return false;
-      } catch {
-        setError("Network error while acquiring lock");
+      } catch (err) {
+        console.error("Lock acquisition error:", err);
+        setError("Network error while acquiring lock.");
         return false;
       } finally {
         setAcquiring(false);
       }
     },
-    [defaultType, defaultId, startHeartbeat]
+    [resolve, startHeartbeat, updateLockState]
   );
 
-  // --- RELEASE --------------------------------------------------------------
   const releaseLock = useCallback(
     async (idOverride, typeOverride) => {
-      const resourceType = typeOverride ?? currentTypeRef.current ?? defaultType;
-      const resourceId   = idOverride   ?? currentIdRef.current   ?? defaultId;
+      const target = resolve(typeOverride, idOverride);
+      if (!target) return false;
 
-      if (!resourceType || !resourceId || !lockAcquired.current) return;
+      if (!lockAcquiredRef.current) {
+        updateLockState(initialStatus);
+        return true;
+      }
 
       clearHeartbeat();
 
       try {
-        await authenticatedFetch(`http://localhost:5000/api/locks/release`, {
+        await authenticatedFetch(`${LOCKS_BASE}/release`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resourceType, resourceId }),
+          body: JSON.stringify(target),
         });
       } catch {
-        // ignore best-effort release failures
+        // swallow release failures (best-effort)
       }
 
-      lockAcquired.current = false;
-      setLockStatus({ locked: false, by: null, until: null, isYou: false });
+      lockAcquiredRef.current = false;
+      updateLockState(initialStatus);
+      return true;
     },
-    [defaultType, defaultId]
+    [clearHeartbeat, resolve, updateLockState]
   );
 
-  // --- STATUS ---------------------------------------------------------------
   const checkLockStatus = useCallback(
     async (idOverride, typeOverride) => {
-      const resourceType = typeOverride ?? currentTypeRef.current ?? defaultType;
-      const resourceId   = idOverride   ?? currentIdRef.current   ?? defaultId;
-      if (!resourceType || !resourceId) return;
+      const target = resolve(typeOverride, idOverride, { preserve: true });
+      if (!target) return;
 
       try {
         const res = await authenticatedFetch(
-          `http://localhost:5000/api/locks/${resourceId}?resourceType=${resourceType}`
+          `${LOCKS_BASE}/${target.resourceId}?resourceType=${target.resourceType}`
         );
-        const data = await res.json();
-        // Normalize payload in case server returns success:false for not-locked
+        const data = await res.json().catch(() => ({}));
+
         if (data?.locked) {
-          setLockStatus({
+          updateLockState({
             locked: true,
             by: data.by,
             until: data.until ?? null,
             isYou: !!data.isYou,
           });
         } else {
-          setLockStatus({ locked: false, by: null, until: null, isYou: false });
+          updateLockState(initialStatus);
         }
       } catch {
-        // swallow; this is informational
+        // informational only
       }
     },
-    [defaultType, defaultId]
+    [resolve, updateLockState]
   );
 
-  // --- LIFECYCLE CLEANUP ----------------------------------------------------
   useEffect(() => {
-    destroyed.current = false;
+    destroyedRef.current = false;
     return () => {
-      destroyed.current = true;
+      destroyedRef.current = true;
       clearHeartbeat();
-      if (lockAcquired.current) {
-        // Best-effort async release
+      if (lockAcquiredRef.current) {
         releaseLock().catch(() => {});
       }
     };
-  }, [releaseLock]);
+  }, [clearHeartbeat, releaseLock]);
 
-  // Try to release on real tab close/navigation
   useEffect(() => {
     const handler = () => {
-      if (!lockAcquired.current) return;
-      const resourceType = currentTypeRef.current;
-      const resourceId   = currentIdRef.current;
-      if (!resourceType || !resourceId) return;
+      if (!lockAcquiredRef.current) return;
+      const target = resolve(null, null, { preserve: true });
+      if (!target) return;
 
-      // Best effort release using sendBeacon
-      try {
-        const blob = new Blob(
-          [JSON.stringify({ resourceType, resourceId })],
-          { type: "application/json" }
-        );
-        navigator.sendBeacon?.("/api/locks/release", blob);
-      } catch {
-        // ignore
+      const payload = JSON.stringify(target);
+      let sent = false;
+
+      if (navigator.sendBeacon) {
+        try {
+          const blob = new Blob([payload], { type: "application/json" });
+          sent = navigator.sendBeacon(`${LOCKS_BASE}/release`, blob);
+        } catch {
+          sent = false;
+        }
+      }
+
+      if (!sent) {
+        try {
+          const token = adminAuth.getAccessToken();
+          if (!token) return;
+          fetch(`${LOCKS_BASE}/release`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: payload,
+            keepalive: true,
+          }).catch(() => {});
+        } catch {
+          // ignore
+        }
       }
     };
 
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  }, [resolve]);
 
   return {
     lockStatus,
     acquiring,
     error,
-
-    // Prefer passing explicit id/type from the caller:
-    acquireLock,      // (idOverride?, typeOverride?)
-    releaseLock,      // (idOverride?, typeOverride?)
-    checkLockStatus,  // (idOverride?, typeOverride?)
-
-    // Convenience flags
+    acquireLock,
+    releaseLock,
+    checkLockStatus,
     isLocked: lockStatus.locked && !lockStatus.isYou,
-    hasLock:  lockStatus.locked &&  lockStatus.isYou,
+    hasLock: lockStatus.locked && lockStatus.isYou,
   };
 };
 
-/**
- * Batch checker for list views
- */
 export const useBatchLockStatus = (resourceType, resourceIds = []) => {
   const [locks, setLocks] = useState({});
   const [loading, setLoading] = useState(false);
 
   const checkBatchStatus = useCallback(async () => {
-    if (!resourceType || resourceIds.length === 0) return;
+    if (!resourceType || resourceIds.length === 0) {
+      setLocks({});
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
-        resources: resourceIds.map((id) => ({ resourceType, resourceId: id })),
+        resources: resourceIds.map((id) => ({
+          resourceType,
+          resourceId: id,
+        })),
       };
 
-      console.log(`📋 Checking batch lock status for ${resourceIds.length} ${resourceType}(s)`);
-      
-      const res = await authenticatedFetch(`http://localhost:5000/api/locks/check-batch`, {
+      const res = await authenticatedFetch(`${LOCKS_BASE}/check-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      console.log(`📋 Batch lock status:`, data?.locks || {});
+      const data = await res.json().catch(() => ({ locks: {} }));
       setLocks(data?.locks || {});
     } catch (err) {
-      console.error('📋 Batch lock check error:', err);
+      console.error("Batch lock check error:", err);
     } finally {
       setLoading(false);
     }
@@ -295,14 +331,13 @@ export const useBatchLockStatus = (resourceType, resourceIds = []) => {
 
   useEffect(() => {
     checkBatchStatus();
-    // Check every 5 seconds instead of 60 seconds for better real-time updates
-    const t = setInterval(checkBatchStatus, 5_000);
-    return () => clearInterval(t);
+    const interval = setInterval(checkBatchStatus, 5_000);
+    return () => clearInterval(interval);
   }, [checkBatchStatus]);
 
   const isLocked = useCallback(
     (id) => {
-      const key = `${resourceType}-${id}`;
+      const key = serializeResource(resourceType, id);
       const info = locks[key];
       return !!(info?.locked && !info?.isYou);
     },
@@ -311,11 +346,17 @@ export const useBatchLockStatus = (resourceType, resourceIds = []) => {
 
   const getLockedBy = useCallback(
     (id) => {
-      const key = `${resourceType}-${id}`;
+      const key = serializeResource(resourceType, id);
       return locks[key]?.by || null;
     },
     [locks, resourceType]
   );
 
-  return { locks, loading, isLocked, getLockedBy, refresh: checkBatchStatus };
+  return {
+    locks,
+    loading,
+    isLocked,
+    getLockedBy,
+    refresh: checkBatchStatus,
+  };
 };
