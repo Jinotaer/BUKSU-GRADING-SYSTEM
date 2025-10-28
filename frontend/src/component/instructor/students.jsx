@@ -265,28 +265,26 @@ export default function SectionsStudentTable() {
     <NotificationProvider notifications={notifications}>
       <div className="flex min-h-screen bg-gray-50">
         {/* Sidebar */}
-        <div className="hidden md:block md:w-64">
-          <InstructorSidebar />
-        </div>
+        <InstructorSidebar/>
 
-        <div className="flex-1 p-4 md:p-6">
+        <div className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-16 sm:max-[880px]:pt-20 mt-6 sm:mt-8 md:mt-10">
           {/* Header */}
           <div className="max-w-7xl mx-auto w-full">
-            <div className="mb-4">
-              <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-              <p className="text-gray-600">
+            <div className="mb-3 sm:mb-4">
+              <h1 className="font-outfit text-[#1E3A5F] text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mt-2 sm:mt-4 md:mt-6">Students</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
                 Select a section, review students in a table, and add more.
               </p>
             </div>
 
             {/* Controls Row */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
                   Section
                 </label>
                 <select
-                  className="w-full md:w-auto min-w-[260px] rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm p-1.5 border"
+                  className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm p-2 sm:p-2.5 border truncate"
                   value={selectedSection?._id || ""}
                   onChange={(e) => {
                     const sec = sections.find((s) => s._id === e.target.value);
@@ -306,24 +304,24 @@ export default function SectionsStudentTable() {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => fetchSections({ keepSelected: true })}
                   disabled={loading}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm bg-white hover:bg-gray-50 border-gray-300 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm bg-white hover:bg-gray-50 border-gray-300 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial"
                 >
                   <IconRefresh
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loading ? "animate-spin" : ""}`}
                   />
-                  Refresh
+                  <span className="hidden xs:inline">Refresh</span>
                 </button>
                 <button
                   onClick={openInvite}
                   disabled={!selectedSection}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial"
                 >
-                  <IconUserPlus className="h-4 w-4" />
-                  Add Students
+                  <IconUserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span>Add Students</span>
                 </button>
               </div>
             </div>
@@ -334,36 +332,36 @@ export default function SectionsStudentTable() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
             ) : sections.length === 0 ? (
-              <div className="mt-6 bg-white rounded-xl border border-gray-200 p-10 text-center">
-                <IconBook className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="mt-4 sm:mt-6 bg-white rounded-lg sm:rounded-xl border border-gray-200 p-6 sm:p-8 md:p-10 text-center">
+                <IconBook className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-2 sm:mb-3" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                   No Sections Assigned
                 </h3>
-                <p className="text-gray-500 mt-1">
+                <p className="text-sm sm:text-base text-gray-500 mt-1">
                   You don't have any sections yet.
                 </p>
               </div>
             ) : !selectedSection ? (
-              <div className="mt-6 bg-white rounded-xl border border-gray-200 p-10 text-center">
-                <IconChalkboard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="mt-4 sm:mt-6 bg-white rounded-lg sm:rounded-xl border border-gray-200 p-6 sm:p-8 md:p-10 text-center">
+                <IconChalkboard className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-2 sm:mb-3" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                   Choose a section
                 </h3>
-                <p className="text-gray-500 mt-1">
+                <p className="text-sm sm:text-base text-gray-500 mt-1">
                   Use the dropdown above to view students.
                 </p>
               </div>
             ) : (
-              <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="mt-4 sm:mt-6 bg-white rounded-lg sm:rounded-xl border border-gray-200 overflow-hidden">
                 {/* Table header */}
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-base md:text-lg font-semibold text-gray-900">
+                <div className="px-3 sm:px-4 py-3 border-b border-gray-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 truncate">
                         {selectedSection.sectionName ||
                           selectedSection.section_name}
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500 truncate">
                         {selectedSection.subject?.subjectName ||
                           selectedSection.subject?.subject_name ||
                           "No Subject"}{" "}
@@ -376,30 +374,30 @@ export default function SectionsStudentTable() {
                           ""}
                       </p>
                     </div>
-                    <div className="text-sm text-gray-600 flex items-center gap-1">
-                      <IconUsers className="h-4 w-4" /> 
+                    <div className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 flex-shrink-0">
+                      <IconUsers className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> 
                       {studentSearchQuery.trim() ? `${filteredStudentsCount} of ${totalStudents}` : totalStudents}
                     </div>
                   </div>
                   
                   {/* Search input */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 max-w-xs relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <IconSearch className="h-4 w-4 text-gray-400" />
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex-1 sm:max-w-xs relative">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
+                        <IconSearch className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
                       </div>
                       <input
                         type="text"
                         placeholder="Search students..."
                         value={studentSearchQuery}
                         onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-8 sm:pl-10 pr-2.5 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     {studentSearchQuery.trim() && (
                       <button
                         onClick={() => setStudentSearchQuery("")}
-                        className="text-sm text-gray-500 hover:text-gray-700"
+                        className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 whitespace-nowrap"
                       >
                         Clear
                       </button>
@@ -414,25 +412,25 @@ export default function SectionsStudentTable() {
                       <tr>
                         <th
                           scope="col"
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           Student ID
                         </th>
                         <th
                           scope="col"
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           Name
                         </th>
                         <th
                           scope="col"
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           Email
                         </th>
                         <th
                           scope="col"
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
                           Action
                         </th>
@@ -443,7 +441,7 @@ export default function SectionsStudentTable() {
                         <tr>
                           <td
                             colSpan={4}
-                            className="px-4 py-8 text-center text-gray-500"
+                            className="px-3 sm:px-4 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-500"
                           >
                             No students yet. Click{" "}
                             <span className="font-medium">Add Students</span> to
@@ -454,7 +452,7 @@ export default function SectionsStudentTable() {
                         <tr>
                           <td
                             colSpan={4}
-                            className="px-4 py-8 text-center text-gray-500"
+                            className="px-3 sm:px-4 py-6 sm:py-8 text-center text-xs sm:text-sm text-gray-500"
                           >
                             No students match your search criteria.{" "}
                             <button
@@ -468,13 +466,26 @@ export default function SectionsStudentTable() {
                       ) : (
                         filteredStudents.map((s) => (
                           <tr key={s._id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-600">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                               {s.student_id || "—"}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                              {`${s.first_name} ${s.last_name}`.trim() || "—"}
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 font-medium">
+                              <div className="max-w-[150px] sm:max-w-none">
+                                <div className="truncate">
+                                  {`${s.first_name} ${s.last_name}`.trim() || "—"}
+                                </div>
+                                {/* Show email on mobile under name */}
+                                {s.email && (
+                                  <a
+                                    href={`mailto:${s.email}`}
+                                    className="md:hidden text-xs text-blue-600 hover:underline truncate block mt-0.5"
+                                  >
+                                    {s.email}
+                                  </a>
+                                )}
+                              </div>
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="hidden md:table-cell px-4 py-3 text-sm">
                               {s.email ? (
                                 <a
                                   href={`mailto:${s.email}`}
@@ -486,10 +497,10 @@ export default function SectionsStudentTable() {
                                 <span className="text-gray-600">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
                               <button
                                 onClick={() => handleRemoveStudent(s._id)}
-                                className="inline-flex items-center px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                className="inline-flex items-center px-2 sm:px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 whitespace-nowrap"
                               >
                                 Remove
                               </button>
@@ -507,15 +518,15 @@ export default function SectionsStudentTable() {
 
         {/* Invite Modal */}
         {showInviteModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 z-50">
-            <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-50">
+            <div className="bg-white rounded-lg sm:rounded-xl w-full max-w-2xl shadow-xl max-h-[90vh] flex flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+              <div className="flex items-start sm:items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200 flex-shrink-0">
+                <div className="flex-1 min-w-0 pr-2">
+                  <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 truncate">
                     Invite Students
                   </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                  <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
                     {selectedSection?.sectionName ||
                       selectedSection?.section_name}{" "}
                     ·{" "}
@@ -528,16 +539,16 @@ export default function SectionsStudentTable() {
                 </div>
                 <button
                   onClick={() => setShowInviteModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1"
                 >
-                  <IconX className="h-6 w-6" />
+                  <IconX className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </div>
 
               {/* Body */}
-              <div className="p-4 sm:p-6 space-y-4">
+              <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Search by name, ID, or email
                   </label>
                   <input
@@ -545,22 +556,22 @@ export default function SectionsStudentTable() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Start typing…"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-2.5 sm:px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 </div>
 
-                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                <div className="max-h-40 sm:max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
                   {searchQuery.trim() === "" ? (
-                    <div className="p-6 text-center text-gray-500">
-                      <IconUsers className="mx-auto mb-2 text-gray-300" />
-                      <p>Enter a query to find students</p>
+                    <div className="p-4 sm:p-6 text-center text-gray-500">
+                      <IconUsers className="h-8 w-8 sm:h-10 sm:w-10 mx-auto mb-2 text-gray-300" />
+                      <p className="text-xs sm:text-sm">Enter a query to find students</p>
                     </div>
                   ) : isSearching ? (
-                    <div className="p-4 text-center text-gray-500">
+                    <div className="p-4 text-center text-xs sm:text-sm text-gray-500">
                       Searching…
                     </div>
                   ) : searchResults.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
+                    <div className="p-4 text-center text-xs sm:text-sm text-gray-500">
                       No students found
                     </div>
                   ) : (
@@ -568,16 +579,16 @@ export default function SectionsStudentTable() {
                       {searchResults.map((student) => (
                         <li
                           key={student._id}
-                          className="p-3 flex items-center gap-3 hover:bg-gray-50"
+                          className="p-2.5 sm:p-3 flex items-center gap-2 sm:gap-3 hover:bg-gray-50"
                         >
                           <input
                             type="checkbox"
                             checked={selectedStudents.includes(student._id)}
                             onChange={() => handleStudentSelection(student._id)}
-                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 flex-shrink-0"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                               {student.first_name} {student.last_name}
                             </p>
                             <p className="text-xs text-gray-500 truncate">
@@ -591,28 +602,28 @@ export default function SectionsStudentTable() {
                 </div>
 
                 {selectedStudents.length > 0 && (
-                  <p className="text-sm text-blue-600">
+                  <p className="text-xs sm:text-sm text-blue-600 font-medium">
                     {selectedStudents.length} selected
                   </p>
                 )}
 
-                <div className="bg-green-50 p-3 rounded-lg text-sm text-green-700">
+                <div className="bg-green-50 p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm text-green-700">
                   📧 Selected students will receive email invitations with
                   section details and login instructions.
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 sm:pt-3 border-t border-gray-200">
                   <button
                     onClick={() => setShowInviteModal(false)}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    className="w-full sm:w-auto px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={inviteStudents}
                     disabled={selectedStudents.length === 0 || submitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                    className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm"
                   >
                     {submitting
                       ? "Inviting…"

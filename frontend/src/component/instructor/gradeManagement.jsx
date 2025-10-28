@@ -323,34 +323,36 @@ export default function GradeManagement() {
 
   const exportToGoogleSheets = async () => {
     if (!selectedSection) return;
-    
+
     try {
       setLoading(true);
       showSuccessRef.current("Exporting to Google Sheets...");
-      
+
       const res = await authenticatedFetch(
         `http://localhost:5000/api/export/google-sheets/${selectedSection._id}`,
         {
-          method: 'POST',
+          method: "POST",
         }
       );
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || 'Failed to export to Google Sheets');
+        throw new Error(error.message || "Failed to export to Google Sheets");
       }
 
       const data = await res.json();
-      
+
       showSuccessRef.current("Successfully exported to Google Sheets!");
-      
+
       // Open the spreadsheet in a new tab
       if (data.spreadsheetUrl) {
-        window.open(data.spreadsheetUrl, '_blank');
+        window.open(data.spreadsheetUrl, "_blank");
       }
     } catch (error) {
-      console.error('Export error:', error);
-      showErrorRef.current(error.message || "Failed to export to Google Sheets");
+      console.error("Export error:", error);
+      showErrorRef.current(
+        error.message || "Failed to export to Google Sheets"
+      );
     } finally {
       setLoading(false);
     }
@@ -660,13 +662,21 @@ export default function GradeManagement() {
         </div>
 
         {/* Main content - responsive for all screen sizes */}
-        <div className="lg:ml-64">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
           <div className="min-h-screen">
             {/* Mobile header */}
-            <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
-              <h1 className="text-lg font-semibold text-gray-900">
+            <div className="lg:hidden px-4 py-3">
+              <InstructorSidebar />
+            </div>
+
+            {/* Mobile header */}
+            <div className="lg:hidden px-4">
+              <h2 className="font-outfit text-[#1E3A5F] text-2xl font-bold sm:text-2xl lg:text-4xl">
                 Grade Management
-              </h1>
+              </h2>
+              <p className="text-gray-600 mt-1 text-sm md:text-base">
+                Manage student grades and generate reports
+              </p>
             </div>
 
             {/* Content area */}
@@ -676,7 +686,7 @@ export default function GradeManagement() {
                 <div className="hidden lg:block">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-outfit text-[#1E3A5F] text-2xl lg:text-3xl font-bold">
+                      <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
                         Grade Management
                       </h2>
                       <p className="text-gray-600 mt-1 text-sm md:text-base">
@@ -701,7 +711,9 @@ export default function GradeManagement() {
                       <button
                         onClick={exportToGoogleSheets}
                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
-                        disabled={!selectedSection || !students.length || loading}
+                        disabled={
+                          !selectedSection || !students.length || loading
+                        }
                       >
                         <IconBrandGoogle size={18} />
                         Export to Google Sheets

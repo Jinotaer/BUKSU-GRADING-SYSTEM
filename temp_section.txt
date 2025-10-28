@@ -492,26 +492,18 @@ export default function SectionManagement() {
       return;
     }
     const section = sections.find((s) => (s._id || s.id) === id);
-    if (!section) {
-      showError("Section not found");
-      return;
-    }
-
-    const ok = await acquireLock(id, "section");
-    if (!ok) {
-      showError("Unable to acquire lock for archiving. Another admin may have started editing.");
-      refreshLocksWithDelay();
-      return;
-    }
-
-    refreshLocksWithDelay();
-
-    const sectionName = section.sectionName || "this section";
+    const sectionName = section?.sectionName || "this section";
 
     showConfirmDialog(
       "Archive Section",
       `Are you sure you want to archive "${sectionName}"? This will hide the section from normal operations but it can be restored later.`,
       async () => {
+        const ok = await acquireLock(id, "section");
+        if (!ok) {
+          showError("Unable to acquire lock for archiving. Another admin may have started editing.");
+          refreshLocksWithDelay();
+          return;
+        }
         try {
           const res = await authenticatedFetch(
             `${API_BASE}/api/admin/sections/${id}/archive`,
@@ -531,10 +523,6 @@ export default function SectionManagement() {
           await releaseLock(id, "section");
           refreshLocksWithDelay();
         }
-      },
-      async () => {
-        await releaseLock(id, "section");
-        refreshLocksWithDelay();
       }
     );
   };

@@ -14,7 +14,8 @@ export const useNotifications = () => {
     show: false,
     title: '',
     message: '',
-    onConfirm: null
+    onConfirm: null,
+    onCancel: null,
   });
 
   // Notification helpers
@@ -37,12 +38,13 @@ export const useNotifications = () => {
   };
 
   // Confirmation dialog helpers
-  const showConfirmDialog = (title, message, onConfirm) => {
+  const showConfirmDialog = (title, message, onConfirm, onCancel = null) => {
     setConfirmDialog({
       show: true,
       title,
       message,
-      onConfirm
+      onConfirm,
+      onCancel,
     });
   };
 
@@ -51,7 +53,8 @@ export const useNotifications = () => {
       show: false,
       title: '',
       message: '',
-      onConfirm: null
+      onConfirm: null,
+      onCancel: null,
     });
   };
 

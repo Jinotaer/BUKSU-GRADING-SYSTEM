@@ -38,7 +38,7 @@ export const NotificationModal = ({ isOpen, onClose, type, title, message }) => 
   );
 };
 
-export const ConfirmationModal = ({ isOpen, onClose, title, message, onConfirm }) => {
+export const ConfirmationModal = ({ isOpen, onClose, title, message, onConfirm, onCancel }) => {
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
@@ -46,6 +46,17 @@ export const ConfirmationModal = ({ isOpen, onClose, title, message, onConfirm }
       onClose(); // Close the modal first
       await onConfirm(); // Then execute the async callback
     }
+  };
+
+  const handleCancel = async () => {
+    if (onCancel) {
+      try {
+        await onCancel();
+      } catch (err) {
+        console.error("Confirmation cancel handler error:", err);
+      }
+    }
+    onClose();
   };
 
   return (
@@ -59,7 +70,7 @@ export const ConfirmationModal = ({ isOpen, onClose, title, message, onConfirm }
           <p className="text-gray-600 mb-6">{message}</p>
           <div className="flex gap-3">
             <button
-              onClick={onClose}
+              onClick={handleCancel}
               className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -100,6 +111,7 @@ export const NotificationProvider = ({ children, notifications }) => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={confirmDialog.onConfirm}
+        onCancel={confirmDialog.onCancel}
       />
     </>
   );

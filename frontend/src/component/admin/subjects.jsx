@@ -282,18 +282,23 @@ export default function SubjectManagement() {
     }
 
     const subject = subjects.find((s) => s._id === subjectId);
-    const subjectName = subject?.subjectCode || "this subject";
+    if (!subject) return;
+
+    const ok = await acquireLock(subjectId, "subject");
+    if (!ok) {
+      showError("Unable to acquire lock for archiving. Another admin may have started editing.");
+      refreshLocksWithDelay();
+      return;
+    }
+
+    refreshLocksWithDelay();
+
+    const subjectName = subject.subjectCode || "this subject";
 
     showConfirmDialog(
       "Archive Subject",
       `Are you sure you want to archive "${subjectName}"? It will be hidden from normal operations but can be restored later.`,
       async () => {
-        const ok = await acquireLock(subjectId, "subject");
-        if (!ok) {
-          showError("Unable to acquire lock for archiving. Another admin may have started editing.");
-          refreshLocksWithDelay();
-          return;
-        }
         try {
           const res = await authenticatedFetch(
             `${API_BASE}/api/admin/subjects/${subjectId}/archive`,
@@ -314,6 +319,10 @@ export default function SubjectManagement() {
           await releaseLock(subjectId, "subject");
           refreshLocksWithDelay();
         }
+      },
+      async () => {
+        await releaseLock(subjectId, "subject");
+        refreshLocksWithDelay();
       }
     );
   };

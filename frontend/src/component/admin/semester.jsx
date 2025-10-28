@@ -399,73 +399,65 @@ export default function SemesterManagement() {
       return;
     }
     const semester = semesters.find((s) => (s._id || s.id) === id);
-    const semesterLabel = semester
-      ? `${semester.schoolYear} - ${semester.term} Semester`
-      : "this semester";
+    if (!semester) {
+      showNotification("error", "Error", "Semester not found");
+      return;
+    }
+
+    const ok = await acquireLock(id, "semester");
+    if (!ok) {
+      showNotification(
+        "error",
+        "Locked",
+        "Unable to acquire an edit lock for this semester. Please try again."
+      );
+      refreshLocksWithDelay();
+      return;
+    }
+
+    refreshLocksWithDelay();
+
+    const semesterLabel = `${semester.schoolYear} - ${semester.term} Semester`;
 
     showConfirmDialog(
       "Archive Semester",
       `Are you sure you want to archive "${semesterLabel}"? This will hide the semester from normal operations but it can be restored later.`,
       async () => {
-        let acquired = false;
         try {
-          setLoading(true);
-          const hasLock = await acquireLock(id, "semester");
-          if (!hasLock) {
-            setLoading(false);
-            hideConfirmDialog();
-            showNotification(
-              "error",
-              "Locked",
-              "Unable to acquire an edit lock for this semester. Please try again."
-            );
-            refreshLocksWithDelay();
-            return;
-          }
-          acquired = true;
-
           const res = await authenticatedFetch(
             `${API_BASE}/api/admin/semesters/${id}/archive`,
             { method: "PUT" }
           );
           if (res.ok) {
             setSemesters((prev) => prev.filter((s) => (s._id || s.id) !== id));
-            hideConfirmDialog();
-            setTimeout(() => {
-              showNotification(
-                "success",
-                "Success",
-                `Semester "${semesterLabel}" archived successfully!`
-              );
-            }, 100);
+            showNotification(
+              "success",
+              "Success",
+              `Semester "${semesterLabel}" archived successfully!`
+            );
           } else {
             const errorData = await res.json().catch(() => ({}));
-            hideConfirmDialog();
-            setTimeout(() => {
-              showNotification(
-                "error",
-                "Error",
-                errorData.message || "Failed to archive semester."
-              );
-            }, 100);
-          }
-        } catch (err) {
-          hideConfirmDialog();
-          console.error("Archive semester error:", err);
-          setTimeout(() => {
             showNotification(
               "error",
               "Error",
-              "There was an error processing your request."
+              errorData.message || "Failed to archive semester."
             );
-          }, 100);
-        } finally {
-          setLoading(false);
-          if (acquired) {
-            await releaseLock(id, "semester");
-            refreshLocksWithDelay();
           }
+        } catch (err) {
+          console.error("Archive semester error:", err);
+          showNotification(
+            "error",
+            "Error",
+            "There was an error processing your request."
+          );
+        } finally {
+          await releaseLock(id, "semester");
+          refreshLocksWithDelay();
         }
+      },
+      async () => {
+        await releaseLock(id, "semester");
+        refreshLocksWithDelay();
       }
     );
   };
