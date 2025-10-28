@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   IconUsers,
   IconFilter,
-  IconDownload,
   IconRefresh,
+  IconBrandGoogle,
 } from "@tabler/icons-react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
@@ -321,42 +321,39 @@ export default function GradeManagement() {
     showSuccessRef,
   ]);
 
-  const exportGrades = () => {
-    if (!selectedSection || !students.length) return;
-    const csv = [
-      [
-        "Student ID",
-        "Student Name",
-        "CS Avg",
-        "LAB Avg",
-        "MO Avg",
-        "Midterm",
-        "Final Grade",
-        "Remarks",
-      ].join(","),
-      ...students.map((s) => {
-        const g = grades[s._id] || {};
-        return [
-          s.studid || "",
-          `"${s.fullName}"`,
-          g.classStandingAverage ?? 0,
-          g.laboratoryAverage ?? 0,
-          g.majorOutputAverage ?? 0,
-          g.midtermGrade ?? 0,
-          g.finalGrade ?? 0,
-          `"${g.remarks || "No Grade"}"`,
-        ].join(",");
-      }),
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${selectedSection.sectionName}_${selectedSection.schoolYear}_${selectedSection.term}_grades.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const exportToGoogleSheets = async () => {
+    if (!selectedSection) return;
+    
+    try {
+      setLoading(true);
+      showSuccessRef.current("Exporting to Google Sheets...");
+      
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/export/google-sheets/${selectedSection._id}`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to export to Google Sheets');
+      }
+
+      const data = await res.json();
+      
+      showSuccessRef.current("Successfully exported to Google Sheets!");
+      
+      // Open the spreadsheet in a new tab
+      if (data.spreadsheetUrl) {
+        window.open(data.spreadsheetUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      showErrorRef.current(error.message || "Failed to export to Google Sheets");
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ---------- rendering helpers ---------- */
@@ -702,12 +699,12 @@ export default function GradeManagement() {
                         Refresh
                       </button>
                       <button
-                        onClick={exportGrades}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium"
-                        disabled={!selectedSection || !students.length}
+                        onClick={exportToGoogleSheets}
+                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                        disabled={!selectedSection || !students.length || loading}
                       >
-                        <IconDownload size={18} />
-                        Export CSV
+                        <IconBrandGoogle size={18} />
+                        Export to Google Sheets
                       </button>
                     </div>
                   </div>
@@ -718,7 +715,7 @@ export default function GradeManagement() {
                   <button
                     onClick={refreshData}
                     disabled={loading}
-                    className="flex-1 xs:flex-none flex items-center justify-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium"
+                    className="flex-1 flex items-center justify-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium"
                   >
                     {loading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -728,12 +725,12 @@ export default function GradeManagement() {
                     <span>Refresh</span>
                   </button>
                   <button
-                    onClick={exportGrades}
-                    className="flex-1 xs:flex-none flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium"
-                    disabled={!selectedSection || !students.length}
+                    onClick={exportToGoogleSheets}
+                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                    disabled={!selectedSection || !students.length || loading}
                   >
-                    <IconDownload size={16} />
-                    <span>Export</span>
+                    <IconBrandGoogle size={16} />
+                    <span>Export to Sheets</span>
                   </button>
                 </div>
 

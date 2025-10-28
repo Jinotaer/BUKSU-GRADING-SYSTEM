@@ -392,3 +392,6 @@ class AdminAuth {
 const adminAuth = new AdminAuth();
 export default adminAuth;
 
+// Export authenticatedFetch for backward compatibility
+export const authenticatedFetch = adminAuth.apiCall.bind(adminAuth);
+

@@ -36,10 +36,13 @@ export const adminAuth = async (req, res, next) => {
     }
 
     req.admin = {
+      _id: admin._id,
       id: admin._id,
       email: admin.email,
       role: admin.role,
-      fullName: admin.fullName
+      fullName: admin.fullName,
+      firstName: admin.firstName,
+      lastName: admin.lastName
     };
     next();
   } catch (error) {

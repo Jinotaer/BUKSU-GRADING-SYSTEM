@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   IconPlus,
@@ -19,6 +19,7 @@ import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
 function Modal({ isOpen, onClose, title, children }) {
   if (!isOpen) return null;
@@ -81,6 +82,16 @@ export default function SectionManagement() {
   // Notifications
   const notifications = useNotifications();
   const { showError, showSuccess, showConfirmDialog } = notifications;
+
+  // Lock management
+  const sectionIds = sections.map(s => s._id);
+  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus('section', sectionIds);
+  
+  // Lock for editing
+  const {
+    acquireLock,
+    releaseLock,
+  } = useLock('section', selectedSection?._id);
 
   // Fetch data
   useEffect(() => {
@@ -168,8 +179,21 @@ export default function SectionManagement() {
     });
   }, [sections, searchTerm, filterCollege, filterSemester, semesters]);
 
-  const fetchSections = async () => {
+  const fetchSections = useCallback(async () => {
     try {
+      // Clean up expired locks first
+      try {
+        const cleanupRes = await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+          method: "POST",
+        });
+        if (cleanupRes.ok) {
+          const cleanupData = await cleanupRes.json();
+          console.log("🧹 Cleaned up expired locks:", cleanupData.message);
+        }
+      } catch (cleanupErr) {
+        console.error("Cleanup error:", cleanupErr);
+      }
+      
       setLoading(true);
       const res = await authenticatedFetch(
         "http://localhost:5000/api/admin/sections"
@@ -183,7 +207,7 @@ export default function SectionManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /* ---------- Universal change handlers (smooth typing) ---------- */
   const handleChange = (e) => {
@@ -233,7 +257,22 @@ export default function SectionManagement() {
     setSelectedSection(null);
   };
 
-  const openEditModal = (section) => {
+  const openEditModal = async (section) => {
+    const sectionId = section._id;
+
+    if (isLocked(sectionId)) {
+      const lockedBy = getLockedBy(sectionId);
+      showError(`This section is currently being edited by ${lockedBy}. Please try again later.`);
+      return;
+    }
+
+    const lockAcquired = await acquireLock(sectionId, "section");
+    if (!lockAcquired) {
+      showError("Unable to acquire lock for editing. Another admin may have started editing.");
+      await refreshLocks();
+      return;
+    }
+
     setSelectedSection(section);
     const semesterId =
       section.subject?.semester?._id || section.subject?.semester || "";
@@ -304,7 +343,7 @@ export default function SectionManagement() {
     }
     const t = setTimeout(() => searchStudentsByStudid(searchQuery), 400);
     return () => clearTimeout(t);
-  }, [searchQuery, showInviteModal]); // eslint-disable-line
+  }, [searchQuery, showInviteModal]);
 
   const handleStudentSelection = (studentId) => {
     setSelectedStudents((prev) =>
@@ -397,9 +436,19 @@ export default function SectionManagement() {
 
       if (res.ok) {
         await fetchSections();
+        
+        // Release lock if editing
+        if (selectedSection) {
+          await releaseLock();
+        }
+        
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
+        
+        // Refresh lock statuses
+        await refreshLocks();
+        
         showSuccess(
           selectedSection
             ? "Section updated successfully!"
@@ -557,8 +606,13 @@ export default function SectionManagement() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEditModal(section)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Section"
+                        disabled={isLocked(section._id || section.id)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          isLocked(section._id || section.id)
+                            ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                            : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                        }`}
+                        title={isLocked(section._id || section.id) ? `Locked by ${getLockedBy(section._id || section.id)}` : 'Edit Section'}
                       >
                         <IconEdit size={16} />
                       </button>
@@ -566,8 +620,13 @@ export default function SectionManagement() {
                         onClick={() =>
                           handleArchiveSection(section._id || section.id)
                         }
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Archive Section"
+                        disabled={isLocked(section._id || section.id)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          isLocked(section._id || section.id)
+                            ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                        }`}
+                        title={isLocked(section._id || section.id) ? `Locked by ${getLockedBy(section._id || section.id)}` : 'Archive Section'}
                       >
                         <IconArchive size={16} />
                       </button>
@@ -845,7 +904,11 @@ export default function SectionManagement() {
           {/* Edit Section Modal */}
           <Modal
             isOpen={showEditModal}
-            onClose={() => setShowEditModal(false)}
+            onClose={async () => {
+              await releaseLock();
+              setShowEditModal(false);
+              await refreshLocks();
+            }}
             title="Edit Section"
           >
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -993,7 +1056,11 @@ export default function SectionManagement() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={async () => {
+                    await releaseLock();
+                    setShowEditModal(false);
+                    await refreshLocks();
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel

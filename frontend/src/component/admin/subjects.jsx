@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   IconPlus,
   IconEdit,
@@ -14,6 +14,7 @@ import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
 /* ---------- Small shared Modal (kept outside to avoid parser issues) ---------- */
 function Modal({ isOpen, onClose, title, children }) {
@@ -62,6 +63,16 @@ export default function SubjectManagement() {
   const notifications = useNotifications();
   const { showError, showSuccess, showConfirmDialog } = notifications;
 
+  // Lock management
+  const subjectIds = subjects.map(s => s._id);
+  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus('subject', subjectIds);
+  
+  // Lock for editing
+  const {
+    acquireLock,
+    releaseLock,
+  } = useLock('subject', selectedSubject?._id);
+
   // College options
   const collegeOptions = [
     "College of Technology",
@@ -81,8 +92,21 @@ export default function SubjectManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
+      // Clean up expired locks first
+      try {
+        const cleanupRes = await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+          method: "POST",
+        });
+        if (cleanupRes.ok) {
+          const cleanupData = await cleanupRes.json();
+          console.log("🧹 Cleaned up expired locks:", cleanupData.message);
+        }
+      } catch (cleanupErr) {
+        console.error("Cleanup error:", cleanupErr);
+      }
+      
       setLoading(true);
       const res = await authenticatedFetch("http://localhost:5000/api/admin/subjects");
       if (res.ok) {
@@ -97,7 +121,7 @@ export default function SubjectManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
 
   const fetchSemesters = async () => {
     try {
@@ -129,7 +153,22 @@ export default function SubjectManagement() {
     setSelectedSubject(null);
   };
 
-  const openEditModal = (subject) => {
+  const openEditModal = async (subject) => {
+    const subjectId = subject._id;
+
+    if (isLocked(subjectId)) {
+      const lockedBy = getLockedBy(subjectId);
+      showError(`This subject is currently being edited by ${lockedBy}. Please try again later.`);
+      return;
+    }
+
+    const lockAcquired = await acquireLock(subjectId, "subject");
+    if (!lockAcquired) {
+      showError("Unable to acquire lock for editing. Another admin may have started editing.");
+      await refreshLocks();
+      return;
+    }
+
     setSelectedSubject(subject);
     setFormData({
       subjectCode: subject?.subjectCode || "",
@@ -137,7 +176,6 @@ export default function SubjectManagement() {
       units: String(subject?.units ?? "3"),
       college: subject?.college || "",
       department: subject?.department || "",
-      // handle either populated object or id string
       semester: subject?.semester?._id || subject?.semester || "",
     });
     setShowEditModal(true);
@@ -165,9 +203,19 @@ export default function SubjectManagement() {
 
       if (res.ok) {
         await fetchSubjects();
+        
+        // Release lock if editing
+        if (selectedSubject) {
+          await releaseLock();
+        }
+        
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
+        
+        // Refresh lock statuses
+        await refreshLocks();
+        
         showSuccess(selectedSubject ? "Subject updated successfully!" : "Subject added successfully!");
       } else {
         const data = await res.json();
@@ -400,15 +448,25 @@ export default function SubjectManagement() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => openEditModal(subject)}
-                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                  title="Edit Subject"
+                                  disabled={isLocked(subject._id)}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    isLocked(subject._id)
+                                      ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                                      : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                  }`}
+                                  title={isLocked(subject._id) ? `Locked by ${getLockedBy(subject._id)}` : 'Edit Subject'}
                                 >
                                   <IconEdit size={16} />
                                 </button>
                                 <button
                                   onClick={() => handleArchive(subject._id)}
-                                  className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                  title="Archive Subject"
+                                  disabled={isLocked(subject._id)}
+                                  className={`p-2 rounded-lg transition-colors ${
+                                    isLocked(subject._id)
+                                      ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                                      : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
+                                  }`}
+                                  title={isLocked(subject._id) ? `Locked by ${getLockedBy(subject._id)}` : 'Archive Subject'}
                                 >
                                   <IconArchive size={16} />
                                 </button>
@@ -448,15 +506,25 @@ export default function SubjectManagement() {
                             <div className="flex gap-1 sm:gap-2 flex-shrink-0">
                               <button
                                 onClick={() => openEditModal(subject)}
-                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Edit Subject"
+                                disabled={isLocked(subject._id)}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  isLocked(subject._id)
+                                    ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                                    : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                }`}
+                                title={isLocked(subject._id) ? `Locked by ${getLockedBy(subject._id)}` : 'Edit Subject'}
                               >
                                 <IconEdit size={16} />
                               </button>
                               <button
                                 onClick={() => handleArchive(subject._id)}
-                                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                title="Archive Subject"
+                                disabled={isLocked(subject._id)}
+                                className={`p-2 rounded-lg transition-colors ${
+                                  isLocked(subject._id)
+                                    ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                                    : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
+                                }`}
+                                title={isLocked(subject._id) ? `Locked by ${getLockedBy(subject._id)}` : 'Archive Subject'}
                               >
                                 <IconArchive size={16} />
                               </button>
@@ -643,7 +711,15 @@ export default function SubjectManagement() {
           </Modal>
 
           {/* Edit Subject Modal */}
-          <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Subject">
+          <Modal 
+            isOpen={showEditModal} 
+            onClose={async () => {
+              await releaseLock();
+              setShowEditModal(false);
+              await refreshLocks();
+            }} 
+            title="Edit Subject"
+          >
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -742,7 +818,11 @@ export default function SubjectManagement() {
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={async () => {
+                    await releaseLock();
+                    setShowEditModal(false);
+                    await refreshLocks();
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
                 >
                   Cancel

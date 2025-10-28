@@ -49,6 +49,7 @@ import {
   unarchiveSection
 } from '../controller/sectionController.js';
 import { adminAuth } from '../middleware/auth.js';
+import { requireLock } from '../middleware/requireLock.js';
 import { bruteForceProtection } from '../middleware/bruteForceProtection.js';
 
 const router = express.Router();
@@ -89,30 +90,30 @@ router.put('/students/:studentId/unarchive', unarchiveStudent);
 // Semester management
 router.get('/semesters', listSemesters);
 router.post('/semesters', addSemester);
-router.put('/semesters/:id', updateSemester);
-router.delete('/semesters/:id', deleteSemester);
-router.put('/semesters/:id/archive', archiveSemester);
+router.put('/semesters/:id', requireLock('semester'), updateSemester);
+router.delete('/semesters/:id', requireLock('semester'), deleteSemester);
+router.put('/semesters/:id/archive', requireLock('semester'), archiveSemester);
 router.put('/semesters/:id/unarchive', unarchiveSemester);
 
 // Subject management
 router.get('/subjects', listSubjects);
 router.post('/subjects', addSubject);
-router.put('/subjects/:id', updateSubject);
-router.delete('/subjects/:id', deleteSubject);
+router.put('/subjects/:id', requireLock('subject'), updateSubject);
+router.delete('/subjects/:id', requireLock('subject'), deleteSubject);
 router.post('/subjects/:subjectId/assign-instructor', assignInstructorToSubject);
-router.put('/subjects/:id/archive', archiveSubject);
+router.put('/subjects/:id/archive', requireLock('subject'), archiveSubject);
 router.put('/subjects/:id/unarchive', unarchiveSubject);
 
 // Section management  
 router.get('/sections', getAllSections);
 router.get('/sections/:id', getSectionById);
 router.post('/sections', createSection);
-router.put('/sections/:id', updateSection);
-router.delete('/sections/:id', deleteSection);
+router.put('/sections/:id', requireLock('section'), updateSection);
+router.delete('/sections/:id', requireLock('section'), deleteSection);
 router.post('/sections/:id/invite-students', inviteStudentsToSection);
 router.get('/sections/:id/students', getSectionStudents);
 router.delete('/sections/:id/remove-student', removeStudentFromSection);
-router.put('/sections/:id/archive', archiveSection);
+router.put('/sections/:id/archive', requireLock('section'), archiveSection);
 router.put('/sections/:id/unarchive', unarchiveSection);
 
 export default router;

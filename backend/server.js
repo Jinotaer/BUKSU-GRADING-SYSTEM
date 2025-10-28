@@ -16,6 +16,9 @@ import gradeRoutes from "./routes/gradeRoutes.js";
 import activityRoutes from "./routes/activityRoutes.js";
 import seedAdminAccount from "./utils/seedAdmin.js";
 import activityScoresRoutes from "./routes/activityScoresRoutes.js";
+import exportRoutes from "./routes/exportRoutes.js";
+import lockRouter from "./routes/lockRoutes.js"; // This file is actually a router, not a controller
+
 
 dotenv.config();
 
@@ -70,6 +73,8 @@ app.use("/api/semesters", semesterRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/section", sectionRoutes);
 app.use("/api/grade", gradeRoutes);
+app.use("/api/export", exportRoutes);
+app.use("/api/locks", lockRouter);
 // app.use("/api/instructor", instructorRoutes);
 
 // Health check endpoint

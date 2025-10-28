@@ -5,6 +5,12 @@ import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
 
 export default function configurePassport() {
+  // Skip Google OAuth setup if credentials are missing
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn('⚠️ Google OAuth credentials not configured. Google login will be disabled.');
+    return;
+  }
+
   passport.use(
     new GoogleStrategy(
       {

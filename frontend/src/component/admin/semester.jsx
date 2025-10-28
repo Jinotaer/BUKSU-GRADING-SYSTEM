@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   IconPlus,
   IconEdit,
@@ -10,9 +10,11 @@ import {
   IconCircleCheck,
   IconArchive,
   IconChevronDown,
+  IconLock,
 } from "@tabler/icons-react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 
 /**
  * Standalone components kept OUTSIDE the main component to avoid
@@ -60,7 +62,8 @@ function SchoolYearCombo({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive(
-        (i) => (i - 1 + Math.max(filtered.length, 1)) % Math.max(filtered.length, 1)
+        (i) =>
+          (i - 1 + Math.max(filtered.length, 1)) % Math.max(filtered.length, 1)
       );
     } else if (e.key === "Enter") {
       if (active >= 0 && filtered[active]) {
@@ -151,7 +154,10 @@ function Modal({ isOpen, onClose, title, children }) {
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <IconX size={20} />
           </button>
         </div>
@@ -166,17 +172,28 @@ function NotificationModal({ isOpen, onClose, type, title, message }) {
   const isSuccess = type === "success";
   const iconColor = isSuccess ? "text-green-500" : "text-red-500";
   const bgColor = isSuccess ? "bg-green-50" : "bg-red-50";
-  const buttonColor = isSuccess ? "bg-blue-600 hover:bg-blue-700" : "bg-red-600 hover:bg-red-700";
+  const buttonColor = isSuccess
+    ? "bg-blue-600 hover:bg-blue-700"
+    : "bg-red-600 hover:bg-red-700";
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="text-center">
-          <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${bgColor} mb-4`}>
-            {isSuccess ? <IconCircleCheck className={iconColor} size={24} /> : <IconX className={iconColor} size={24} />}
+          <div
+            className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${bgColor} mb-4`}
+          >
+            {isSuccess ? (
+              <IconCircleCheck className={iconColor} size={24} />
+            ) : (
+              <IconX className={iconColor} size={24} />
+            )}
           </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">{title}</h3>
           <p className="text-gray-600 mb-6">{message}</p>
-          <button onClick={onClose} className={`w-full text-white px-4 py-2 rounded-lg transition-colors ${buttonColor}`}>
+          <button
+            onClick={onClose}
+            className={`w-full text-white px-4 py-2 rounded-lg transition-colors ${buttonColor}`}
+          >
             OK
           </button>
         </div>
@@ -197,10 +214,16 @@ function ConfirmationModal({ isOpen, onClose, title, message, onConfirm }) {
           <h3 className="text-lg font-semibold text-gray-800 mb-2">{title}</h3>
           <p className="text-gray-600 mb-6">{message}</p>
           <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
               Cancel
             </button>
-            <button onClick={onConfirm} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+            <button
+              onClick={onConfirm}
+              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
               Confirm
             </button>
           </div>
@@ -220,27 +243,66 @@ export default function SemesterManagement() {
   const [submitting, setSubmitting] = useState(false);
 
   // Notification state
-  const [notification, setNotification] = useState({ show: false, type: "", title: "", message: "" });
+  const [notification, setNotification] = useState({
+    show: false,
+    type: "",
+    title: "",
+    message: "",
+  });
 
   // Confirmation modal state
-  const [confirmDialog, setConfirmDialog] = useState({ show: false, title: "", message: "", onConfirm: null });
+  const [confirmDialog, setConfirmDialog] = useState({
+    show: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
-  useEffect(() => {
-    fetchSemesters();
-  }, []);
+  // Lock management
+  const semesterIds = semesters.map((s) => s._id || s.id);
+  const {
+    isLocked,
+    getLockedBy,
+    refresh: refreshLocks,
+  } = useBatchLockStatus("semester", semesterIds);
+
+  // Lock for editing - only create when we have a selected semester
+  const lockHook = useLock(
+    "semester",
+    selectedSemester?._id || selectedSemester?.id
+  );
+  const acquireLock = lockHook.acquireLock;
+  const releaseLock = lockHook.releaseLock;
 
   // Notification helpers
-  const showNotification = (type, title, message) => setNotification({ show: true, type, title, message });
-  const hideNotification = () => setNotification({ show: false, type: "", title: "", message: "" });
+  const showNotification = (type, title, message) =>
+    setNotification({ show: true, type, title, message });
+  const hideNotification = () =>
+    setNotification({ show: false, type: "", title: "", message: "" });
 
   // Confirmation helpers
-  const showConfirmDialog = (title, message, onConfirm) => setConfirmDialog({ show: true, title, message, onConfirm });
-  const hideConfirmDialog = () => setConfirmDialog({ show: false, title: "", message: "", onConfirm: null });
+  const showConfirmDialog = (title, message, onConfirm) =>
+    setConfirmDialog({ show: true, title, message, onConfirm });
+  const hideConfirmDialog = () =>
+    setConfirmDialog({ show: false, title: "", message: "", onConfirm: null });
 
-  const fetchSemesters = async () => {
+  const fetchSemesters = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await authenticatedFetch("http://localhost:5000/api/admin/semesters");
+
+      // Clean up expired locks first
+      try {
+        await authenticatedFetch("http://localhost:5000/api/locks/cleanup", {
+          method: "POST",
+        });
+        console.log("🧹 Cleaned up expired locks");
+      } catch (err) {
+        console.warn("Failed to cleanup locks:", err);
+      }
+
+      const res = await authenticatedFetch(
+        "http://localhost:5000/api/admin/semesters"
+      );
       if (res.ok) {
         const data = await res.json();
         setSemesters(data.semesters || []);
@@ -248,12 +310,20 @@ export default function SemesterManagement() {
         showNotification("error", "Error", "Failed to fetch semesters");
       }
     } catch (err) {
-      showNotification("error", "Error", "There was an error processing your request.");
+      showNotification(
+        "error",
+        "Error",
+        "There was an error processing your request."
+      );
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchSemesters();
+  }, [fetchSemesters]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -269,17 +339,46 @@ export default function SemesterManagement() {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
+        // await fetchSemesters();
+
+        // // Release lock if editing
+        // if (selectedSemester) {
+        //   await releaseLock();
+        // }
+        if (selectedSemester) {
+          const id = selectedSemester._id || selectedSemester.id;
+          await releaseLock(id, "semester");
+        }
         await fetchSemesters();
+
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
-        showNotification("success", "Success", selectedSemester ? "Semester updated successfully!" : "Semester added successfully!");
+
+        // Refresh lock statuses
+        await refreshLocks();
+
+        showNotification(
+          "success",
+          "Success",
+          selectedSemester
+            ? "Semester updated successfully!"
+            : "Semester added successfully!"
+        );
       } else {
         const data = await res.json();
-        showNotification("error", "Error", data.message || "Failed to save semester");
+        showNotification(
+          "error",
+          "Error",
+          data.message || "Failed to save semester"
+        );
       }
     } catch (err) {
-      showNotification("error", "Error", "There was an error processing your request.");
+      showNotification(
+        "error",
+        "Error",
+        "There was an error processing your request."
+      );
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -292,36 +391,72 @@ export default function SemesterManagement() {
       return;
     }
     const semester = semesters.find((s) => (s._id || s.id) === id);
-    const semesterLabel = semester ? `${semester.schoolYear} - ${semester.term} Semester` : "this semester";
+    const semesterLabel = semester
+      ? `${semester.schoolYear} - ${semester.term} Semester`
+      : "this semester";
 
     showConfirmDialog(
       "Archive Semester",
       `Are you sure you want to archive "${semesterLabel}"? This will hide the semester from normal operations but it can be restored later.`,
       async () => {
+        let acquired = false;
         try {
           setLoading(true);
-          const res = await authenticatedFetch(`http://localhost:5000/api/admin/semesters/${id}/archive`, { method: "PUT" });
+          const hasLock = await acquireLock(id, "semester");
+          if (!hasLock) {
+            setLoading(false);
+            hideConfirmDialog();
+            showNotification(
+              "error",
+              "Locked",
+              "Unable to acquire an edit lock for this semester. Please try again."
+            );
+            await refreshLocks();
+            return;
+          }
+          acquired = true;
+
+          const res = await authenticatedFetch(
+            `http://localhost:5000/api/admin/semesters/${id}/archive`,
+            { method: "PUT" }
+          );
           if (res.ok) {
             setSemesters((prev) => prev.filter((s) => (s._id || s.id) !== id));
             hideConfirmDialog();
             setTimeout(() => {
-              showNotification("success", "Success", `Semester "${semesterLabel}" archived successfully!`);
+              showNotification(
+                "success",
+                "Success",
+                `Semester "${semesterLabel}" archived successfully!`
+              );
             }, 100);
           } else {
             const errorData = await res.json().catch(() => ({}));
             hideConfirmDialog();
             setTimeout(() => {
-              showNotification("error", "Error", errorData.message || "Failed to archive semester.");
+              showNotification(
+                "error",
+                "Error",
+                errorData.message || "Failed to archive semester."
+              );
             }, 100);
           }
         } catch (err) {
           hideConfirmDialog();
           console.error("Archive semester error:", err);
           setTimeout(() => {
-            showNotification("error", "Error", "There was an error processing your request.");
+            showNotification(
+              "error",
+              "Error",
+              "There was an error processing your request."
+            );
           }, 100);
         } finally {
           setLoading(false);
+          if (acquired) {
+            await releaseLock(id, "semester");
+            await refreshLocks();
+          }
         }
       }
     );
@@ -332,7 +467,34 @@ export default function SemesterManagement() {
     setSelectedSemester(null);
   };
 
-  const openEditModal = (semester) => {
+  const openEditModal = async (semester) => {
+    const id = semester._id || semester.id;
+
+    console.log(`🔍 Checking lock status for semester: ${id}`);
+    
+    // list-level check first
+    if (isLocked(id)) {
+      const lockedBy = getLockedBy(id);
+      console.log(`❌ Semester is locked by: ${lockedBy}`);
+      showNotification(
+        "error",
+        "Locked",
+        `This semester is currently being edited by ${lockedBy}. Please try again later.`
+      );
+      return;
+    }
+
+    console.log(`🔒 Attempting to acquire lock for semester: ${id}`);
+    // acquire the lock using the explicit id/type
+    const ok = await acquireLock(id, "semester");
+    if (!ok) {
+      console.log(`❌ Failed to acquire lock for semester: ${id}`);
+      await refreshLocks(); // reflect who holds it now
+      return;
+    }
+
+    console.log(`✅ Lock acquired successfully for semester: ${id}`);
+    // only set state and open after lock succeeds
     setSelectedSemester(semester);
     setFormData({ schoolYear: semester.schoolYear, term: semester.term });
     setShowEditModal(true);
@@ -359,7 +521,9 @@ export default function SemesterManagement() {
             <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-xl sm:text-2xl lg:text-3xl font-bold">
               Semester Management
             </h2>
-            <p className="text-gray-600 mt-1">Manage academic semesters and terms</p>
+            <p className="text-gray-600 mt-1">
+              Manage academic semesters and terms
+            </p>
           </div>
           <button
             onClick={() => {
@@ -391,38 +555,87 @@ export default function SemesterManagement() {
                       <IconCalendarEvent className="text-blue-600" size={24} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-lg">{semester.schoolYear}</h3>
-                      <p className="text-gray-600 text-sm">{semester.term} Semester</p>
+                      <h3 className="font-semibold text-gray-800 text-lg">
+                        {semester.schoolYear}
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        {semester.term} Semester
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => openEditModal(semester)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button
+                      onClick={() => openEditModal(semester)}
+                      disabled={isLocked(semester._id || semester.id)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isLocked(semester._id || semester.id)
+                          ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                          : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                      }`}
+                      title={
+                        isLocked(semester._id || semester.id)
+                          ? `Locked by ${getLockedBy(
+                              semester._id || semester.id
+                            )}`
+                          : "Edit semester"
+                      }
+                    >
                       <IconEdit size={16} />
                     </button>
-                    <button onClick={() => handleArchiveSemester(semester._id || semester.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button
+                      onClick={() =>
+                        handleArchiveSemester(semester._id || semester.id)
+                      }
+                      disabled={isLocked(semester._id || semester.id)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isLocked(semester._id || semester.id)
+                          ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                          : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                      }`}
+                      title={
+                        isLocked(semester._id || semester.id)
+                          ? `Locked by ${getLockedBy(
+                              semester._id || semester.id
+                            )}`
+                          : "Archive semester"
+                      }
+                    >
                       <IconArchive size={16} />
                     </button>
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">Created: {new Date(semester.createdAt).toLocaleDateString()}</div>
+                <div className="text-sm text-gray-500">
+                  Created: {new Date(semester.createdAt).toLocaleDateString()}
+                </div>
               </div>
             ))}
 
             {semesters.length === 0 && (
               <div className="col-span-full text-center py-12">
                 <IconSchool className="mx-auto text-gray-300 mb-4" size={48} />
-                <h3 className="text-lg font-medium text-gray-600 mb-2">No semesters found</h3>
-                <p className="text-gray-500">Get started by adding your first semester</p>
+                <h3 className="text-lg font-medium text-gray-600 mb-2">
+                  No semesters found
+                </h3>
+                <p className="text-gray-500">
+                  Get started by adding your first semester
+                </p>
               </div>
             )}
           </div>
         )}
 
         {/* Add Semester Modal */}
-        <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Semester">
+        <Modal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          title="Add New Semester"
+        >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="schoolYearAdd" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="schoolYearAdd"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 School Year
               </label>
               <SchoolYearCombo
@@ -435,13 +648,18 @@ export default function SemesterManagement() {
             </div>
 
             <div>
-              <label htmlFor="termAdd" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="termAdd"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Term
               </label>
               <select
                 id="termAdd"
                 value={formData.term}
-                onChange={(e) => setFormData({ ...formData, term: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, term: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -452,10 +670,18 @@ export default function SemesterManagement() {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={submitting} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
                 {submitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -473,10 +699,22 @@ export default function SemesterManagement() {
         </Modal>
 
         {/* Edit Semester Modal */}
-        <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Semester">
+        <Modal
+          isOpen={showEditModal}
+          onClose={async () => {
+            const id = selectedSemester?._id || selectedSemester?.id;
+            await releaseLock(id, "semester");
+            setShowEditModal(false);
+            await refreshLocks();
+          }}
+          title="Edit Semester"
+        >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="schoolYearEdit" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="schoolYearEdit"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 School Year
               </label>
               <SchoolYearCombo
@@ -489,13 +727,18 @@ export default function SemesterManagement() {
             </div>
 
             <div>
-              <label htmlFor="termEdit" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="termEdit"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Term
               </label>
               <select
                 id="termEdit"
                 value={formData.term}
-                onChange={(e) => setFormData({ ...formData, term: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, term: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
@@ -506,10 +749,23 @@ export default function SemesterManagement() {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = selectedSemester?._id || selectedSemester?.id;
+                  await releaseLock(id, "semester");
+                  setShowEditModal(false);
+                  await refreshLocks();
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={submitting} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
                 {submitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -527,10 +783,22 @@ export default function SemesterManagement() {
         </Modal>
 
         {/* Notification Modal */}
-        <NotificationModal isOpen={notification.show} onClose={hideNotification} type={notification.type} title={notification.title} message={notification.message} />
+        <NotificationModal
+          isOpen={notification.show}
+          onClose={hideNotification}
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+        />
 
         {/* Confirmation Modal */}
-        <ConfirmationModal isOpen={confirmDialog.show} onClose={hideConfirmDialog} title={confirmDialog.title} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} />
+        <ConfirmationModal
+          isOpen={confirmDialog.show}
+          onClose={hideConfirmDialog}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+        />
       </div>
     </div>
   );
