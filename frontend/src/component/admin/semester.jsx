@@ -308,9 +308,7 @@ export default function SemesterManagement() {
         console.warn("Failed to cleanup locks:", err);
       }
 
-      const res = await authenticatedFetch(
-        `${API_BASE}/api/admin/semesters`
-      );
+      const res = await authenticatedFetch(`${API_BASE}/api/admin/semesters`);
       if (res.ok) {
         const data = await res.json();
         setSemesters(data.semesters || []);
@@ -471,7 +469,7 @@ export default function SemesterManagement() {
     const id = semester._id || semester.id;
 
     console.log(`🔍 Checking lock status for semester: ${id}`);
-    
+
     // list-level check first
     if (isLocked(id)) {
       const lockedBy = getLockedBy(id);
@@ -563,7 +561,21 @@ export default function SemesterManagement() {
                       </p>
                     </div>
                   </div>
+
                   <div className="flex gap-2">
+                    {isLocked(semester._id || semester.id) && (
+                      <span
+                        className="flex gap-1 text-xs font-regular text-red-500 spx-2 py-2"
+                        title={`Locked by ${getLockedBy(
+                          semester._id || semester.id
+                        )}`}
+                        aria-live="polite"
+                      >
+                        {/* <IconLock size={14} className="text-red-800" /> */}
+                        Locked
+                        {/* by {getLockedBy(semester._id || semester.id)} */}
+                      </span>
+                    )}
                     <button
                       onClick={() => openEditModal(semester)}
                       disabled={isLocked(semester._id || semester.id)}

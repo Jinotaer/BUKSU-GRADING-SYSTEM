@@ -97,17 +97,18 @@ export default function SectionManagement() {
 
   // Lock management
   const sectionIds = sections.map((s) => s._id);
-  const { isLocked, getLockedBy, refresh: refreshLocks } = useBatchLockStatus("section", sectionIds);
+  const {
+    isLocked,
+    getLockedBy,
+    refresh: refreshLocks,
+  } = useBatchLockStatus("section", sectionIds);
   const refreshLocksWithDelay = useCallback(() => {
     refreshLocks();
     setTimeout(() => refreshLocks(), 5000);
   }, [refreshLocks]);
-  
+
   // Lock for editing
-  const {
-    acquireLock,
-    releaseLock,
-  } = useLock('section', selectedSection?._id);
+  const { acquireLock, releaseLock } = useLock("section", selectedSection?._id);
 
   // Fetch data
   useEffect(() => {
@@ -199,9 +200,12 @@ export default function SectionManagement() {
     try {
       // Clean up expired locks first
       try {
-        const cleanupRes = await authenticatedFetch(`${API_BASE}/api/locks/cleanup`, {
-          method: "POST",
-        });
+        const cleanupRes = await authenticatedFetch(
+          `${API_BASE}/api/locks/cleanup`,
+          {
+            method: "POST",
+          }
+        );
         if (cleanupRes.ok) {
           const cleanupData = await cleanupRes.json();
           console.log("🧹 Cleaned up expired locks:", cleanupData.message);
@@ -209,11 +213,9 @@ export default function SectionManagement() {
       } catch (cleanupErr) {
         console.error("Cleanup error:", cleanupErr);
       }
-      
+
       setLoading(true);
-      const res = await authenticatedFetch(
-        `${API_BASE}/api/admin/sections`
-      );
+      const res = await authenticatedFetch(`${API_BASE}/api/admin/sections`);
       if (res.ok) {
         const data = await res.json();
         setSections(data.sections || []);
@@ -278,13 +280,17 @@ export default function SectionManagement() {
 
     if (isLocked(sectionId)) {
       const lockedBy = getLockedBy(sectionId);
-      showError(`This section is currently being edited by ${lockedBy}. Please try again later.`);
+      showError(
+        `This section is currently being edited by ${lockedBy}. Please try again later.`
+      );
       return;
     }
 
     const lockAcquired = await acquireLock(sectionId, "section");
     if (!lockAcquired) {
-      showError("Unable to acquire lock for editing. Another admin may have started editing.");
+      showError(
+        "Unable to acquire lock for editing. Another admin may have started editing."
+      );
       refreshLocksWithDelay();
       return;
     }
@@ -452,19 +458,19 @@ export default function SectionManagement() {
 
       if (res.ok) {
         await fetchSections();
-        
+
         // Release lock if editing
         if (selectedSection?._id) {
           await releaseLock(selectedSection._id, "section");
         }
-        
+
         resetForm();
         setShowAddModal(false);
         setShowEditModal(false);
-        
+
         // Refresh lock statuses
         refreshLocksWithDelay();
-        
+
         showSuccess(
           selectedSection
             ? "Section updated successfully!"
@@ -488,7 +494,9 @@ export default function SectionManagement() {
     }
     if (isLocked(id)) {
       const lockedBy = getLockedBy(id);
-      showError(`This section is currently being edited by ${lockedBy}. Please try again later.`);
+      showError(
+        `This section is currently being edited by ${lockedBy}. Please try again later.`
+      );
       return;
     }
     const section = sections.find((s) => (s._id || s.id) === id);
@@ -499,7 +507,9 @@ export default function SectionManagement() {
 
     const ok = await acquireLock(id, "section");
     if (!ok) {
-      showError("Unable to acquire lock for archiving. Another admin may have started editing.");
+      showError(
+        "Unable to acquire lock for archiving. Another admin may have started editing."
+      );
       refreshLocksWithDelay();
       return;
     }
@@ -646,15 +656,34 @@ export default function SectionManagement() {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      {isLocked(section._id || section.id) && (
+                        <span
+                          className="flex gap-1 text-xs font-regular text-red-500 spx-2 py-2"
+                          title={`Locked by ${getLockedBy(
+                            section._id || section.id
+                          )}`}
+                          aria-live="polite"
+                        >
+                          {/* <IconLock size={14} className="text-red-800" /> */}
+                          Locked
+                          {/* by {getLockedBy(semester._id || semester.id)} */}
+                        </span>
+                      )}
                       <button
                         onClick={() => openEditModal(section)}
                         disabled={isLocked(section._id || section.id)}
                         className={`p-2 rounded-lg transition-colors ${
                           isLocked(section._id || section.id)
-                            ? 'text-gray-300 cursor-not-allowed bg-gray-50'
-                            : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                            ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                            : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                         }`}
-                        title={isLocked(section._id || section.id) ? `Locked by ${getLockedBy(section._id || section.id)}` : 'Edit Section'}
+                        title={
+                          isLocked(section._id || section.id)
+                            ? `Locked by ${getLockedBy(
+                                section._id || section.id
+                              )}`
+                            : "Edit Section"
+                        }
                       >
                         <IconEdit size={16} />
                       </button>
@@ -665,10 +694,16 @@ export default function SectionManagement() {
                         disabled={isLocked(section._id || section.id)}
                         className={`p-2 rounded-lg transition-colors ${
                           isLocked(section._id || section.id)
-                            ? 'text-gray-300 cursor-not-allowed bg-gray-50'
-                            : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                            ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                            : "text-gray-400 hover:text-red-600 hover:bg-red-50"
                         }`}
-                        title={isLocked(section._id || section.id) ? `Locked by ${getLockedBy(section._id || section.id)}` : 'Archive Section'}
+                        title={
+                          isLocked(section._id || section.id)
+                            ? `Locked by ${getLockedBy(
+                                section._id || section.id
+                              )}`
+                            : "Archive Section"
+                        }
                       >
                         <IconArchive size={16} />
                       </button>
