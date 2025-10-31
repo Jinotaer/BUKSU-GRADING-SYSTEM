@@ -11,6 +11,7 @@ import {
   IconCalendarWeek,
   IconBook,
   IconAlertTriangle,
+  IconArchive,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -39,6 +40,12 @@ const menuData = [
     link: "/student/schedule", 
     label: "View Schedule", 
     icon: IconCalendarWeek,
+    type: "single"
+  },
+   { 
+    link: "/student/archive", 
+    label: "Archived Management", 
+    icon: IconArchive,
     type: "single"
   },
 ];

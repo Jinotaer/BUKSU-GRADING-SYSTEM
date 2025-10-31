@@ -184,7 +184,17 @@ export default function SectionActivities() {
         <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
           {/* Top bar */}
           <div className="mb-6 flex items-center justify-between">
-            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900">
+            <button 
+              onClick={() => {
+                // Check if user came from archive page
+                if (state?.fromArchive) {
+                  navigate('/instructor/archive');
+                } else {
+                  navigate(-1);
+                }
+              }} 
+              className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
+            >
               <IconChevronLeft size={18} /> Back
             </button>
             <button onClick={openAdd} className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">

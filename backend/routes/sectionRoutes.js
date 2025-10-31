@@ -8,7 +8,9 @@ import {
   deleteSection,
   getSectionsBySubject, 
   getInstructorForSubject,
-  getSubjectsWithMultipleInstructors
+  getSubjectsWithMultipleInstructors,
+  archiveSection,
+  unarchiveSection
 } from "../controller/sectionController.js";
 import { instructorAuth, adminAuth, verifyGoogleAuthToken, requireRole } from "../middleware/auth.js";
 
@@ -37,5 +39,9 @@ router.get("/subject/:subjectId", verifyGoogleAuthToken, requireRole(["instructo
 
 // Get instructor for subject (optionally filter by sy/term)
 router.get("/subject/:subjectId/instructor", verifyGoogleAuthToken, requireRole(["instructor"]), getInstructorForSubject);
+
+// Archive and unarchive sections (instructors can archive their own sections)
+router.put("/:id/archive", verifyGoogleAuthToken, requireRole(["instructor"]), archiveSection);
+router.put("/:id/unarchive", verifyGoogleAuthToken, requireRole(["instructor"]), unarchiveSection);
 
 export default router;

@@ -26,6 +26,10 @@ const sectionSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false },
   archivedAt: { type: Date, default: null },
   archivedBy: { type: String, default: null }, // admin email or ID
+  archivedByStudents: [{ 
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
+    archivedAt: { type: Date, default: Date.now }
+  }], // Students who have archived this section
 });
 
 sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1 }, { unique: true });

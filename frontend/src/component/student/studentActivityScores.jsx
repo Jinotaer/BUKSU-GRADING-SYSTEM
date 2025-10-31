@@ -405,7 +405,12 @@ export default function StudentActivityScores() {
   }, [sectionId, section, processCategories]);
 
   const handleBack = () => {
-    navigate('/student/subjects');
+    // Check if user came from archive page
+    if (state?.fromArchive) {
+      navigate('/student/archive');
+    } else {
+      navigate('/student/subjects');
+    }
   };
 
   if (loading) {

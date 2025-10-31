@@ -8,12 +8,14 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconCalendarEvent,
+  IconCalendar,
   IconCalendarWeek,
   IconClipboardList,
   IconUsers,
   IconListDetails,
   IconAlertTriangle,
   IconSchool,
+  IconArchive,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -46,6 +48,28 @@ const menuData = [
         label: "Manage Grades",
         icon: IconClipboardList,
       },
+      {
+        link: "/instructor/students",
+        label: "Students",
+        icon: IconUsersGroup,
+      },
+    ],
+  },
+  {
+    label: "Schedule Management",
+    icon: IconCalendar,
+    type: "dropdown",
+    children: [ 
+      {
+        link: "/instructor/semester-view",
+        label: "Semester View",
+        icon: IconCalendarEvent,
+      },
+      {
+        link: "/instructor/schedule",
+        label: "Set Schedule",
+        icon: IconCalendarWeek,
+      },
     ],
   },
   // {
@@ -66,23 +90,22 @@ const menuData = [
   //   icon: IconClipboardList,
   //   type: "single",
   // },
+  // {
+  //   link: "/instructor/semester-view",
+  //   label: "Semester View",
+  //   icon: IconCalendarEvent,
+  //   type: "single",
+  // },
+  // {
+  //   link: "/instructor/schedule",
+  //   label: "Set Schedule",
+  //   icon: IconCalendarWeek,
+  //   type: "single",
+  // },
   {
-    link: "/instructor/semester-view",
-    label: "Semester View",
-    icon: IconCalendarEvent,
-    type: "single",
-  },
-  {
-    link: "/instructor/schedule",
-    label: "Set Schedule",
-    icon: IconCalendarWeek,
-    type: "single",
-  },
-
-  {
-    link: "/instructor/students",
-    label: "Students",
-    icon: IconUsersGroup,
+    link: "/instructor/archive",
+    label: "Archived Management",
+    icon: IconArchive,
     type: "single",
   },
 ];

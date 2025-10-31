@@ -33,7 +33,9 @@ import ActivityScores from "./component/instructor/activityScores";
 import ActivityManagement from "./component/instructor/activityManagement";
 import StudentScores from "./component/student/studentActivityScores";
 import ScheduleManagement from "./component/instructor/scheduleManagement";
+import InsArchiveManagement from './component/instructor/archiveManagemenent';
 import StudentScheduleView from "./component/student/studentScheduleView";
+import StudentArchiveManagement from './component/student/archiveManagement';
 
 export default function App() {
   return (
@@ -206,6 +208,14 @@ export default function App() {
         }
       />
        <Route
+        path="/instructor/archive"
+        element={
+          <ProtectedRoute role="instructor">
+            <InsArchiveManagement/>
+          </ProtectedRoute>
+        }
+      />
+       <Route
         path="/instructor/profile"
         element={
           <ProtectedRoute role="instructor">
@@ -287,7 +297,14 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-     
+       <Route
+        path="/student/archive"
+        element={
+          <ProtectedRoute role="student">
+            <StudentArchiveManagement />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }

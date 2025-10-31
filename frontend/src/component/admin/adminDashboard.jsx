@@ -98,7 +98,7 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">Total Students</p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm text-green-600">
+                <p className="mt-3 text-sm text-blue-600">
                   Approved Students
                 </p>
               </div>

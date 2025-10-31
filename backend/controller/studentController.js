@@ -339,17 +339,30 @@ export const getStudentSections = async (req, res) => {
     if (schoolYear) query.schoolYear = schoolYear;
     if (term) query.term = term;
     
-    // Include archived sections only if explicitly requested
-    if (includeArchived !== 'true') {
-      query.isArchived = { $ne: true };
-    }
+    // Don't filter by instructor's isArchived - students should see sections regardless of instructor archive status
+    // Instead, we'll filter by student-specific archive status after fetching
 
     const sections = await Section.find(query)
       .populate("subject", "subjectCode subjectName units college department")
       .populate("instructor", "fullName email college department")
       .sort({ schoolYear: -1, term: 1, sectionName: 1 });
 
-    res.json({ success: true, sections });
+    // Filter sections based on student's archive status
+    let filteredSections = sections;
+    
+    if (includeArchived === 'true') {
+      // Only return sections archived by this student
+      filteredSections = sections.filter(section => 
+        section.archivedByStudents.some(item => item.studentId.toString() === studentId.toString())
+      );
+    } else {
+      // Only return sections NOT archived by this student
+      filteredSections = sections.filter(section => 
+        !section.archivedByStudents.some(item => item.studentId.toString() === studentId.toString())
+      );
+    }
+
+    res.json({ success: true, sections: filteredSections });
   } catch (err) {
     console.error("getStudentSections:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -366,10 +379,11 @@ export const getStudentGrades = async (req, res) => {
     const studentId = req.student.id;
     const { schoolYear, term, sectionId } = req.query;
 
-    // Build query to find sections where student is enrolled (excluding archived)
+    // Build query to find sections where student is enrolled
+    // Note: For grades view, we include ALL sections regardless of archive status
+    // Students should see grades for all their subjects, including archived ones
     const sectionQuery = { 
-      students: studentId,
-      isArchived: { $ne: true }
+      students: studentId
     };
     if (schoolYear) sectionQuery.schoolYear = schoolYear;
     if (term) sectionQuery.term = term;
@@ -379,7 +393,7 @@ export const getStudentGrades = async (req, res) => {
       .populate("subject", "subjectCode subjectName units")
       .populate("instructor", "fullName");
 
-    // Get grades for these sections
+    // Get grades for ALL sections (including archived)
     const sectionIds = sections.map(section => section._id);
     const grades = await Grade.find({ 
       student: studentId, 
@@ -523,6 +537,120 @@ export const searchStudents = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error"
+    });
+  }
+};
+
+/**
+ * Archive a section (student perspective - hides it from their active list)
+ * @route PUT /api/student/sections/:id/archive
+ * @access Private (Student only)
+ */
+export const archiveStudentSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentId = req.student.id;
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    // Verify student is enrolled in this section
+    if (!section.students.includes(studentId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not enrolled in this section",
+      });
+    }
+
+    // Check if student has already archived this section
+    const alreadyArchived = section.archivedByStudents.some(
+      (item) => item.studentId.toString() === studentId.toString()
+    );
+
+    if (alreadyArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Section is already archived",
+      });
+    }
+
+    // Add student to archivedByStudents array
+    section.archivedByStudents.push({
+      studentId: studentId,
+      archivedAt: new Date()
+    });
+    
+    await section.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section archived successfully",
+    });
+  } catch (error) {
+    console.error("Archive student section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+/**
+ * Unarchive a section (student perspective)
+ * @route PUT /api/student/sections/:id/unarchive
+ * @access Private (Student only)
+ */
+export const unarchiveStudentSection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentId = req.student.id;
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    // Verify student is enrolled in this section
+    if (!section.students.includes(studentId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not enrolled in this section",
+      });
+    }
+
+    // Check if student has archived this section
+    const archivedIndex = section.archivedByStudents.findIndex(
+      (item) => item.studentId.toString() === studentId.toString()
+    );
+
+    if (archivedIndex === -1) {
+      return res.status(400).json({
+        success: false,
+        message: "Section is not archived",
+      });
+    }
+
+    // Remove student from archivedByStudents array
+    section.archivedByStudents.splice(archivedIndex, 1);
+    await section.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Section unarchived successfully",
+    });
+  } catch (error) {
+    console.error("Unarchive student section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

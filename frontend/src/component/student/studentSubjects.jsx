@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from '../../utils/auth';
+import { IconArchive, IconX, IconAlertCircle } from '@tabler/icons-react';
+import { NotificationModal } from '../common/NotificationModals';
 const academicYears = [
   { value: '2024-2025', label: '2024-2025' },
   { value: '2025-2026', label: '2025-2026' },
@@ -22,6 +24,18 @@ const StudentDashboard = () => {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Archive modal state
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [sectionToArchive, setSectionToArchive] = useState(null);
+  const [archiving, setArchiving] = useState(false);
+
+  // Notification state
+  const [notification, setNotification] = useState({
+    show: false,
+    type: '',
+    message: ''
+  });
 
   const getTermFromSemester = (semester) => {
     switch (semester) {
@@ -111,6 +125,52 @@ const StudentDashboard = () => {
         subject: section.subject 
       } 
     });
+  };
+
+  const handleArchiveClick = (section, e) => {
+    e.stopPropagation(); // Prevent card click
+    setSectionToArchive(section);
+    setShowArchiveModal(true);
+  };
+
+  const confirmArchive = async () => {
+    if (!sectionToArchive) return;
+
+    try {
+      setArchiving(true);
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/student/sections/${sectionToArchive._id}/archive`,
+        { method: 'PUT' }
+      );
+
+      if (res.ok) {
+        setNotification({
+          show: true,
+          type: 'success',
+          message: 'Subject archived successfully!'
+        });
+        setShowArchiveModal(false);
+        setSectionToArchive(null);
+        // Refresh the sections list
+        await fetchStudentSections();
+      } else {
+        const errorData = await res.json();
+        setNotification({
+          show: true,
+          type: 'error',
+          message: errorData.message || 'Failed to archive subject'
+        });
+      }
+    } catch (error) {
+      console.error('Error archiving subject:', error);
+      setNotification({
+        show: true,
+        type: 'error',
+        message: 'Error archiving subject'
+      });
+    } finally {
+      setArchiving(false);
+    }
   };
 
   if (loading) {
@@ -248,6 +308,13 @@ const StudentDashboard = () => {
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   {section.subject.college}
                 </span>
+                <button
+                  onClick={(e) => handleArchiveClick(section, e)}
+                  className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                  title="Archive Subject"
+                >
+                  <IconArchive className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
@@ -286,6 +353,71 @@ const StudentDashboard = () => {
           )}
         </div>
       )}
+
+      {/* Archive Confirmation Modal */}
+      {showArchiveModal && sectionToArchive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <IconAlertCircle className="w-5 h-5 mr-2 text-orange-500" />
+                Archive Subject
+              </h3>
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={archiving}
+              >
+                <IconX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to archive this subject?
+              </p>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-gray-900">
+                  {sectionToArchive.subject.code} - {sectionToArchive.subject.name}
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Section: {sectionToArchive.name}
+                </p>
+              </div>
+              <p className="text-sm text-gray-500 mt-3">
+                You can unarchive it later from the Archive Management page.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={archiving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmArchive}
+                disabled={archiving}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-300 flex items-center"
+              >
+                <IconArchive className="w-4 h-4 mr-2" />
+                {archiving ? 'Archiving...' : 'Archive'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.show}
+        type={notification.type}
+        title={notification.type === 'success' ? 'Success' : 'Error'}
+        message={notification.message}
+        onClose={() => setNotification({ ...notification, show: false })}
+      />
     </div>
   );
 };

@@ -510,7 +510,9 @@ export const removeStudentFromSection = async (req, res) => {
 export const archiveSection = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.admin.email;
+    // Support both admin and instructor roles
+    const userEmail = req.admin?.email || req.instructor?.email || req.user?.user?.email || req.user?.email;
+    const userId = req.instructor?.id || req.user?.user?._id || req.user?._id;
 
     const section = await Section.findById(id);
     if (!section) {
@@ -518,6 +520,16 @@ export const archiveSection = async (req, res) => {
         success: false,
         message: "Section not found",
       });
+    }
+
+    // If instructor, verify they own this section
+    if (userId && !req.admin) {
+      if (section.instructor.toString() !== userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only archive your own sections",
+        });
+      }
     }
 
     if (section.isArchived) {
@@ -529,7 +541,7 @@ export const archiveSection = async (req, res) => {
 
     section.isArchived = true;
     section.archivedAt = new Date();
-    section.archivedBy = adminEmail;
+    section.archivedBy = userEmail || "Unknown";
     await section.save();
 
     const populatedSection = await Section.findById(section._id)
@@ -562,6 +574,7 @@ export const archiveSection = async (req, res) => {
 export const unarchiveSection = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.instructor?.id || req.user?.user?._id || req.user?._id;
 
     const section = await Section.findById(id);
     if (!section) {
@@ -569,6 +582,16 @@ export const unarchiveSection = async (req, res) => {
         success: false,
         message: "Section not found",
       });
+    }
+
+    // If instructor, verify they own this section
+    if (userId && !req.admin) {
+      if (section.instructor.toString() !== userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only unarchive your own sections",
+        });
+      }
     }
 
     if (!section.isArchived) {

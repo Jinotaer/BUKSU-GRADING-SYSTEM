@@ -15,6 +15,7 @@ import {
   IconCalendar,
   IconClock,
   IconTarget,
+  IconArchive,
 } from "@tabler/icons-react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
@@ -29,6 +30,8 @@ export default function MySections() {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showActivitiesModal, setShowActivitiesModal] = useState(false);
   const [selectedSection, setSelectedSection] = useState(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [sectionToArchive, setSectionToArchive] = useState(null);
 
   // New: Filters (from provided design)
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,6 +39,7 @@ export default function MySections() {
   const [selectedSemester, setSelectedSemester] = useState("all");
 
   const [submitting, setSubmitting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   // Activities
   const [activities, setActivities] = useState([]);
@@ -123,9 +127,6 @@ export default function MySections() {
     return "Unknown Subject";
   };
 
-
-
-
   const openActivityModal = (section) => {
     setSelectedSection(section);
     setShowActivityModal(true);
@@ -139,11 +140,44 @@ export default function MySections() {
     });
   };
 
-
   const handleSectionClick = (section) => {
     navigate(`/instructor/sections/${section._id}/activities`, {
       state: { section }
     });
+  };
+
+  const handleArchiveClick = (section, e) => {
+    e.stopPropagation(); // Prevent card click
+    setSectionToArchive(section);
+    setShowArchiveModal(true);
+  };
+
+  const confirmArchive = async () => {
+    if (!sectionToArchive) return;
+
+    try {
+      setArchiving(true);
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/section/${sectionToArchive._id}/archive`,
+        { method: "PUT" }
+      );
+
+      if (res.ok) {
+        alert("Section archived successfully!");
+        setShowArchiveModal(false);
+        setSectionToArchive(null);
+        // Refresh the sections list
+        await fetchMyAssignedSections();
+      } else {
+        const errorData = await res.json();
+        alert(errorData.message || "Failed to archive section");
+      }
+    } catch (error) {
+      console.error("Error archiving section:", error);
+      alert("Error archiving section");
+    } finally {
+      setArchiving(false);
+    }
   };
 
   const fetchSectionActivities = async (sectionId) => {
@@ -396,14 +430,23 @@ export default function MySections() {
                   </p>
 
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {section?.subject?.college || "College"}
-                    </span>
-                    {Array.isArray(section.students) && (
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <IconUsers size={14} /> {section.students.length} enrolled
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {section?.subject?.college || "College"}
                       </span>
-                    )}
+                      {Array.isArray(section.students) && (
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <IconUsers size={14} /> {section.students.length}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => handleArchiveClick(section, e)}
+                      className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      title="Archive Section"
+                    >
+                      <IconArchive size={18} />
+                    </button>
                   </div>
 
                 </div>
@@ -698,6 +741,81 @@ export default function MySections() {
             </div>
           </div>
         </Modal>
+
+        {/* Archive Confirmation Modal */}
+        {showArchiveModal && sectionToArchive && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Archive Section</h3>
+                <button
+                  onClick={() => {
+                    setShowArchiveModal(false);
+                    setSectionToArchive(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <IconX className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg mb-4">
+                  <IconArchive className="w-8 h-8 text-orange-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {sectionToArchive.sectionName}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {sectionToArchive.subject?.subjectCode} - {sectionToArchive.schoolYear}{" "}
+                      {sectionToArchive.term}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gray-600 mb-2">
+                  Are you sure you want to archive this section? It will be moved to your
+                  archived sections and hidden from the active list.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Students enrolled: {sectionToArchive.students?.length || 0}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  You can restore it later from the Archive Management page.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowArchiveModal(false);
+                    setSectionToArchive(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={archiving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmArchive}
+                  disabled={archiving}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {archiving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Archiving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconArchive size={16} />
+                      <span>Archive Section</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

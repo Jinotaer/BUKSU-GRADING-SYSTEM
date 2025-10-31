@@ -1,39 +1,82 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { NavbarSimple } from "./studentsidebar";
-
-const sampleGrades = [
-  { courseCode: "GE 102", subjectName: "Ethics", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 131", subjectName: "Entrepreneurship", instructor: "J. L. Dela Cruz", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 132", subjectName: "Advanced Database Systems", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 133", subjectName: "Systems Integration and Architecture 1", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 134", subjectName: "Networking 2", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 135", subjectName: "Information Assurance and Security 1", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 136", subjectName: "Capstone Project and Research 1", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "IT 137", subjectName: "Elective 3 – Integrative Programming", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-  { courseCode: "GE 103", subjectName: "Science, Technology, and Society", instructor: "J. Manlutang", units: 3.0, finalGrade: 1.0, remarks: "Passed" },
-];
+import { authenticatedFetch } from "../../utils/auth";
 
 const StudentGrades = () => {
-  const [selectedSemester, setSelectedSemester] = useState("1st Semester");
-  const [selectedYear, setSelectedYear] = useState("2025-2026");
-  const [grades, setGrades] = useState([]);
+  const [selectedSemester, setSelectedSemester] = useState("1st");
+  const [selectedYear, setSelectedYear] = useState("2024-2025");
+  const [gradesData, setGradesData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const semesters = ["1st Semester", "2nd Semester", "Summer"];
-  const academicYears = ["2025-2026", "2024-2025", "2023-2024"];
+  const semesters = [
+    { value: "1st", label: "1st Semester" },
+    { value: "2nd", label: "2nd Semester" },
+    { value: "Summer", label: "Summer" }
+  ];
+  
+  const academicYears = ["2024-2025", "2025-2026", "2023-2024", "2022-2023"];
+
+  const fetchGrades = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const params = new URLSearchParams();
+      if (selectedYear) params.append('schoolYear', selectedYear);
+      if (selectedSemester) params.append('term', selectedSemester);
+
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/student/grades?${params.toString()}`
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setGradesData(data.grades || []);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.message || "Failed to fetch grades");
+        setGradesData([]);
+      }
+    } catch (err) {
+      console.error("Error fetching grades:", err);
+      setError("Error fetching grades");
+      setGradesData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedYear, selectedSemester]);
 
   useEffect(() => {
-    setTimeout(() => {
-      setGrades(sampleGrades);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchGrades();
+  }, [fetchGrades]);
+
+  // Transform grades data to match display format
+  const displayGrades = useMemo(() => {
+    return gradesData.map(item => ({
+      courseCode: item.section?.subject?.subjectCode || "N/A",
+      subjectName: item.section?.subject?.subjectName || "Unknown Subject",
+      instructor: item.section?.instructor?.fullName || "N/A",
+      units: item.section?.subject?.units || 0,
+      finalGrade: item.grade?.finalGrade || 0,
+      remarks: item.grade?.remarks || "No Grade",
+      sectionName: item.section?.sectionName || "N/A",
+      classStanding: item.grade?.classStanding || 0,
+      laboratory: item.grade?.laboratory || 0,
+      majorOutput: item.grade?.majorOutput || 0
+    }));
+  }, [gradesData]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-screen bg-gray-50">
+        <NavbarSimple />
+        <div className="flex-1 p-2 sm:p-4 md:p-6 lg:p-8 ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-16 sm:max-[880px]:pt-20">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -57,8 +100,8 @@ const StudentGrades = () => {
               className="appearance-none w-full sm:w-auto bg-white text-gray-700 px-4 py-2 pr-8 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300 cursor-pointer"
             >
               {semesters.map((semester) => (
-                <option key={semester} value={semester}>
-                  {semester}
+                <option key={semester.value} value={semester.value}>
+                  {semester.label}
                 </option>
               ))}
             </select>
@@ -83,94 +126,121 @@ const StudentGrades = () => {
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
       {/* Grades Table Section */}
       <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border-2 border-gray-200">
         {/* Semester Info */}
-        <div className="px-4 sm:px-6 py-3  border-gray-200 ">
+        <div className="px-4 sm:px-6 py-3 border-gray-200">
           <h2 className="text-base sm:text-lg font-medium text-gray-700">
-            {selectedSemester}, S.Y. {selectedYear}
+            {semesters.find(s => s.value === selectedSemester)?.label}, S.Y. {selectedYear}
           </h2>
         </div>
 
         {/* Responsive Table Wrapper */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Course Code
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Subject Name
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Instructor
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Units
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Final Grade
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Remarks
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="bg-white divide-y divide-gray-200">
-              {grades.map((grade, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.courseCode}
-                  </td>
-                  <td className="px-4 py-2 text-sm  whitespace-nowrap">
-                    {grade.subjectName}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.instructor}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.units.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.finalGrade.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                      {grade.remarks}
-                    </span>
-                  </td>
+          {displayGrades.length > 0 ? (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Course Code
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subject Name
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Instructor
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Units
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Final Grade
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Remarks
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody className="bg-white divide-y divide-gray-200">
+                {displayGrades.map((grade, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.courseCode}
+                    </td>
+                    <td className="px-4 py-2 text-sm whitespace-nowrap">
+                      {grade.subjectName}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.instructor}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.units > 0 ? grade.units.toFixed(1) : "N/A"}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.finalGrade > 0 ? grade.finalGrade.toFixed(2) : "N/A"}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        grade.remarks === "Passed" 
+                          ? "bg-green-100 text-green-800" 
+                          : grade.remarks === "Failed"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}>
+                        {grade.remarks}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-4xl mb-4">📊</div>
+              <p className="text-gray-500 text-lg mb-2">No Grades Available</p>
+              <p className="text-gray-400 text-sm">
+                No grades found for {semesters.find(s => s.value === selectedSemester)?.label}, S.Y. {selectedYear}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Summary Section */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left">
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left border border-gray-200">
           <div className="text-sm text-gray-600">Total Units</div>
           <div className="text-2xl font-semibold text-gray-900">
-            {grades.reduce((sum, grade) => sum + grade.units, 0).toFixed(1)}
+            {displayGrades.reduce((sum, grade) => sum + grade.units, 0).toFixed(1)}
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left">
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left border border-gray-200">
           <div className="text-sm text-gray-600">Average Grade</div>
           <div className="text-2xl font-semibold text-gray-900">
-            {(
-              grades.reduce((sum, grade) => sum + grade.finalGrade, 0) /
-              grades.length
-            ).toFixed(2)}
+            {displayGrades.length > 0
+              ? (
+                  displayGrades
+                    .filter(g => g.finalGrade > 0)
+                    .reduce((sum, grade) => sum + grade.finalGrade, 0) /
+                  displayGrades.filter(g => g.finalGrade > 0).length
+                ).toFixed(2)
+              : "N/A"}
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left">
+        <div className="bg-white p-4 rounded-lg shadow-sm text-center sm:text-left border border-gray-200">
           <div className="text-sm text-gray-600">Total Subjects</div>
           <div className="text-2xl font-semibold text-gray-900">
-            {grades.length}
+            {displayGrades.length}
           </div>
         </div>
       </div>
