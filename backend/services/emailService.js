@@ -501,6 +501,142 @@ async sendActivityScoreNotification({
   }
 }
 
+  // 📧 Send Schedule Notification to Students
+  async sendScheduleNotification({
+    studentEmail,
+    studentName,
+    instructorName,
+    scheduleDetails,
+  }) {
+    if (!(await this.ensureTransporter())) {
+      return {
+        success: false,
+        message: "Email service not configured",
+      };
+    }
+
+    const { title, eventType, startDateTime, endDateTime, location, description, sectionName, subjectCode, subjectName } = scheduleDetails;
+
+    // Format dates
+    const startDate = new Date(startDateTime);
+    const endDate = new Date(endDateTime);
+    const formattedStartDate = startDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const formattedStartTime = startDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    const formattedEndTime = endDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+
+    // Event type colors
+    const eventColors = {
+      quiz: '#dc3545',
+      laboratory: '#ffc107',
+      exam: '#007bff',
+      assignment: '#fd7e14',
+      project: '#28a745',
+      other: '#6c757d'
+    };
+
+    const eventColor = eventColors[eventType] || eventColors.other;
+
+    const subject = `New ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}: ${title} - ${subjectCode}`;
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: studentEmail,
+      subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+          <div style="background-color: ${eventColor}; color: white; padding: 20px;">
+            <h2 style="margin: 0; font-size: 24px;">📅 New Schedule Added</h2>
+          </div>
+          
+          <div style="padding: 30px;">
+            <p>Dear <strong>${studentName}</strong>,</p>
+            
+            <p>Your instructor <strong>${instructorName}</strong> has scheduled a new <strong style="color: ${eventColor};">${eventType.toUpperCase()}</strong>:</p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${eventColor};">
+              <h3 style="color: #333; margin-top: 0; font-size: 20px;">${title}</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">📚 <strong>Subject:</strong></td>
+                  <td style="padding: 8px 0;">${subjectCode} - ${subjectName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">👥 <strong>Section:</strong></td>
+                  <td style="padding: 8px 0;">${sectionName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">📅 <strong>Date:</strong></td>
+                  <td style="padding: 8px 0;">${formattedStartDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">⏰ <strong>Time:</strong></td>
+                  <td style="padding: 8px 0;">${formattedStartTime} - ${formattedEndTime}</td>
+                </tr>
+                ${location ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">📍 <strong>Location:</strong></td>
+                  <td style="padding: 8px 0;">${location}</td>
+                </tr>
+                ` : ''}
+                ${description ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666; vertical-align: top;">📝 <strong>Description:</strong></td>
+                  <td style="padding: 8px 0;">${description}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </div>
+            
+            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; color: #856404;">⚠️ <strong>Reminder:</strong> Please mark your calendar and prepare accordingly.</p>
+            </div>
+            
+            <p style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/student/schedule" 
+                 style="background-color: ${eventColor}; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Full Schedule
+              </a>
+            </p>
+            
+            <p style="color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+              This is an automated notification from BUKSU Grading System. Please do not reply to this email.
+            </p>
+          </div>
+        </div>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`📧 Schedule notification email sent to ${studentEmail}`);
+      return {
+        success: true,
+        message: "Schedule notification email sent successfully",
+      };
+    } catch (error) {
+      console.error("❌ Error sending schedule notification email:", error);
+      return {
+        success: false,
+        message: "Failed to send schedule notification email",
+        error: error.message,
+      };
+    }
+  }
+
 }
 
 

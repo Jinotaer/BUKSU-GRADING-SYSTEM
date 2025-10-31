@@ -1,24 +1,19 @@
 import { useState } from "react";
 import {
-  IconSwitchHorizontal,
   IconLogout,
   IconX,
   IconTableDashed,
   IconUsersGroup,
-  IconUser,
   IconUserCircle,
   IconChevronDown,
   IconChevronRight,
-  IconSchool,
   IconCalendarEvent,
-  IconBook,
-  IconChalkboard,
+  IconCalendarWeek,
   IconClipboardList,
   IconUsers,
-  IconAward,
-  IconFileText,
   IconListDetails,
   IconAlertTriangle,
+  IconSchool,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -32,17 +27,45 @@ const menuData = [
     type: "single",
   },
   {
-    link: "/instructor/my-sections",
-    label: "My Sections",
-    icon: IconUsers,
-    type: "single",
+    label: "Class Management",
+    icon: IconSchool,
+    type: "dropdown",
+    children: [
+      {
+        link: "/instructor/my-sections",
+        label: "My Sections",
+        icon: IconUsers,
+      },
+      {
+        link: "/instructor/activity-management",
+        label: "Activity Management",
+        icon: IconListDetails,
+      },
+      {
+        link: "/instructor/grades",
+        label: "Manage Grades",
+        icon: IconClipboardList,
+      },
+    ],
   },
-  {
-    link: "/instructor/activity-management",
-    label: "Activity Management",
-    icon: IconListDetails,
-    type: "single",
-  },
+  // {
+  //   link: "/instructor/my-sections",
+  //   label: "My Sections",
+  //   icon: IconUsers,
+  //   type: "single",
+  // },
+  // {
+  //   link: "/instructor/activity-management",
+  //   label: "Activity Management",
+  //   icon: IconListDetails,
+  //   type: "single",
+  // },
+  // {
+  //   link: "/instructor/grades",
+  //   label: "Manage Grades",
+  //   icon: IconClipboardList,
+  //   type: "single",
+  // },
   {
     link: "/instructor/semester-view",
     label: "Semester View",
@@ -50,31 +73,12 @@ const menuData = [
     type: "single",
   },
   {
-    link: "/instructor/grades",
-    label: "Manage Grades",
-    icon: IconClipboardList,
+    link: "/instructor/schedule",
+    label: "Set Schedule",
+    icon: IconCalendarWeek,
     type: "single",
   },
-  // {
-  //   label: "Section Management",
-  //   icon: IconChalkboard,
-  //   type: "dropdown",
-  //   children: [
 
-  //   ]
-  // },
-  // {
-  //   label: "Grade Management",
-  //   icon: IconAward,
-  //   type: "dropdown",
-  //   children: [
-  //     {
-  //       link: "/instructor/grade-reports",
-  //       label: "Grade Reports",
-  //       icon: IconFileText,
-  //     },
-  //   ],
-  // },
   {
     link: "/instructor/students",
     label: "Students",
@@ -367,7 +371,9 @@ export function InstructorSidebar() {
                 <h3 className="text-xl font-semibold mb-2 text-center">
                   Logout
                 </h3>
-                <p className="mb-4 text-center">Are you sure you want to log out?</p>
+                <p className="mb-4 text-center">
+                  Are you sure you want to log out?
+                </p>
                 <div className="flex gap-3">
                   <button
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"

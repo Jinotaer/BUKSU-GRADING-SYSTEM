@@ -3,6 +3,7 @@ import express from "express";
 import { 
   createSection, 
   getAllSections,
+  getInstructorSections,
   updateSection,
   deleteSection,
   getSectionsBySubject, 
@@ -12,6 +13,9 @@ import {
 import { instructorAuth, adminAuth, verifyGoogleAuthToken, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
+
+// Get sections assigned to the logged-in instructor
+router.get("/instructor/my-sections", verifyGoogleAuthToken, requireRole(["instructor"]), getInstructorSections);
 
 // Get all sections
 router.get("/", verifyGoogleAuthToken, requireRole(["instructor"]), getAllSections);

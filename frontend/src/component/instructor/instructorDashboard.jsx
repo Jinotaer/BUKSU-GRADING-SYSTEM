@@ -6,8 +6,9 @@ import {
   IconAward,
   IconCalendarEvent,
   IconTrendingUp,
-  IconClipboardList,
-  IconUserCheck,
+  IconCalendarWeek,
+  IconClock,
+  IconMapPin,
 } from "@tabler/icons-react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
@@ -17,9 +18,10 @@ export default function InstructorDashboard() {
     totalSections: 0,
     totalStudents: 0,
     totalSubjects: 0,
-    pendingGrades: 0,
+    totalSchedules: 0,
   });
   const [recentSections, setRecentSections] = useState([]);
+  const [upcomingSchedules, setUpcomingSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -27,9 +29,10 @@ export default function InstructorDashboard() {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        // Fetch instructor stats and recent sections
+        // Fetch instructor stats, recent sections, and upcoming schedules
         const statsRes = await authenticatedFetch("http://localhost:5000/api/instructor/dashboard/stats");
-        const sectionsRes = await authenticatedFetch("http://localhost:5000/api/section");
+        const sectionsRes = await authenticatedFetch("http://localhost:5000/api/instructor/sections");
+        const schedulesRes = await authenticatedFetch("http://localhost:5000/api/schedule/upcoming?limit=5");
         
         if (statsRes.ok) {
           const statsData = await statsRes.json();
@@ -39,6 +42,16 @@ export default function InstructorDashboard() {
         if (sectionsRes.ok) {
           const sectionsData = await sectionsRes.json();
           setRecentSections((sectionsData.sections || []).slice(0, 5)); // Get latest 5 sections
+        }
+
+        if (schedulesRes.ok) {
+          const schedulesData = await schedulesRes.json();
+          setUpcomingSchedules(schedulesData.schedules || []);
+          // Update the schedule count in stats
+          setStats(prevStats => ({
+            ...prevStats,
+            totalSchedules: schedulesData.count || (schedulesData.schedules || []).length
+          }));
         }
       } catch (err) {
         setError("Error fetching dashboard data");
@@ -138,9 +151,9 @@ export default function InstructorDashboard() {
             bgColor="bg-purple-100"
           />
           <StatCard
-            icon={IconClipboardList}
-            title="Pending Grades"
-            value={stats.pendingGrades}
+            icon={IconCalendarWeek}
+            title="Upcoming Schedules"
+            value={stats.totalSchedules}
             color="text-orange-600"
             bgColor="bg-orange-100"
           />
@@ -168,12 +181,20 @@ export default function InstructorDashboard() {
                 bgColor="bg-green-100"
               />
               <QuickActionCard
+                icon={IconCalendarEvent}
+                title="Schedule Management"
+                description="Create and manage class schedules"
+                action={() => window.location.href = '/instructor/schedule'}
+                color="text-purple-600"
+                bgColor="bg-purple-100"
+              />
+              <QuickActionCard
                 icon={IconUsers}
                 title="View Students"
                 description="See all students in your sections"
                 action={() => window.location.href = '/instructor/students'}
-                color="text-purple-600"
-                bgColor="bg-purple-100"
+                color="text-indigo-600"
+                bgColor="bg-indigo-100"
               />
               <QuickActionCard
                 icon={IconTrendingUp}
@@ -230,25 +251,71 @@ export default function InstructorDashboard() {
           </div>
         </div>
 
-        {/* Upcoming Tasks or Notifications */}
+        {/* Upcoming Schedules */}
         <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Tasks</h2>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <IconCalendarEvent className="w-5 h-5 text-yellow-600" />
-              <div>
-                <p className="font-medium text-yellow-800">Grade Submission Deadline</p>
-                <p className="text-sm text-yellow-700">Submit grades for current semester by next Friday</p>
-              </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Schedules</h2>
+          {upcomingSchedules.length > 0 ? (
+            <div className="space-y-3">
+              {upcomingSchedules.map((schedule) => {
+                const startDate = new Date(schedule.startDateTime);
+                const endDate = new Date(schedule.endDateTime);
+                const eventTypeColor = {
+                  class: "bg-blue-50 border-blue-200 text-blue-600",
+                  exam: "bg-red-50 border-red-200 text-red-600",
+                  quiz: "bg-yellow-50 border-yellow-200 text-yellow-600",
+                  meeting: "bg-purple-50 border-purple-200 text-purple-600",
+                  event: "bg-green-50 border-green-200 text-green-600"
+                };
+                const colorClass = eventTypeColor[schedule.eventType] || "bg-gray-50 border-gray-200 text-gray-600";
+                
+                return (
+                  <div key={schedule._id} className={`flex items-start gap-3 p-4 border rounded-lg ${colorClass}`}>
+                    <IconCalendarEvent className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-gray-900">{schedule.title}</p>
+                          <p className="text-sm text-gray-700 mt-0.5">
+                            {schedule.subject?.subjectCode} - {schedule.section?.sectionName}
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-white/50">
+                          {schedule.eventType.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <IconClock className="w-4 h-4" />
+                          <span>
+                            {startDate.toLocaleDateString()} {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {' - '}
+                            {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        {schedule.location && (
+                          <div className="flex items-center gap-1">
+                            <IconMapPin className="w-4 h-4" />
+                            <span>{schedule.location}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <IconUserCheck className="w-5 h-5 text-blue-600" />
-              <div>
-                <p className="font-medium text-blue-800">Attendance Review</p>
-                <p className="text-sm text-blue-700">Review and update student attendance records</p>
-              </div>
+          ) : (
+            <div className="text-center py-8">
+              <IconCalendarEvent className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">No upcoming schedules</p>
+              <button
+                onClick={() => window.location.href = '/instructor/schedule'}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Create Schedule
+              </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,18 +1,14 @@
 
 import { useState } from "react";
 import {
-  IconSwitchHorizontal,
   IconLogout,
   IconX,
   IconTableDashed,
-  IconUsersGroup,
-  IconUsersPlus,
-  IconUser,
   IconUserCircle,
   IconChevronDown,
   IconChevronRight,
   IconSchool,
-  IconCalendarEvent,
+  IconCalendarWeek,
   IconBook,
   IconAlertTriangle,
 } from "@tabler/icons-react";
@@ -37,6 +33,12 @@ const menuData = [
     link: "/student/grades", 
     label: "My Grades", 
     icon: IconBook,
+    type: "single"
+  },
+   { 
+    link: "/student/schedule", 
+    label: "View Schedule", 
+    icon: IconCalendarWeek,
     type: "single"
   },
 ];

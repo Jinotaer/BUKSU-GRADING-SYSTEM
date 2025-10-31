@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import sampleImage from '../../assets/sample.jpg';
 import { NavbarSimple } from "./studentsidebar";
+import { authenticatedFetch } from '../../utils/auth';
+import { IconCalendarEvent, IconClock } from '@tabler/icons-react';
+import moment from 'moment';
 const academicYears = [
   { value: '2025 - 2026', label: '2025 - 2026' },
   { value: '2024 - 2025', label: '2024 - 2025' },
@@ -74,6 +77,32 @@ const StudentDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(academicYears[0].value);
   const [selectedSemester, setSelectedSemester] = useState(semesters[0].value);
+  const [upcomingSchedules, setUpcomingSchedules] = useState([]);
+
+  useEffect(() => {
+    loadUpcomingSchedules();
+  }, []);
+
+  const loadUpcomingSchedules = async () => {
+    try {
+      const response = await authenticatedFetch('http://localhost:5000/api/schedule/upcoming?limit=3');
+      if (response.ok) {
+        const data = await response.json();
+        setUpcomingSchedules(data.schedules || []);
+      }
+    } catch (error) {
+      console.error('Error loading schedules:', error);
+    }
+  };
+
+  const eventTypeColors = {
+    quiz: 'bg-red-100 text-red-800 border-red-300',
+    laboratory: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    exam: 'bg-blue-100 text-blue-800 border-blue-300',
+    assignment: 'bg-orange-100 text-orange-800 border-orange-300',
+    project: 'bg-green-100 text-green-800 border-green-300',
+    other: 'bg-gray-100 text-gray-800 border-gray-300',
+  };
 
   const filteredClasses = classesData.filter((cls) => {
     return (
@@ -136,6 +165,40 @@ const StudentDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Upcoming Schedule Section */}
+      {upcomingSchedules.length > 0 && (
+        <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <IconCalendarEvent className="w-5 h-5 text-blue-600" />
+              Upcoming Events
+            </h3>
+            <button
+              onClick={() => window.location.href = '/student/schedule'}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View All →
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {upcomingSchedules.map((schedule) => (
+              <div
+                key={schedule._id}
+                className={`p-4 rounded-lg border ${eventTypeColors[schedule.eventType]}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-semibold uppercase">{schedule.eventType}</span>
+                  <IconClock className="w-4 h-4" />
+                </div>
+                <h4 className="font-semibold text-sm mb-1">{schedule.title}</h4>
+                <p className="text-xs mb-1">{schedule.subject.subjectCode}</p>
+                <p className="text-xs">{moment(schedule.startDateTime).format('MMM D, h:mm A')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Classes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

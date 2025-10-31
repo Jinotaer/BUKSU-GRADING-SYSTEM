@@ -32,6 +32,8 @@ import SectionsActivities from "./component/instructor/sectionsActivities";
 import ActivityScores from "./component/instructor/activityScores";
 import ActivityManagement from "./component/instructor/activityManagement";
 import StudentScores from "./component/student/studentActivityScores";
+import ScheduleManagement from "./component/instructor/scheduleManagement";
+import StudentScheduleView from "./component/student/studentScheduleView";
 
 export default function App() {
   return (
@@ -211,6 +213,14 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+       <Route
+        path="/instructor/schedule"
+        element={
+          <ProtectedRoute role="instructor">
+            <ScheduleManagement/>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Student routes */}
       <Route
@@ -266,6 +276,14 @@ export default function App() {
         element={
           <ProtectedRoute role="student">
             <StudentProfile />
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/student/schedule"
+        element={
+          <ProtectedRoute role="student">
+            <StudentScheduleView />
           </ProtectedRoute>
         }
       />

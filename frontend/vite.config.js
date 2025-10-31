@@ -10,5 +10,11 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "unsafe-none",
     }
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react({
+      jsxRuntime: 'automatic',
+      jsxImportSource: 'react'
+    }), 
+    tailwindcss()
+  ],
 })

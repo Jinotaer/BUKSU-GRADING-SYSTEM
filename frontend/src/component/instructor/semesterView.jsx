@@ -66,45 +66,45 @@ export default function SemesterView() {
     }
   };
 
-  const getSemesterStatus = (semester) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 0-based to 1-based
+  // const getSemesterStatus = (semester) => {
+  //   const now = new Date();
+  //   const currentYear = now.getFullYear();
+  //   const currentMonth = now.getMonth() + 1; // 0-based to 1-based
     
-    // Extract year from semester.schoolYear (e.g., "2024-2025" -> 2024)
-    const [startYear] = semester.schoolYear.split('-').map(Number);
+  //   // Extract year from semester.schoolYear (e.g., "2024-2025" -> 2024)
+  //   const [startYear] = semester.schoolYear.split('-').map(Number);
     
-    // Determine if semester is current, past, or future
-    if (startYear < currentYear) return "past";
-    if (startYear > currentYear) return "future";
+  //   // Determine if semester is current, past, or future
+  //   if (startYear < currentYear) return "past";
+  //   if (startYear > currentYear) return "future";
     
-    // Same year - check term and month
-    if (semester.term === "1st") {
-      // 1st semester typically runs Aug-Dec (months 8-12)
-      return currentMonth >= 8 ? "current" : "future";
-    } else {
-      // 2nd semester typically runs Jan-May (months 1-5)
-      return currentMonth <= 5 ? "current" : "past";
-    }
-  };
+  //   // Same year - check term and month
+  //   if (semester.term === "1st") {
+  //     // 1st semester typically runs Aug-Dec (months 8-12)
+  //     return currentMonth >= 8 ? "current" : "future";
+  //   } else {
+  //     // 2nd semester typically runs Jan-May (months 1-5)
+  //     return currentMonth <= 5 ? "current" : "past";
+  //   }
+  // };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "current": return "bg-green-100 text-green-800 border-green-200";
-      case "past": return "bg-gray-100 text-gray-800 border-gray-200";
-      case "future": return "bg-blue-100 text-blue-800 border-blue-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
+  // const getStatusColor = (status) => {
+  //   switch (status) {
+  //     case "current": return "bg-green-100 text-green-800 border-green-200";
+  //     case "past": return "bg-gray-100 text-gray-800 border-gray-200";
+  //     case "future": return "bg-blue-100 text-blue-800 border-blue-200";
+  //     default: return "bg-gray-100 text-gray-800 border-gray-200";
+  //   }
+  // };
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case "current": return "Current";
-      case "past": return "Past";
-      case "future": return "Upcoming";
-      default: return "Unknown";
-    }
-  };
+  // const getStatusLabel = (status) => {
+  //   switch (status) {
+  //     case "current": return "Current";
+  //     case "past": return "Past";
+  //     case "future": return "Upcoming";
+  //     default: return "Unknown";
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -160,7 +160,7 @@ export default function SemesterView() {
               {semesters.length > 0 ? (
                 <div className="space-y-3">
                   {semesters.map((semester) => {
-                    const status = getSemesterStatus(semester);
+                    // const status = getSemesterStatus(semester);
                     const isSelected = selectedSemester?._id === semester._id;
                     
                     return (
@@ -183,8 +183,9 @@ export default function SemesterView() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(status)}`}>
-                              {getStatusLabel(status)}
+                            <span className={`px-2 py-1 text-xs rounded-full border `}>
+                              {/* ${getStatusColor(status)} */}
+                              {/* {getStatusLabel(status)} */}
                             </span>
                             <IconChevronRight 
                               size={16} 
@@ -215,8 +216,9 @@ export default function SemesterView() {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {selectedSemester.schoolYear} - {selectedSemester.term} Semester
                     </h3>
-                    <span className={`px-3 py-1 text-sm rounded-full border ${getStatusColor(getSemesterStatus(selectedSemester))}`}>
-                      {getStatusLabel(getSemesterStatus(selectedSemester))}
+                    <span className={`px-3 py-1 text-sm rounded-full border `}>
+                      {/* ${getStatusColor(getSemesterStatus(selectedSemester))} */}
+                      {/* {getStatusLabel(getSemesterStatus(selectedSemester))} */}
                     </span>
                   </div>
                   

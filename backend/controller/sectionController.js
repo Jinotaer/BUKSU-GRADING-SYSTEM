@@ -118,6 +118,36 @@ export const getAllSections = async (req, res) => {
   }
 };
 
+export const getInstructorSections = async (req, res) => {
+  try {
+    // Handle both old and new auth middleware patterns
+    const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+    const { includeArchived = false } = req.query;
+    
+    if (!instructorId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Instructor authentication required" 
+      });
+    }
+    
+    const filter = { instructor: instructorId };
+    if (includeArchived !== 'true') {
+      filter.isArchived = { $ne: true };
+    }
+    
+    const sections = await Section.find(filter)
+      .populate("instructor", "fullName email college department")
+      .populate("subject", "subjectCode subjectName units college department")
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, sections });
+  } catch (err) {
+    console.error("getInstructorSections:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const getSectionById = async (req, res) => {
   try {
     const { id } = req.params;
