@@ -5,16 +5,18 @@ import Student from '../models/student.js';
 import Instructor from '../models/instructor.js';
 import googleCalendarService from '../services/googleCalendarService.js';
 import emailService from '../services/emailService.js';
+import mongoose from 'mongoose';
 
 export const createSchedule = async (req, res) => {
   try {
     // Get instructor ID from the authenticated user (from auth middleware)
-    // Handle both old and new auth middleware patterns
-    const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+    // Prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
     
     console.log('=== Schedule Creation Debug ===');
     console.log('req.instructor:', req.instructor);
     console.log('req.user:', req.user);
+    console.log('req.user.user:', req.user?.user);
     console.log('Extracted instructorId:', instructorId);
     
     if (!instructorId) {
@@ -183,7 +185,8 @@ export const createSchedule = async (req, res) => {
 
 export const getInstructorSchedules = async (req, res) => {
   try {
-    const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+    // Prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
     const { startDate, endDate, eventType, sectionId } = req.query;
 
     // Build query
@@ -229,12 +232,28 @@ export const getInstructorSchedules = async (req, res) => {
 
 export const getStudentSchedules = async (req, res) => {
   try {
-    const studentId = req.student?.id || req.user?._id;
+    // Extract student ID - prioritize Google OAuth structure (req.user.user._id)
+    const studentId = req.user?.user?._id || req.student?.id || req.user?._id;
     const { startDate, endDate, eventType } = req.query;
+
+    console.log('=== Get Student Schedules Debug ===');
+    console.log('req.student:', req.student);
+    console.log('req.user:', req.user);
+    console.log('req.user.user:', req.user?.user);
+    console.log('Extracted studentId:', studentId);
+
+    if (!studentId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Student authentication required'
+      });
+    }
 
     // Find all sections the student is enrolled in
     const sections = await Section.find({ students: studentId });
     const sectionIds = sections.map(section => section._id);
+    
+    console.log('Student enrolled in sections:', sectionIds.length);
 
     if (sectionIds.length === 0) {
       return res.status(200).json({
@@ -262,8 +281,21 @@ export const getStudentSchedules = async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate('section', 'sectionName')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email')
+      .populate('instructor', 'firstName lastName email fullName')
       .sort({ startDateTime: 1 });
+
+    console.log('=== Student Schedules Query Result ===');
+    console.log('Student schedules found:', schedules.length);
+    if (schedules.length > 0) {
+      console.log('First schedule instructor ID (raw):', schedules[0].instructor);
+      console.log('First schedule instructor populated:', JSON.stringify(schedules[0].instructor, null, 2));
+      console.log('Has instructor?:', !!schedules[0].instructor);
+      if (schedules[0].instructor) {
+        console.log('Instructor firstName:', schedules[0].instructor.firstName);
+        console.log('Instructor lastName:', schedules[0].instructor.lastName);
+        console.log('Instructor fullName:', schedules[0].instructor.fullName);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -283,8 +315,9 @@ export const getStudentSchedules = async (req, res) => {
 export const getScheduleById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.instructor?.id || req.student?.id || req.user?.user?._id || req.user?._id;
-    const userRole = req.instructor ? 'instructor' : req.student ? 'student' : (req.user?.role || req.user?.userType);
+    // Extract user ID - prioritize Google OAuth structure (req.user.user._id)
+    const userId = req.user?.user?._id || req.instructor?.id || req.student?.id || req.user?._id;
+    const userRole = req.user?.role || req.instructor ? 'instructor' : req.student ? 'student' : req.user?.userType;
 
     const schedule = await Schedule.findById(id)
       .populate('section', 'sectionName students')
@@ -330,7 +363,8 @@ export const getScheduleById = async (req, res) => {
 export const updateSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+    // Extract instructor ID - prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
     const {
       title,
       description,
@@ -342,6 +376,19 @@ export const updateSchedule = async (req, res) => {
       syncToGoogleCalendar
     } = req.body;
 
+    console.log('=== Update Schedule Debug ===');
+    console.log('req.instructor:', req.instructor);
+    console.log('req.user:', req.user);
+    console.log('req.user.user:', req.user?.user);
+    console.log('Extracted instructorId:', instructorId);
+
+    if (!instructorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Instructor authentication required'
+      });
+    }
+
     // Find schedule
     const schedule = await Schedule.findById(id).populate('section');
 
@@ -352,19 +399,47 @@ export const updateSchedule = async (req, res) => {
       });
     }
 
+    const scheduleInstructorId = schedule.instructor._id || schedule.instructor;
+    const sectionInstructorId = schedule.section.instructor._id || schedule.section.instructor;
+    
+    console.log('Schedule instructor ID:', scheduleInstructorId.toString());
+    console.log('Section instructor ID:', sectionInstructorId.toString());
+    console.log('Current instructor ID:', instructorId.toString());
+    console.log('Schedule match:', scheduleInstructorId.toString() === instructorId.toString());
+    console.log('Section match:', sectionInstructorId.toString() === instructorId.toString());
+
     // Check if user is the instructor who created this schedule
-    if (schedule.instructor.toString() !== instructorId) {
+    // Use equals() method for proper MongoDB ObjectId comparison
+    const scheduleMatch = scheduleInstructorId.equals 
+      ? scheduleInstructorId.equals(instructorId) 
+      : scheduleInstructorId.toString() === instructorId.toString();
+
+    if (!scheduleMatch) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to update this schedule'
+        message: 'You do not have permission to update this schedule',
+        debug: {
+          scheduleInstructor: scheduleInstructorId.toString(),
+          currentInstructor: instructorId.toString(),
+          reason: 'Schedule owner mismatch'
+        }
       });
     }
 
     // Verify that the instructor is still assigned to this section
-    if (schedule.section.instructor.toString() !== instructorId) {
+    const sectionMatch = sectionInstructorId.equals 
+      ? sectionInstructorId.equals(instructorId) 
+      : sectionInstructorId.toString() === instructorId.toString();
+
+    if (!sectionMatch) {
       return res.status(403).json({
         success: false,
-        message: 'You can only update schedules for sections assigned to you'
+        message: 'You can only update schedules for sections assigned to you',
+        debug: {
+          sectionInstructor: sectionInstructorId.toString(),
+          currentInstructor: instructorId.toString(),
+          reason: 'Section instructor mismatch'
+        }
       });
     }
 
@@ -464,7 +539,21 @@ export const updateSchedule = async (req, res) => {
 export const deleteSchedule = async (req, res) => {
   try {
     const { id } = req.params;
-    const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+    // Extract instructor ID - prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
+
+    console.log('=== Delete Schedule Debug ===');
+    console.log('req.instructor:', req.instructor);
+    console.log('req.user:', req.user);
+    console.log('req.user.user:', req.user?.user);
+    console.log('Extracted instructorId:', instructorId);
+
+    if (!instructorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Instructor authentication required'
+      });
+    }
 
     // Find schedule
     const schedule = await Schedule.findById(id);
@@ -476,11 +565,26 @@ export const deleteSchedule = async (req, res) => {
       });
     }
 
+    const scheduleInstructorId = schedule.instructor._id || schedule.instructor;
+    console.log('Schedule instructor ID:', scheduleInstructorId.toString());
+    console.log('Current instructor ID:', instructorId.toString());
+    console.log('Match:', scheduleInstructorId.toString() === instructorId.toString());
+
     // Check if user is the instructor who created this schedule
-    if (schedule.instructor.toString() !== instructorId) {
+    // Use equals() method for proper MongoDB ObjectId comparison
+    const scheduleMatch = scheduleInstructorId.equals 
+      ? scheduleInstructorId.equals(instructorId) 
+      : scheduleInstructorId.toString() === instructorId.toString();
+
+    if (!scheduleMatch) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to delete this schedule'
+        message: 'You do not have permission to delete this schedule',
+        debug: {
+          scheduleInstructor: scheduleInstructorId.toString(),
+          currentInstructor: instructorId.toString(),
+          reason: 'Schedule owner mismatch'
+        }
       });
     }
 
@@ -509,8 +613,9 @@ export const deleteSchedule = async (req, res) => {
 
 export const getUpcomingSchedules = async (req, res) => {
   try {
-    const userId = req.instructor?.id || req.student?.id || req.user?.user?._id || req.user?._id;
-    const userRole = req.instructor ? 'instructor' : req.student ? 'student' : (req.user?.role || req.user?.userType);
+    // Extract user ID - prioritize Google OAuth structure (req.user.user._id)
+    const userId = req.user?.user?._id || req.instructor?.id || req.student?.id || req.user?._id;
+    const userRole = req.user?.role || (req.instructor ? 'instructor' : req.student ? 'student' : req.user?.userType);
     const limit = parseInt(req.query.limit) || 5;
 
     let query = { isActive: true, startDateTime: { $gte: new Date() } };

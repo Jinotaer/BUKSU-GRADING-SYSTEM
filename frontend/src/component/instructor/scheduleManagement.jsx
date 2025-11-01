@@ -96,6 +96,19 @@ export default function ScheduleManagement() {
       if (response.ok) {
         const data = await response.json();
         setSections(data.sections || []);
+        
+        // Extract unique subjects from sections
+        const uniqueSubjects = [];
+        const subjectIds = new Set();
+        
+        data.sections.forEach(section => {
+          if (section.subject && !subjectIds.has(section.subject._id)) {
+            subjectIds.add(section.subject._id);
+            uniqueSubjects.push(section.subject);
+          }
+        });
+        
+        setSubjects(uniqueSubjects);
       }
     } catch (error) {
       console.error('Error loading sections:', error);
@@ -103,15 +116,8 @@ export default function ScheduleManagement() {
   };
 
   const loadSubjects = async () => {
-    try {
-      const response = await authenticatedFetch('http://localhost:5000/api/subjects');
-      if (response.ok) {
-        const data = await response.json();
-        setSubjects(data.subjects || []);
-      }
-    } catch (error) {
-      console.error('Error loading subjects:', error);
-    }
+    // Subjects are now loaded from sections, so this function is no longer needed
+    // Kept for backward compatibility but does nothing
   };
 
   const showNotification = (message, type) => {
@@ -462,7 +468,7 @@ export default function ScheduleManagement() {
         </div>
 
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
@@ -634,7 +640,7 @@ export default function ScheduleManagement() {
         )}
 
         {showDetailModal && selectedSchedule && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-lg max-w-lg w-full">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">

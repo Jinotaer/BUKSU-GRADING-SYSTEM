@@ -299,7 +299,7 @@ const writeValues = async (sheets, spreadsheetId, sheetTitle, values) => {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: toA1Notation(sheetTitle, 'A1'),
-      valueInputOption: 'RAW',
+      valueInputOption: 'USER_ENTERED',
       requestBody: { values },
     });
   } catch (err) {
@@ -449,22 +449,87 @@ const applyFormatting = async (
   headerRowCount,
   colorRanges = [],
   staticColumnCount = 0,
-  finalGradeColumnStart = columnCount - 1
+  finalGradeColumnStart = columnCount
 ) => {
   const frozenRowCount = headerStartRow + headerRowCount;
   const requests = [
-    // Merge top title row
+    // Merge top title rows - text starts at column F
+    // Row 1: University name (columns F onwards)
     {
       mergeCells: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: columnCount },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 5, endColumnIndex: columnCount },
         mergeType: 'MERGE_ALL',
       },
     },
-    // Title region styles
+    // Row 2: City (columns F onwards)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 5, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Row 3: Contact info (columns F onwards)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 5, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Merge logo cell vertically (rows 0-2, column E)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 4, endColumnIndex: 5 },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Style logo cell - center alignment
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: titleRowCount, startColumnIndex: 0, endColumnIndex: columnCount },
-        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontSize: 11 } } },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 4, endColumnIndex: 5 },
+        cell: { 
+          userEnteredFormat: { 
+            horizontalAlignment: 'CENTER', 
+            verticalAlignment: 'MIDDLE'
+          } 
+        },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+      },
+    },
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Title region styles - university header (columns F onwards)
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 5, endColumnIndex: columnCount },
+        cell: { userEnteredFormat: {  horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: true, fontSize: 12 } } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+      },
+    },
+    // Second row - city (not bold)
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 5, endColumnIndex: columnCount },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: false, fontSize: 10 } } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+      },
+    },
+    // Third row - contact info (hyperlink, slightly smaller)
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 5, endColumnIndex: columnCount },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: false, fontSize: 9 } } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+      },
+    },
+    // CLASS RECORD title
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: columnCount },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontSize: 12 } } },
         fields: 'userEnteredFormat(horizontalAlignment,textFormat)',
       },
     },
@@ -508,6 +573,24 @@ const applyFormatting = async (
     });
   }
 
+  // Center-align category headers (Class Standing, Laboratory, Major Output) in first row
+  if (finalGradeColumnStart > staticColumnCount) {
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: headerStartRow,
+          endRowIndex: headerStartRow + 1,
+          startColumnIndex: staticColumnCount,
+          endColumnIndex: finalGradeColumnStart,
+        },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+      },
+    });
+  }
+
+  // Apply text rotation to activity titles (third header row)
   if (finalGradeColumnStart > staticColumnCount) {
     requests.push({
       repeatCell: {
@@ -523,6 +606,102 @@ const applyFormatting = async (
       },
     });
   }
+
+  // Resize base columns (Ctrl No, ID Number, NAME)
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'COLUMNS',
+        startIndex: 0,
+        endIndex: 1,
+      },
+      properties: {
+        pixelSize: 50, // Ctrl No column
+      },
+      fields: 'pixelSize',
+    },
+  });
+
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'COLUMNS',
+        startIndex: 1,
+        endIndex: 2,
+      },
+      properties: {
+        pixelSize: 100, // ID Number column
+      },
+      fields: 'pixelSize',
+    },
+  });
+
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'COLUMNS',
+        startIndex: 2,
+        endIndex: 3,
+      },
+      properties: {
+        pixelSize: 180, // NAME column
+      },
+      fields: 'pixelSize',
+    },
+  });
+
+  // Resize logo column E to appropriate size
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'COLUMNS',
+        startIndex: 3,
+        endIndex: 5,
+      },
+      properties: {
+        pixelSize: 90,
+      },
+      fields: 'pixelSize',
+    },
+  });
+
+  // Resize activity columns (with rotated text) to narrower width
+  if (finalGradeColumnStart > staticColumnCount) {
+    requests.push({
+      updateDimensionProperties: {
+        range: {
+          sheetId,
+          dimension: 'COLUMNS',
+          startIndex: staticColumnCount,
+          endIndex: finalGradeColumnStart,
+        },
+        properties: {
+          pixelSize: 75,
+        },
+        fields: 'pixelSize',
+      },
+    });
+  }
+
+  // Adjust row heights for logo rows (rows 0-2) to accommodate logo
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'ROWS',
+        startIndex: 0,
+        endIndex: 3,
+      },
+      properties: {
+        pixelSize: 30,
+      },
+      fields: 'pixelSize',
+    },
+  });
 
   try {
     await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
@@ -561,6 +740,46 @@ const trySetPublicAccess = async (drive, spreadsheetId) => {
   }
 };
 
+const insertLogo = async (sheets, spreadsheetId, sheetId, logoUrl) => {
+  try {
+    if (!logoUrl) return { ok: false, message: 'No logo URL provided' };
+    
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateCells: {
+              rows: [
+                {
+                  values: [
+                    {
+                      userEnteredValue: {
+                        formulaValue: `=IMAGE("${logoUrl}", 1)`,
+                      },
+                    },
+                  ],
+                },
+              ],
+              fields: 'userEnteredValue',
+              range: {
+                sheetId,
+                startRowIndex: 0,
+                endRowIndex: 1,
+                startColumnIndex: 4,
+                endColumnIndex: 5,
+              },
+            },
+          },
+        ],
+      },
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err?.message || 'Failed to insert logo' };
+  }
+};
+
 /* -------------------------------------------------------------------------- */
 /* main controller                                                             */
 /* -------------------------------------------------------------------------- */
@@ -571,8 +790,16 @@ export const exportToGoogleSheets = async (req, res) => {
   // 1) Params & base section data
   const { sectionId } = req.params;
   const instructorId = req?.instructor?.id;
+  const { schedule, chairperson, dean } = req.body || {};
   console.log('[exportController] SectionId:', sectionId, 'InstructorId:', instructorId);
   if (!sectionId) return res.status(400).json({ message: 'Missing sectionId' });
+  
+  // Validate required schedule information
+  if (!schedule?.day || !schedule?.time || !schedule?.room || !chairperson || !dean) {
+    return res.status(400).json({ 
+      message: 'Missing required schedule information. Please provide day, time, room, chairperson, and dean.' 
+    });
+  }
 
   let section;
   try {
@@ -750,28 +977,29 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // 7) Compose values for the sheet
   const headerData = [
-    ['BUKIDNON STATE UNIVERSITY'],
-    ['Malaybalay City, Bukidnon 8700'],
-    ['Tel (088) 813-5661 to 5663; Telefax (088) 813-2717, www.buksu.edu.ph'],
+    ['', '', '', '', '', 'BUKIDNON STATE UNIVERSITY'], // Empty cells A-E, text starts at F
+    ['', '', '', '', '', 'Malaybalay City, Bukidnon 8700'],
+    ['', '', '', '', '', '=HYPERLINK("http://www.buksu.edu.ph", "Tel (088) 813-5661 to 5663; Telefax (088) 813-2717; www.buksu.edu.ph")'],
     [],
     ['CLASS RECORD'],
+    [],
   ];
 
   const sectionInfo = [
-    ['Section Code:', section.sectionCode || 'N/A', '', 'Day:', section.schedule?.day || 'TF'],
-    ['Subject Code:', section.subject?.subjectCode || 'N/A', '', 'Time:', section.schedule?.time || '7:30AM - 10:00AM'],
-    ['Descriptive Title:', section.subject?.subjectName || 'N/A', '', 'Rm:', section.schedule?.room || 'Lab 3'],
+    ['Section Code:', section.sectionCode || section.sectionName || 'N/A', '', 'Day:', schedule.day],
+    ['Subject Code:', section.subject?.subjectCode || 'N/A', '', 'Time:', schedule.time],
+    ['Descriptive Title:', section.subject?.subjectName || 'N/A', '', 'Rm:', schedule.room],
     ['Semester:', `${section.term || ''} Sem`, '', 'Units:', section.subject?.units ?? 3],
-    ['School Year:', section.schoolYear || 'N/A', '', 'Chair:', section.subject?.chair || 'Dr. Sales G. Aribe, Jr.'],
-    ['Instructor:', section.instructor?.fullName || 'N/A', '', 'Dean:', section.subject?.dean || 'Dr. Marilou O. Espina'],
+    ['School Year:', section.schoolYear || 'N/A', '', 'Chair:', chairperson],
+    ['Instructor:', section.instructor?.fullName || 'N/A', '', 'Dean:', dean],
+    [],
   ];
 
   const baseColumns = 3;
   const headerRows = {
     category: ['', '', ''],
-    index: ['Ctrl No', 'ID Number', 'NAME'],
+    index: ['Ctrl\nNo', 'ID Number', 'NAME'],
     title: ['', '', ''],
-    maxScore: ['', '', ''],
   };
   const headerColorRanges = [
     { start: 0, end: baseColumns, color: { red: 0.82, green: 0.82, blue: 0.82 } },
@@ -783,7 +1011,6 @@ export const exportToGoogleSheets = async (req, res) => {
   ];
 
   let columnCursor = baseColumns;
-  let activityCounter = 1;
   const allActs = [];
 
   for (const cfg of categoryConfigs) {
@@ -791,9 +1018,10 @@ export const exportToGoogleSheets = async (req, res) => {
     const start = columnCursor;
     cfg.activities.forEach((activity, idx) => {
       headerRows.category.push(idx === 0 ? cfg.label : '');
-      headerRows.index.push(String(activityCounter++));
-      headerRows.title.push(activity.title || `Activity ${activityCounter - 1}`);
-      headerRows.maxScore.push(String(activity.maxScore ?? 100));
+      headerRows.index.push(String(idx + 1)); // Restart numbering for each category
+      // Use activity title with max score, e.g., "Quiz 1/50"
+      const activityLabel = `${activity.title || 'Activity ' + (idx + 1)}/${activity.maxScore ?? 100}`;
+      headerRows.title.push(activityLabel);
       allActs.push(activity);
       columnCursor += 1;
     });
@@ -801,13 +1029,7 @@ export const exportToGoogleSheets = async (req, res) => {
   }
 
   const finalGradeStart = columnCursor;
-  // headerRows.category.push('Final Grade');
-  // headerRows.index.push('FG');
-  // headerRows.title.push('Final Grade');
-  headerRows.maxScore.push('');
-  // headerColorRanges.push({ start: finalGradeStart, end: finalGradeStart + 1, color: { red: 0.75, green: 0.75, blue: 0.75 } });
-  columnCursor += 1;
-
+  // No final grade column for now to match the image
   const totalColumns = headerRows.category.length;
 
   const studentRows = section.students.map((student, idx) => {
@@ -818,22 +1040,14 @@ export const exportToGoogleSheets = async (req, res) => {
       row.push(String(Number(sMap[String(a._id)] || 0)));
     }
 
-    const csAvg = avgFor(classStandingActivities, student, scoresByStudent);
-    const labAvg = avgFor(laboratoryActivities, student, scoresByStudent);
-    const moAvg = avgFor(majorOutputActivities, student, scoresByStudent);
-
-    // const finalPercent = (csAvg * csWeight) / 100 + (labAvg * labWeight) / 100 + (moAvg * moWeight) / 100;
-    // row.push(percentToGrade(finalPercent).toFixed(2));
     return row;
   });
 
-  const tableHeaderRows = [headerRows.category, headerRows.index, headerRows.title, headerRows.maxScore];
+  const tableHeaderRows = [headerRows.category, headerRows.index, headerRows.title];
 
   const allData = [
     ...headerData,
-    [],
     ...sectionInfo,
-    [],
     ...tableHeaderRows,
     ...studentRows,
   ];
@@ -848,7 +1062,7 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // 9) Apply formatting
   const headerRowCount = tableHeaderRows.length;
-  const tableHeaderStartRow = headerData.length + 1 + sectionInfo.length + 1;
+  const tableHeaderStartRow = headerData.length + sectionInfo.length;
   try {
     await applyFormatting(
       sheets,
@@ -860,11 +1074,16 @@ export const exportToGoogleSheets = async (req, res) => {
       headerRowCount,
       headerColorRanges,
       baseColumns,
-      finalGradeStart
+      totalColumns
     );
   } catch (err) {
     warnings.push(`Formatting failed: ${err.message}`);
   }
+
+  // 9b) Insert logo
+  const logoUrl = 'https://drive.google.com/uc?export=view&id=1xstqF1mB98ZjOCt4nmeLJQBFb9g1u0be';
+  const logoRes = await insertLogo(sheets, spreadsheetId, sheetId, logoUrl);
+  if (!logoRes.ok) warnings.push(`Could not insert logo: ${logoRes.message}`);
 
   // 10) Sharing (non-fatal)
   const instructorEmail = section?.instructor?.email || null;
@@ -918,6 +1137,11 @@ export const exportToGoogleSheets = async (req, res) => {
       section._id,
       {
         $set: {
+          'schedule.day': schedule.day,
+          'schedule.time': schedule.time,
+          'schedule.room': schedule.room,
+          'chairperson': chairperson,
+          'dean': dean,
           'exportMetadata.spreadsheetId': spreadsheetId,
           'exportMetadata.sheetId': sheetId,
           'exportMetadata.sheetTitle': sheetTitle,

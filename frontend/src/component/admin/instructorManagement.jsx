@@ -4,7 +4,15 @@ import { authenticatedFetch } from "../../utils/auth";
 import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
-import { IconArchive, IconArchiveOff } from "@tabler/icons-react";
+import {
+  PageHeader,
+  LoadingSpinner,
+  SearchBar,
+  EmptyState,
+  InstructorTable,
+  InstructorMobileCard,
+  InviteInstructorModal,
+} from "./ui/instructors";
 
 export default function InstructorManagement() {
   const [instructors, setInstructors] = useState([]);
@@ -267,179 +275,33 @@ export default function InstructorManagement() {
       {/* Main Content */}
       <div className="flex-1 p-4 sm:p-6 lg:p-8 ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20">
         <div className="max-w-full mx-auto">
-          <h1 className="pt-10 text-2xl sm:text-3xl font-bold text-[#1E3A5F] mb-6 sm:mb-8 font-outfit max-[880px]:mt-10">
-            Instructor Management
-          </h1>
+          <PageHeader />
 
           {/* Loading / Error / Table */}
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
+            <LoadingSpinner />
           ) : (
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border-2 border-gray-200">
-              {/* Search + Invite */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-                <input
-                  type="text"
-                  placeholder="Search instructors..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:max-w-sm md:max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-                <button
-                  onClick={() => setShowInviteModal(true)}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition text-sm w-full sm:w-auto"
-                >
-                  Invite Instructor
-                </button>
-              </div>
+              <SearchBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onInviteClick={() => setShowInviteModal(true)}
+              />
 
-              {/* Table View (Desktop) */}
               {paginatedInstructors.length === 0 ? (
-                <p className="text-gray-500 text-center py-8 text-sm sm:text-base">
-                  {searchTerm
-                    ? `No instructors found matching "${searchTerm}"`
-                    : "No instructors found."}
-                </p>
+                <EmptyState searchTerm={searchTerm} />
               ) : (
                 <>
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            ID
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Name
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Email
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            College
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Department
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {paginatedInstructors.map((inst, i) => (
-                          <tr
-                            key={`${
-                              inst.instructorid || inst._id || inst.id
-                            }-${i}`}
-                            className="hover:bg-gray-50"
-                          >
-                            <td className="px-4 py-3 text-xs md:text-sm truncate max-w-[80px]">
-                              {inst.instructorid ||
-                                inst._id ||
-                                inst.id ||
-                                "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-xs md:text-sm">
-                              {inst.fullName || inst.name || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-xs md:text-sm text-blue-600 truncate">
-                              {inst.email || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-xs md:text-sm">
-                              {inst.college || "N/A"}
-                            </td>
-                            <td className="px-4 py-3 text-xs md:text-sm">
-                              {inst.department || "N/A"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() =>
-                                    handleArchiveInstructor(inst._id || inst.id)
-                                  }
-                                  className="inline-flex items-center px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  <IconArchive className="w-3 h-3 mr-1" />
-                                  Archive
-                                </button>
-                                {/* <button
-                                  onClick={() =>
-                                    handleDeleteInstructor(inst._id || inst.id)
-                                  }
-                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  Delete
-                                </button> */}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <InstructorTable
+                    instructors={paginatedInstructors}
+                    onArchive={handleArchiveInstructor}
+                  />
 
-                  {/* Mobile Card View */}
-                  <div className="md:hidden space-y-4">
-                    {paginatedInstructors.map((inst, i) => (
-                      <div
-                        key={`${inst.instructorid || inst._id || inst.id}-${i}`}
-                        className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                      >
-                        <div className="space-y-2">
-                          <h3 className="font-semibold text-gray-900 text-sm">
-                            {inst.fullName || inst.name || "N/A"}
-                          </h3>
-                          <div className="text-xs text-gray-600 space-y-1">
-                            <div>
-                              <span className="font-medium">ID:</span>{" "}
-                              {inst.instructorid ||
-                                inst._id ||
-                                inst.id ||
-                                "N/A"}
-                            </div>
-                            <div>
-                              <span className="font-medium">Email:</span>{" "}
-                              <span className="text-blue-600">
-                                {inst.email || "N/A"}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="font-medium">College:</span>{" "}
-                              {inst.college || "N/A"}
-                            </div>
-                            <div>
-                              <span className="font-medium">Department:</span>{" "}
-                              {inst.department || "N/A"}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() =>
-                                handleArchiveInstructor(inst._id || inst.id)
-                              }
-                              className="inline-flex items-center px-3 py-2 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
-                            >
-                              <IconArchive className="w-3 h-3 mr-1" />
-                              Archive
-                            </button>
-                            {/* <button
-                              onClick={() =>
-                                handleDeleteInstructor(inst._id || inst.id)
-                              }
-                              className="px-3 py-2 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition"
-                            >
-                              Delete
-                            </button> */}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <InstructorMobileCard
+                    instructors={paginatedInstructors}
+                    onArchive={handleArchiveInstructor}
+                  />
 
-                  {/* Pagination */}
                   <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
@@ -456,137 +318,23 @@ export default function InstructorManagement() {
         </div>
       </div>
 
-      {/* Invite Instructor Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md mx-4 shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">Invite Instructor</h2>
-            <form onSubmit={handleInvite}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">ID</label>
-                  <input
-                    type="text"
-                    placeholder=""
-                    value={inviteData.instructorid}
-                    onChange={(e) =>
-                      setInviteData((prev) => ({
-                        ...prev,
-                        instructorid: e.target.value,
-                      }))
-                    }
-                    required
-                   className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="instructor@buksu.edu.ph"
-                    value={inviteData.email}
-                    onChange={(e) =>
-                      setInviteData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
-                    }
-                    required
-                    className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="John Doe"
-                    value={inviteData.fullName}
-                    onChange={(e) =>
-                      setInviteData((prev) => ({
-                        ...prev,
-                        fullName: e.target.value,
-                      }))
-                    }
-                    required
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    College
-                  </label>
-                  <select
-                    value={inviteData.college}
-                    onChange={(e) =>
-                      setInviteData((prev) => ({
-                        ...prev,
-                        college: e.target.value,
-                      }))
-                    }
-                    required
-                 className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select college</option>
-                    {colleges.map((college) => (
-                      <option key={college} value={college}>
-                        {college}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="BSIT"
-                    value={inviteData.department}
-                    onChange={(e) =>
-                      setInviteData((prev) => ({
-                        ...prev,
-                        department: e.target.value,
-                      }))
-                    }
-                    required
-                  className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowInviteModal(false);
-                      setInviteData({
-                        instructorid: "",
-                        email: "",
-                        fullName: "",
-                        college: "",
-                        department: "",
-                      });
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium"
-                  >
-                    Send Invitation
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <InviteInstructorModal
+        show={showInviteModal}
+        inviteData={inviteData}
+        onClose={() => {
+          setShowInviteModal(false);
+          setInviteData({
+            instructorid: "",
+            email: "",
+            fullName: "",
+            college: "",
+            department: "",
+          });
+        }}
+        onSubmit={handleInvite}
+        onChange={setInviteData}
+        colleges={colleges}
+      />
     </div>
     </NotificationProvider>
   );

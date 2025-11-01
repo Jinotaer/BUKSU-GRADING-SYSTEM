@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from "react";
-import {
-  IconUser,
-  IconEdit,
-  IconMail,
-  IconCalendar,
-  IconShield,
-  IconCheck,
-  IconX,
-  IconEye,
-  IconSchool,
-  IconBuilding,
-  IconDeviceFloppy,
-  IconCamera,
-  IconBookmark
-} from "@tabler/icons-react";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import {
+  ProfileCard,
+  PersonalInfoCard,
+  AcademicInfoCard,
+  AccountInfoCard,
+  InstitutionInfoCard,
+  EditProfileModal,
+  AlertMessage,
+  ProfileHeader,
+  LoadingState,
+} from "./ui/profile";
+import { 
+  getGoogleProfilePicture, 
+  handleImageError, 
+  formatDate, 
+  getStatusColor 
+} from "./ui/profile/profileUtils";
 
 export default function StudentProfile() {
   const [profile, setProfile] = useState(null);
@@ -107,428 +109,47 @@ export default function StudentProfile() {
     }
   };
 
-  // Get Google profile picture from institutional email
-  const getGoogleProfilePicture = (email) => {
-    if (!email) return null;
-    
-    // Google's profile picture API using email
-    // This works for Google Workspace accounts (institutional emails)
-    return `https://lh3.googleusercontent.com/a/default-user=s96-c?email=${encodeURIComponent(email)}`;
-  };
-
-  // Fallback function for profile picture
-  const handleImageError = (e) => {
-    // If Google profile picture fails, use a default avatar
-    e.target.style.display = 'none';
-    e.target.nextSibling.style.display = 'flex';
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "Never";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  };
-
-  // Get status color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "Approved":
-        return "green";
-      case "Pending":
-        return "yellow";
-      case "Rejected":
-        return "red";
-      default:
-        return "gray";
-    }
-  };
-
   if (loading) {
-    return (
-      <div className="flex min-h-screen bg-gray-50">
-        <NavbarSimple />
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 flex justify-center items-center ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="text-gray-600">Loading profile...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        {/* Alert Messages */}
-        {alert.show && (
-          <div className={`p-4 mb-6 rounded-md border flex items-center justify-between ${
-            alert.type === "success" 
-              ? "bg-green-50 border-green-200 text-green-800" 
-              : alert.type === "error"
-              ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-blue-50 border-blue-200 text-blue-800"
-          }`}>
-            <div className="flex items-center gap-2">
-              {alert.type === "success" ? <IconCheck size={16} /> : <IconX size={16} />}
-              <span>{alert.message}</span>
-            </div>
-            <button 
-              onClick={() => setAlert({ show: false, type: "", message: "" })}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        )}
+        <AlertMessage 
+          alert={alert} 
+          onClose={() => setAlert({ show: false, type: "", message: "" })}
+        />
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
-            Student Profile
-          </h1>
-          <button
-            onClick={() => setEditModalOpened(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-medium transition-colors"
-          >
-            <IconEdit size={16} />
-            Edit Profile
-          </button>
-        </div>
+        <ProfileHeader onEditClick={() => setEditModalOpened(true)} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profile Card */}
           <div className="lg:col-span-1">
-            <div className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm h-full">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="relative w-32 h-32 rounded-full overflow-hidden bg-blue-100">
-                  {/* Google Profile Picture */}
-                  <img 
-                    src={getGoogleProfilePicture(profile?.email)}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    onError={handleImageError}
-                  />
-                  {/* Fallback Icon */}
-                  <div className="w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: 'none' }}>
-                    <IconUser size={48} className="text-white" />
-                  </div>
-                  {/* Google Badge */}
-                  <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md">
-                    <IconCamera size={12} className="text-gray-500" />
-                  </div>
-                </div>
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold font-outfit text-gray-800">
-                    {profile?.fullName}
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {profile?.email}
-                  </p>
-                  <p className="text-sm text-blue-600 mt-1 font-medium">
-                    ID: {profile?.studid}
-                  </p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mt-3 ${
-                    getStatusColor(profile?.status) === 'green' 
-                      ? 'bg-green-100 text-green-800' 
-                      : getStatusColor(profile?.status) === 'yellow'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : getStatusColor(profile?.status) === 'red'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {profile?.status}
-                  </span>
-                </div>
-                <div className="w-full mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-600 text-center">
-                    📸 Profile picture from Google Workspace
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ProfileCard 
+              profile={profile}
+              getGoogleProfilePicture={getGoogleProfilePicture}
+              handleImageError={handleImageError}
+              getStatusColor={getStatusColor}
+            />
           </div>
 
-          {/* Information Cards */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
-            <div className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 font-outfit text-gray-700">
-                Personal Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start gap-3">
-                  <IconUser size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.fullName || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconMail size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Email Address</p>
-                    <p className="font-medium text-gray-800">{profile?.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconBookmark size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Student ID</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.studid || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconShield size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Role</p>
-                    <p className="font-medium text-gray-800">{profile?.role}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Academic Information */}
-            <div className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 font-outfit text-gray-700">
-                Academic Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start gap-3">
-                  <IconSchool size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">College</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.college || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconBuilding size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Course</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.course || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconCalendar size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Year Level</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.yearLevel || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Information */}
-            <div className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 font-outfit text-gray-700">
-                Account Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start gap-3">
-                  <IconCalendar size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Account Created</p>
-                    <p className="font-medium text-gray-800">
-                      {formatDate(profile?.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IconEye size={20} className="text-gray-500 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-500">Account Status</p>
-                    <p className="font-medium text-gray-800">
-                      {profile?.status}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Institution Information */}
-            <div className="p-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 font-outfit text-gray-700">
-                Institution Information
-              </h3>
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <IconSchool className="text-blue-600" size={20} />
-                    <span className="font-medium text-blue-800">Institution</span>
-                  </div>
-                  <p className="text-sm text-blue-700">
-                    Bukidnon State University
-                  </p>
-                </div>
-                {profile?.college && (
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <IconBuilding className="text-green-600" size={20} />
-                      <span className="font-medium text-green-800">College</span>
-                    </div>
-                    <p className="text-sm text-green-700">{profile.college}</p>
-                  </div>
-                )}
-                {profile?.course && (
-                  <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <IconBookmark className="text-purple-600" size={20} />
-                      <span className="font-medium text-purple-800">Course</span>
-                    </div>
-                    <p className="text-sm text-purple-700">{profile.course}</p>
-                  </div>
-                )}
-                {profile?.yearLevel && (
-                  <div className="p-4 bg-orange-50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <IconCalendar className="text-orange-600" size={20} />
-                      <span className="font-medium text-orange-800">Year Level</span>
-                    </div>
-                    <p className="text-sm text-orange-700">{profile.yearLevel}</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <PersonalInfoCard profile={profile} />
+            <AcademicInfoCard profile={profile} />
+            <AccountInfoCard profile={profile} formatDate={formatDate} />
+            <InstitutionInfoCard profile={profile} />
           </div>
         </div>
 
-        {/* Edit Profile Modal */}
-        {editModalOpened && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Edit Profile</h2>
-                <button
-                  onClick={() => setEditModalOpened(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <IconX size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleProfileUpdate}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={editForm.fullName}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, fullName: e.target.value })
-                      }
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      College
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., College of Information and Computing Sciences"
-                      value={editForm.college}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, college: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Course
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Bachelor of Science in Information Technology"
-                      value={editForm.course}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, course: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Year Level
-                    </label>
-                    <select
-                      value={editForm.yearLevel}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, yearLevel: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Year Level</option>
-                      <option value="1st Year">1st Year</option>
-                      <option value="2nd Year">2nd Year</option>
-                      <option value="3rd Year">3rd Year</option>
-                      <option value="4th Year">4th Year</option>
-                      <option value="5th Year">5th Year</option>
-                    </select>
-                  </div>
-
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-xs text-blue-600">
-                      💡 Your student ID and email are managed through your Google Workspace account and cannot be changed here.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setEditModalOpened(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                      disabled={submitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <IconDeviceFloppy size={16} />
-                          Save Changes
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <EditProfileModal
+          isOpen={editModalOpened}
+          onClose={() => setEditModalOpened(false)}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          onSubmit={handleProfileUpdate}
+          submitting={submitting}
+        />
       </div>
     </div>
   );

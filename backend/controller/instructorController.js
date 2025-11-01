@@ -11,33 +11,31 @@ export const getInstructorDashboardStats = async (req, res) => {
   try {
     const instructorId = req.instructor.id;
 
-    // Get total sections for this instructor (excluding archived)
-    const totalSections = await Section.countDocuments({ 
-      instructor: instructorId,
-      isArchived: { $ne: true }
-    });
-
-    // Get total students across all sections (excluding archived sections)
+    // Get all sections for this instructor (excluding archived sections)
     const sections = await Section.find({ 
       instructor: instructorId,
       isArchived: { $ne: true }
-    }).populate('students');
-    const totalStudents = sections.reduce((count, section) => count + section.students.length, 0);
+    })
+    .populate('students')
+    .populate('subject', 'isArchived');
 
-    // Get unique subjects taught (excluding archived sections)
-    const sectionsWithSubjects = await Section.find({ 
-      instructor: instructorId,
-      isArchived: { $ne: true }
-    }).populate('subject');
-    const uniqueSubjects = new Set(sectionsWithSubjects.map(section => section.subject?._id?.toString()));
+    // Filter out sections with archived subjects
+    const activeSections = sections.filter(section => 
+      section.subject && !section.subject.isArchived
+    );
+
+    // Get total sections count
+    const totalSections = activeSections.length;
+
+    // Get total students across all active sections
+    const totalStudents = activeSections.reduce((count, section) => count + section.students.length, 0);
+
+    // Get unique subjects taught (excluding archived subjects)
+    const uniqueSubjects = new Set(activeSections.map(section => section.subject?._id?.toString()).filter(Boolean));
     const totalSubjects = uniqueSubjects.size;
 
     // Get pending grades (sections without completed grading, excluding archived)
-    const pendingGrades = await Section.countDocuments({ 
-      instructor: instructorId,
-      isArchived: { $ne: true }
-      // You might want to add a field to track grading completion status
-    });
+    const pendingGrades = activeSections.length;
 
     res.json({
       success: true,
@@ -104,11 +102,19 @@ export const getInstructorSections = async (req, res) => {
     }
 
     const sections = await Section.find(query)
-      .populate("subject", "subjectCode subjectName units college department")
+      .populate("subject", "subjectCode subjectName units college department isArchived")
       .populate("students", "fullName studid email yearLevel")
       .sort({ schoolYear: -1, term: 1, sectionName: 1 });
 
-    res.json({ success: true, sections });
+    // Filter out sections with archived subjects unless explicitly requested
+    let filteredSections = sections;
+    if (includeArchived !== 'true') {
+      filteredSections = sections.filter(section => 
+        section.subject && !section.subject.isArchived
+      );
+    }
+
+    res.json({ success: true, sections: filteredSections });
   } catch (err) {
     console.error("getInstructorSections:", err);
     res.status(500).json({ message: "Server error" });

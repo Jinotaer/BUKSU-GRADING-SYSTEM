@@ -2,8 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from '../../utils/auth';
-import { IconArchive, IconX, IconAlertCircle } from '@tabler/icons-react';
 import { NotificationModal } from '../common/NotificationModals';
+import {
+  SubjectHeader,
+  SubjectFilters,
+  SubjectGrid,
+  ArchiveModal,
+  LoadingState,
+  ErrorState,
+} from './ui/subjects';
 const academicYears = [
   { value: '2024-2025', label: '2024-2025' },
   { value: '2025-2026', label: '2025-2026' },
@@ -177,10 +184,7 @@ const StudentDashboard = () => {
     return (
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
         <NavbarSimple />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading your subjects...</span>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -189,228 +193,45 @@ const StudentDashboard = () => {
     return (
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
         <NavbarSimple />
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600">{error}</p>
-          <button 
-            onClick={fetchStudentSections}
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <ErrorState error={error} onRetry={fetchStudentSections} />
       </div>
     );
   }
 
   return (
     <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-       <NavbarSimple />
-      <h3 className="pt-10 text-2xl sm:text-3xl font-bold text-[#1E3A5F] mb-6 sm:mb-8 font-outfit max-[880px]:mt-10">
-        Student Dashboard
-      </h3>
+      <NavbarSimple />
       
-      {/* Filters Section */}
-      <div className="flex flex-wrap items-center justify-between mb-8 gap-5">
-        <input
-          type="text"
-          placeholder="Search Class"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          className="flex-1 max-w-sm px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-buksu-primary focus:border-transparent"
-        />
-        
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">
-              Academic Year
-            </span>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-buksu-primary focus:border-transparent"
-            >
-              {academicYears.map((year) => (
-                <option key={year.value} value={year.value}>
-                  {year.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">
-              Semester
-            </span>
-            <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-buksu-primary focus:border-transparent"
-            >
-              {semesters.map((semester) => (
-                <option key={semester.value} value={semester.value}>
-                  {semester.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
+      <SubjectHeader />
 
-      {/* Classes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredClasses.map((section) => (
-          <div 
-            key={section._id} 
-            className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
-            onClick={() => handleSubjectClick(section)}
-          >
-            {/* Image Section */}
-            <div className="h-48 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <div className="text-white text-center">
-                <div className="text-3xl font-bold mb-2">
-                  {section.subject.subjectCode}
-                </div>
-                <div className="text-sm opacity-90">
-                  {section.sectionName}
-                </div>
-              </div>
-            </div>
-            
-            {/* Content Section */}
-            <div className="p-5">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {section.subject.subjectName}
-              </h3>
-              
-              <p className="text-gray-600 font-medium text-sm mb-3">
-                {section.subject.subjectCode} - {section.sectionName}
-              </p>
-              
-              <div className="space-y-1 mb-4">
-                <p className="text-gray-500 text-sm">
-                  {section.term} Semester
-                </p>
-                
-                <p className="text-gray-500 text-sm">
-                  A.Y. {section.schoolYear}
-                </p>
-                
-                <p className="text-gray-500 text-sm">
-                  {section.subject.units} {section.subject.units === 1 ? 'Unit' : 'Units'}
-                </p>
-              </div>
-              
-              <p className="text-gray-900 font-semibold text-sm">
-                {section.instructor?.fullName || 'Instructor TBA'}
-              </p>
-              
-              <div className="mt-3 flex items-center justify-between">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {section.subject.college}
-                </span>
-                <button
-                  onClick={(e) => handleArchiveClick(section, e)}
-                  className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                  title="Archive Subject"
-                >
-                  <IconArchive className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      {filteredClasses.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 text-6xl mb-4">📚</div>
-          {sections.length === 0 ? (
-            <div>
-              <p className="text-gray-500 text-lg mb-2">
-                No subjects assigned
-              </p>
-              <p className="text-gray-400 text-sm mb-4">
-                You are not enrolled in any subjects for the selected academic year and semester.
-                <br />
-                Contact your instructor or admin to be added to course sections.
-              </p>
-              <button 
-                onClick={fetchStudentSections}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                Refresh
-              </button>
-            </div>
-          ) : (
-            <div>
-              <p className="text-gray-500 text-lg mb-2">
-                No subjects match your search
-              </p>
-              <p className="text-gray-400 text-sm">
-                Try adjusting your search term or filter criteria.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <SubjectFilters
+        searchTerm={searchTerm}
+        selectedYear={selectedYear}
+        selectedSemester={selectedSemester}
+        academicYears={academicYears}
+        semesters={semesters}
+        onSearchChange={setSearchTerm}
+        onYearChange={setSelectedYear}
+        onSemesterChange={setSelectedSemester}
+      />
 
-      {/* Archive Confirmation Modal */}
-      {showArchiveModal && sectionToArchive && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <IconAlertCircle className="w-5 h-5 mr-2 text-orange-500" />
-                Archive Subject
-              </h3>
-              <button
-                onClick={() => setShowArchiveModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-                disabled={archiving}
-              >
-                <IconX className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                Are you sure you want to archive this subject?
-              </p>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-sm font-medium text-gray-900">
-                  {sectionToArchive.subject.code} - {sectionToArchive.subject.name}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Section: {sectionToArchive.name}
-                </p>
-              </div>
-              <p className="text-sm text-gray-500 mt-3">
-                You can unarchive it later from the Archive Management page.
-              </p>
-            </div>
+      <SubjectGrid
+        filteredClasses={filteredClasses}
+        sections={sections}
+        loading={loading}
+        onSubjectClick={handleSubjectClick}
+        onArchiveClick={handleArchiveClick}
+        onRefresh={fetchStudentSections}
+      />
 
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowArchiveModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                disabled={archiving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmArchive}
-                disabled={archiving}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-orange-300 flex items-center"
-              >
-                <IconArchive className="w-4 h-4 mr-2" />
-                {archiving ? 'Archiving...' : 'Archive'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ArchiveModal
+        isOpen={showArchiveModal}
+        section={sectionToArchive}
+        archiving={archiving}
+        onConfirm={confirmArchive}
+        onClose={() => setShowArchiveModal(false)}
+      />
 
-      {/* Notification Modal */}
       <NotificationModal
         isOpen={notification.show}
         type={notification.type}

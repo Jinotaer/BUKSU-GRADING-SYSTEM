@@ -5,6 +5,7 @@ const sectionSchema = new mongoose.Schema({
   subject: { type: mongoose.Schema.Types.ObjectId, ref: "Subject", required: true },
   instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor", required: true },
   sectionName: { type: String, required: true }, // e.g., "BSCS 1A"
+  sectionCode: { type: String, default: '' }, // e.g., "BSCS-1A"
   schoolYear: { type: String, required: true },
   term: { type: String, required: true, enum: ["1st", "2nd"] },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }], // optional
@@ -13,6 +14,13 @@ const sectionSchema = new mongoose.Schema({
     laboratory: { type: Number, default: 30 },
     majorOutput: { type: Number, default: 30 },
   },
+  schedule: {
+    day: { type: String, default: '' },
+    time: { type: String, default: '' },
+    room: { type: String, default: '' },
+  },
+  chairperson: { type: String, default: '' },
+  dean: { type: String, default: '' },
   exportMetadata: {
     spreadsheetId: { type: String, default: null },
     sheetId: { type: Number, default: null },

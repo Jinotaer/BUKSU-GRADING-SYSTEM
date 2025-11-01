@@ -35,6 +35,14 @@ export default function GradeManagement() {
   const [loading, setLoading] = useState(true);
   const [filterTerm, setFilterTerm] = useState("");
   const [activeTab, setActiveTab] = useState("classStanding");
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    day: "",
+    time: "",
+    room: "",
+    chairperson: "",
+    dean: "",
+  });
 
   const notifications = useNotifications();
   const { showErrorRef, showSuccessRef } = useToastRefs(notifications);
@@ -321,17 +329,51 @@ export default function GradeManagement() {
     showSuccessRef,
   ]);
 
+  const openScheduleModal = () => {
+    if (!selectedSection) return;
+    
+    // Pre-fill form with existing schedule data or defaults
+    setScheduleForm({
+      day: selectedSection.schedule?.day || "",
+      time: selectedSection.schedule?.time || "",
+      room: selectedSection.schedule?.room || "",
+      chairperson: selectedSection.chairperson || "",
+      dean: selectedSection.dean || "",
+    });
+    
+    setShowScheduleModal(true);
+  };
+
   const exportToGoogleSheets = async () => {
     if (!selectedSection) return;
 
+    // Validate form
+    if (!scheduleForm.day || !scheduleForm.time || !scheduleForm.room || !scheduleForm.chairperson || !scheduleForm.dean) {
+      showErrorRef.current("Please fill in all schedule information");
+      return;
+    }
+
     try {
       setLoading(true);
+      setShowScheduleModal(false);
       showSuccessRef.current("Exporting to Google Sheets...");
 
       const res = await authenticatedFetch(
         `http://localhost:5000/api/export/google-sheets/${selectedSection._id}`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            schedule: {
+              day: scheduleForm.day,
+              time: scheduleForm.time,
+              room: scheduleForm.room,
+            },
+            chairperson: scheduleForm.chairperson,
+            dean: scheduleForm.dean,
+          }),
         }
       );
 
@@ -709,7 +751,7 @@ export default function GradeManagement() {
                         Refresh
                       </button>
                       <button
-                        onClick={exportToGoogleSheets}
+                        onClick={openScheduleModal}
                         className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
                         disabled={
                           !selectedSection || !students.length || loading
@@ -737,7 +779,7 @@ export default function GradeManagement() {
                     <span>Refresh</span>
                   </button>
                   <button
-                    onClick={exportToGoogleSheets}
+                    onClick={openScheduleModal}
                     className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
                     disabled={!selectedSection || !students.length || loading}
                   >
@@ -971,6 +1013,139 @@ export default function GradeManagement() {
             </div>
           </div>
         </div>
+
+        {/* Schedule Information Modal */}
+        {showScheduleModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Class Schedule Information
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Please provide the class schedule details before exporting to Google Sheets
+                </p>
+              </div>
+
+              {/* Modal Body */}
+              <div className="px-6 py-4">
+                <div className="space-y-4">
+                  {/* Day */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Day <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleForm.day}
+                      onChange={(e) =>
+                        setScheduleForm({ ...scheduleForm, day: e.target.value })
+                      }
+                      placeholder="e.g., MWF, TTH, etc."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleForm.time}
+                      onChange={(e) =>
+                        setScheduleForm({ ...scheduleForm, time: e.target.value })
+                      }
+                      placeholder="e.g., 7:30 AM - 10:00 AM"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Room */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Room <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleForm.room}
+                      onChange={(e) =>
+                        setScheduleForm({ ...scheduleForm, room: e.target.value })
+                      }
+                      placeholder="e.g., Lab 3, Room 205, etc."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Chairperson */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Chairperson <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleForm.chairperson}
+                      onChange={(e) =>
+                        setScheduleForm({
+                          ...scheduleForm,
+                          chairperson: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., Dr. Juan Dela Cruz"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Dean */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dean <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleForm.dean}
+                      onChange={(e) =>
+                        setScheduleForm({ ...scheduleForm, dean: e.target.value })
+                      }
+                      placeholder="e.g., Dr. Maria Santos"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-lg flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => setShowScheduleModal(false)}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={exportToGoogleSheets}
+                  disabled={loading}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Exporting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconBrandGoogle size={18} />
+                      <span>Export to Google Sheets</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </NotificationProvider>
   );

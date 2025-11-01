@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   IconLogout,
@@ -18,42 +17,42 @@ import { useLocation, useNavigate } from "react-router-dom";
 import buksuLogo from "../../assets/logo1.png";
 
 const menuData = [
-  { 
-    link: "/student", 
-    label: "Dashboard", 
+  {
+    link: "/student",
+    label: "Dashboard",
     icon: IconTableDashed,
-    type: "single"
+    type: "single",
   },
-  { 
-    link: "/student/subjects", 
-    label: "My Subjects", 
+  {
+    link: "/student/subjects",
+    label: "My Subjects",
     icon: IconSchool,
-    type: "single"
+    type: "single",
   },
-  { 
-    link: "/student/grades", 
-    label: "My Grades", 
+  {
+    link: "/student/grades",
+    label: "My Grades",
     icon: IconBook,
-    type: "single"
+    type: "single",
   },
-   { 
-    link: "/student/schedule", 
-    label: "View Schedule", 
+  {
+    link: "/student/schedule",
+    label: "View Schedule",
     icon: IconCalendarWeek,
-    type: "single"
+    type: "single",
   },
-   { 
-    link: "/student/archive", 
-    label: "Archived Management", 
+  {
+    link: "/student/archive",
+    label: "Archived Management",
     icon: IconArchive,
-    type: "single"
+    type: "single",
   },
 ];
 
 export function NavbarSimple() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // State for dropdown menus
   const [dropdownStates, setDropdownStates] = useState({
     "User Management": false,
@@ -61,16 +60,42 @@ export function NavbarSimple() {
   });
 
   const [active, setActive] = useState(() => {
-    // Find active item in flat structure
+    // Find active item in flat structure, including Profile
     const allItems = [];
-    menuData.forEach(item => {
+    menuData.forEach((item) => {
       if (item.type === "single") {
         allItems.push(item);
       } else if (item.type === "dropdown" && item.children) {
         allItems.push(...item.children);
       }
     });
-    const found = allItems.find((item) => item.link === location.pathname);
+    // Add Profile to the check
+    allItems.push({ link: "/student/profile", label: "Profile" });
+
+    // First try exact match
+    let found = allItems.find((item) => item.link === location.pathname);
+
+    // If no exact match, try to match nested routes
+    if (!found) {
+      // Special case: /student/sections/*/activities should highlight "My Subjects"
+      if (location.pathname.match(/^\/student\/sections\/[^/]+\/activities/)) {
+        found = allItems.find((item) => item.link === "/student/subjects");
+      }
+
+      // Check if current path starts with any menu link (for nested routes)
+      if (!found) {
+        found = allItems.find((item) => {
+          if (
+            item.link !== "/student" &&
+            location.pathname.startsWith(item.link)
+          ) {
+            return true;
+          }
+          return false;
+        });
+      }
+    }
+
     return found ? found.label : menuData[0].label;
   });
 
@@ -84,9 +109,9 @@ export function NavbarSimple() {
   });
 
   const toggleDropdown = (label) => {
-    setDropdownStates(prev => ({
+    setDropdownStates((prev) => ({
       ...prev,
-      [label]: !prev[label]
+      [label]: !prev[label],
     }));
   };
 
@@ -134,7 +159,7 @@ export function NavbarSimple() {
         <a
           key={item.label}
           className={`flex items-center gap-3 px-4 py-3 text-white/90 no-underline rounded-lg transition-all duration-150 text-sm cursor-pointer hover:bg-white/20 ${
-            active === item.label ? 'bg-white/30 text-white font-semibold' : ''
+            active === item.label ? "bg-white/30 text-white font-semibold" : ""
           }`}
           href={item.link}
           onClick={(event) => {
@@ -144,7 +169,9 @@ export function NavbarSimple() {
           aria-current={active === item.label ? "page" : undefined}
         >
           <item.icon className="w-5 h-5 flex-shrink-0" stroke={1.5} />
-          <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
+          <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+            {item.label}
+          </span>
         </a>
       );
     }
@@ -159,22 +186,29 @@ export function NavbarSimple() {
           >
             <div className="flex items-center gap-3">
               <item.icon className="w-5 h-5 flex-shrink-0" stroke={1.5} />
-              <span className="whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>
+              <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                {item.label}
+              </span>
             </div>
             {isOpen ? (
               <IconChevronDown className="w-4 h-4 flex-shrink-0" stroke={1.5} />
             ) : (
-              <IconChevronRight className="w-4 h-4 flex-shrink-0" stroke={1.5} />
+              <IconChevronRight
+                className="w-4 h-4 flex-shrink-0"
+                stroke={1.5}
+              />
             )}
           </button>
-          
+
           {isOpen && (
             <div className="ml-4 mt-1 space-y-1">
               {item.children?.map((child) => (
                 <a
                   key={child.label}
                   className={`flex items-center gap-3 px-4 py-2 text-white/80 no-underline rounded-lg transition-all duration-150 text-sm cursor-pointer hover:bg-white/20 ${
-                    active === child.label ? 'bg-white/30 text-white font-semibold' : ''
+                    active === child.label
+                      ? "bg-white/30 text-white font-semibold"
+                      : ""
                   }`}
                   href={child.link}
                   onClick={(event) => {
@@ -184,7 +218,9 @@ export function NavbarSimple() {
                   aria-current={active === child.label ? "page" : undefined}
                 >
                   <child.icon className="w-4 h-4 flex-shrink-0" stroke={1.5} />
-                  <span className="whitespace-nowrap overflow-hidden text-ellipsis">{child.label}</span>
+                  <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                    {child.label}
+                  </span>
                 </a>
               ))}
             </div>
@@ -202,7 +238,10 @@ export function NavbarSimple() {
     <>
       {/* Burger button visible only on small screens */}
       {!opened && (
-        <div className="hidden max-[880px]:block fixed top-3 left-3 z-[2001] rounded-md shadow-sm p-1" style={{ backgroundColor: '#091057' }}>
+        <div
+          className="hidden max-[880px]:block fixed top-3 left-3 z-[2001] rounded-md shadow-sm p-1"
+          style={{ backgroundColor: "#091057" }}
+        >
           <button
             onClick={() => setOpened(true)}
             aria-label="Open navigation"
@@ -222,13 +261,20 @@ export function NavbarSimple() {
         } ${
           opened ? "max-[880px]:translate-x-0" : "max-[880px]:-translate-x-full"
         }`}
-        style={{ backgroundColor: '#152259' }}
+        style={{ backgroundColor: "#152259" }}
         aria-label="Student sidebar"
       >
         <div>
-          <div className="px-6 py-8 flex flex-col items-center justify-center border-b border-white/20" style={{ backgroundColor: '#152259' }}>
+          <div
+            className="px-6 py-8 flex flex-col items-center justify-center border-b border-white/20"
+            style={{ backgroundColor: "#152259" }}
+          >
             <div className="flex flex-col items-center gap-4">
-              <img src={buksuLogo} alt="BUKSU Logo"  className="h-20 w-20 object-cover rounded-half  shadow-sm" />
+              <img
+                src={buksuLogo}
+                alt="BUKSU Logo"
+                className="h-20 w-20 object-cover rounded-half  shadow-sm"
+              />
               {!collapsed && (
                 <span className="font-bold text-xl text-white tracking-wide text-center">
                   STUDENT PANEL
@@ -254,10 +300,14 @@ export function NavbarSimple() {
         <div className="p-4 flex flex-col gap-2 border-t border-white/20">
           <a
             href="#"
-            className="flex items-center gap-3 px-4 py-3 text-white/90 no-underline rounded-lg transition-all duration-150 text-sm cursor-pointer hover:bg-white/20"
+            className={`flex items-center gap-3 px-4 py-3 text-white/90 no-underline rounded-lg transition-all duration-150 text-sm cursor-pointer hover:bg-white/20 ${
+              active === "Profile" ? "bg-white/30 text-white font-semibold" : ""
+            }`}
             onClick={(event) => {
               event.preventDefault();
+              setActive("Profile");
               navigate("/student/profile");
+              setOpened(false); // close sidebar when navigating (mobile)
             }}
             title={!collapsed ? undefined : "Profile"}
           >
@@ -290,7 +340,9 @@ export function NavbarSimple() {
                 <h3 className="text-xl font-semibold mb-2 text-center">
                   Logout
                 </h3>
-                <p className="mb-4 text-center">Are you sure you want to log out?</p>
+                <p className="mb-4 text-center">
+                  Are you sure you want to log out?
+                </p>
                 <div className="flex gap-3">
                   <button
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
@@ -338,9 +390,9 @@ export function NavbarSimple() {
 
       {/* Overlay (for mobile UX) */}
       {opened && (
-        <div 
-          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 z-[1999]" 
-          onClick={() => setOpened(false)} 
+        <div
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 z-[1999]"
+          onClick={() => setOpened(false)}
         />
       )}
     </>
