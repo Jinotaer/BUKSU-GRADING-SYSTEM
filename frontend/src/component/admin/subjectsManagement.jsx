@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
@@ -31,6 +32,10 @@ export default function SubjectManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSemester, setFilterSemester] = useState("");
   const [filterCollege, setFilterCollege] = useState("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // keep units as string while typing; convert on submit
   const [formData, setFormData] = useState({
@@ -348,6 +353,23 @@ export default function SubjectManagement() {
     return matchesSearch && matchesSemester && matchesCollege;
   });
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterSemester, filterCollege]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredSubjects.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSubjects = filteredSubjects.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
   return (
     <NotificationProvider notifications={notifications}>
       <div className="flex min-h-screen bg-gray-50">
@@ -378,7 +400,7 @@ export default function SubjectManagement() {
               {filteredSubjects.length > 0 ? (
                 <>
                   <SubjectTableDesktop
-                    subjects={filteredSubjects}
+                    subjects={paginatedSubjects}
                     isLocked={isLocked}
                     getLockedBy={getLockedBy}
                     onEdit={openEditModal}
@@ -386,12 +408,21 @@ export default function SubjectManagement() {
                     getSemesterLabel={getSemesterLabel}
                   />
                   <SubjectCardMobile
-                    subjects={filteredSubjects}
+                    subjects={paginatedSubjects}
                     isLocked={isLocked}
                     getLockedBy={getLockedBy}
                     onEdit={openEditModal}
                     onArchive={handleArchive}
                     getSemesterLabel={getSemesterLabel}
+                  />
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredSubjects.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={handlePageChange}
+                    onItemsPerPageChange={handleItemsPerPageChange}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
                   />
                 </>
               ) : (

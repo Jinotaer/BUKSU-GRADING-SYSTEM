@@ -85,7 +85,8 @@ export default function AllUserManagement() {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchAllUsers();
@@ -113,8 +114,12 @@ export default function AllUserManagement() {
     }
 
     setFilteredUsers(filtered);
-    setCurrentPage(1);
   }, [searchTerm, roleFilter, users]);
+
+  // Reset to page 1 when search term or role filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter]);
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
