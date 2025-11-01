@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
-import {
-  IconUsers,
-  IconBook,
-  IconChalkboard,
-  IconAward,
-  IconCalendarEvent,
-  IconTrendingUp,
-  IconCalendarWeek,
-  IconClock,
-  IconMapPin,
-} from "@tabler/icons-react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import {
+  PageHeader,
+  StatsGrid,
+  QuickActions,
+  RecentSections,
+  UpcomingSchedules,
+  ErrorMessage,
+  LoadingSpinner,
+} from "./ui/dashboard";
 
 export default function InstructorDashboard() {
   const [stats, setStats] = useState({
@@ -64,259 +62,26 @@ export default function InstructorDashboard() {
     loadDashboardData();
   }, []);
 
-  const StatCard = ({ icon: Icon, title, value, color, bgColor }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${bgColor}`}>
-          <Icon className={`w-6 h-6 ${color}`} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const QuickActionCard = ({ 
-  icon: Icon, title, description, action, color, bgColor }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onClick={action}>
-      <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-lg ${bgColor}`}>
-          <Icon className={`w-6 h-6 ${color}`} />
-        </div>
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-1">{title}</h3>
-          <p className="text-sm text-gray-600">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
-
   if (loading) {
-    return (
-      <div className="flex min-h-screen bg-gray-50">
-        <InstructorSidebar />
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <InstructorSidebar />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
-            Instructor Dashboard
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Welcome back! Here's an overview of your teaching activities.
-          </p>
-        </div>
+        <PageHeader />
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <span className="text-red-700">{error}</span>
-          </div>
-        )}
+        <ErrorMessage message={error} />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            icon={IconChalkboard}
-            title="Active Sections"
-            value={stats.totalSections}
-            color="text-blue-600"
-            bgColor="bg-blue-100"
-          />
-          <StatCard
-            icon={IconUsers}
-            title="Total Students"
-            value={stats.totalStudents}
-            color="text-green-600"
-            bgColor="bg-green-100"
-          />
-          <StatCard
-            icon={IconBook}
-            title="Subjects Teaching"
-            value={stats.totalSubjects}
-            color="text-purple-600"
-            bgColor="bg-purple-100"
-          />
-          <StatCard
-            icon={IconCalendarWeek}
-            title="Upcoming Schedules"
-            value={stats.totalSchedules}
-            color="text-orange-600"
-            bgColor="bg-orange-100"
-          />
-        </div>
+        <StatsGrid stats={stats} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-            <div className="space-y-4">
-              <QuickActionCard
-                icon={IconChalkboard}
-                title="Add New Section"
-                description="Create a new class section for your subjects"
-                action={() => window.location.href = '/instructor/add-sections'}
-                color="text-blue-600"
-                bgColor="bg-blue-100"
-              />
-              <QuickActionCard
-                icon={IconAward}
-                title="Manage Grades"
-                description="Input and update student grades"
-                action={() => window.location.href = '/instructor/grades'}
-                color="text-green-600"
-                bgColor="bg-green-100"
-              />
-              <QuickActionCard
-                icon={IconCalendarEvent}
-                title="Schedule Management"
-                description="Create and manage class schedules"
-                action={() => window.location.href = '/instructor/schedule'}
-                color="text-purple-600"
-                bgColor="bg-purple-100"
-              />
-              <QuickActionCard
-                icon={IconUsers}
-                title="View Students"
-                description="See all students in your sections"
-                action={() => window.location.href = '/instructor/students'}
-                color="text-indigo-600"
-                bgColor="bg-indigo-100"
-              />
-              <QuickActionCard
-                icon={IconTrendingUp}
-                title="Grade Reports"
-                description="Generate and view grade reports"
-                action={() => window.location.href = '/instructor/grade-reports'}
-                color="text-orange-600"
-                bgColor="bg-orange-100"
-              />
-            </div>
-          </div>
-
-          {/* Recent Sections */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Sections</h2>
-            {recentSections.length > 0 ? (
-              <div className="space-y-4">
-                {recentSections.map((section) => (
-                  <div
-                    key={section._id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <IconChalkboard className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {section.sectionName}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {section.subject?.subjectCode} - {section.schoolYear} {section.term}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {section.students?.length || 0} students
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <IconChalkboard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 mb-4">No sections created yet</p>
-                <button
-                  onClick={() => window.location.href = '/instructor/add-sections'}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Create Your First Section
-                </button>
-              </div>
-            )}
-          </div>
+          <QuickActions />
+          <RecentSections sections={recentSections} />
         </div>
 
-        {/* Upcoming Schedules */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Schedules</h2>
-          {upcomingSchedules.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingSchedules.map((schedule) => {
-                const startDate = new Date(schedule.startDateTime);
-                const endDate = new Date(schedule.endDateTime);
-                const eventTypeColor = {
-                  class: "bg-blue-50 border-blue-200 text-blue-600",
-                  exam: "bg-red-50 border-red-200 text-red-600",
-                  quiz: "bg-yellow-50 border-yellow-200 text-yellow-600",
-                  meeting: "bg-purple-50 border-purple-200 text-purple-600",
-                  event: "bg-green-50 border-green-200 text-green-600"
-                };
-                const colorClass = eventTypeColor[schedule.eventType] || "bg-gray-50 border-gray-200 text-gray-600";
-                
-                return (
-                  <div key={schedule._id} className={`flex items-start gap-3 p-4 border rounded-lg ${colorClass}`}>
-                    <IconCalendarEvent className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-gray-900">{schedule.title}</p>
-                          <p className="text-sm text-gray-700 mt-0.5">
-                            {schedule.subject?.subjectCode} - {schedule.section?.sectionName}
-                          </p>
-                        </div>
-                        <span className="text-xs font-semibold px-2 py-1 rounded-full bg-white/50">
-                          {schedule.eventType.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <IconClock className="w-4 h-4" />
-                          <span>
-                            {startDate.toLocaleDateString()} {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            {' - '}
-                            {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        {schedule.location && (
-                          <div className="flex items-center gap-1">
-                            <IconMapPin className="w-4 h-4" />
-                            <span>{schedule.location}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <IconCalendarEvent className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 mb-4">No upcoming schedules</p>
-              <button
-                onClick={() => window.location.href = '/instructor/schedule'}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Create Schedule
-              </button>
-            </div>
-          )}
-        </div>
+        <UpcomingSchedules schedules={upcomingSchedules} />
       </div>
     </div>
   );

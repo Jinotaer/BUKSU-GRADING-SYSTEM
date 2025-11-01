@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import Pagination from "../common/Pagination";
 import { NotificationModal } from "../common/NotificationModals";
 import {
   ArchiveHeader,
@@ -25,7 +26,7 @@ export default function StudentArchiveManagement() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9; // 3x3 grid
+  const [itemsPerPage, setItemsPerPage] = useState(9); // 3x3 grid default
 
   // Unarchive modal
   const [showUnarchiveModal, setShowUnarchiveModal] = useState(false);
@@ -152,7 +153,7 @@ export default function StudentArchiveManagement() {
   const paginatedSections = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredSections.slice(start, start + itemsPerPage);
-  }, [filteredSections, currentPage]);
+  }, [filteredSections, currentPage, itemsPerPage]);
 
   const handleViewDetails = (section) => {
     navigate(`/student/sections/${section._id}/activities`, { 
@@ -191,6 +192,12 @@ export default function StudentArchiveManagement() {
     setSearchTerm("");
     setSelectedYear("all");
     setSelectedSemester("all");
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
   };
 
@@ -234,6 +241,18 @@ export default function StudentArchiveManagement() {
           onPageChange={setCurrentPage}
           formatDate={formatDate}
         />
+
+        {filteredSections.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredSections.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            onItemsPerPageChange={handleItemsPerPageChange}
+            rowsPerPageOptions={[9, 18, 27, 36]}
+          />
+        )}
 
         <UnarchiveModal
           isOpen={showUnarchiveModal}

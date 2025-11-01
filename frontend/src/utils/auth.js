@@ -128,7 +128,10 @@ export const authenticatedFetch = async (url, options = {}) => {
 
     return response;
   } catch (error) {
-    console.error("Authenticated fetch error:", error);
+    // Don't log AbortError (happens when component unmounts during fetch)
+    if (error.name !== 'AbortError') {
+      console.error("Authenticated fetch error:", error);
+    }
     throw error;
   }
 };

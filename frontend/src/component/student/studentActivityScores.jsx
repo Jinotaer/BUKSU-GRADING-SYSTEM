@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./studentsidebar";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { authenticatedFetch } from "../../utils/auth";
+import Pagination from "../common/Pagination";
 import {
   ActivityHeader,
   SummaryCardsGrid,
@@ -11,6 +12,55 @@ import {
 } from "./ui/activities";
 
 export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", onBack, categories = [] }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Flatten all rows from all categories for pagination
+  const allRows = React.useMemo(() => {
+    return categories.flatMap(category => 
+      category.rows.map(row => ({
+        ...row,
+        categoryName: category.name,
+        categoryWeight: category.weightLabel
+      }))
+    );
+  }, [categories]);
+
+  const totalPages = Math.ceil(allRows.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRows = allRows.slice(startIndex, endIndex);
+
+  // Group paginated rows back into categories
+  const paginatedCategories = React.useMemo(() => {
+    const categoryMap = {};
+    
+    paginatedRows.forEach(row => {
+      if (!categoryMap[row.categoryName]) {
+        const originalCategory = categories.find(c => c.name === row.categoryName);
+        categoryMap[row.categoryName] = {
+          name: row.categoryName,
+          weightLabel: row.categoryWeight,
+          percent: originalCategory?.percent || 0,
+          rows: []
+        };
+      }
+      
+      // Remove the added properties before adding to rows
+      // eslint-disable-next-line no-unused-vars
+      const { categoryName, categoryWeight, ...cleanRow } = row;
+      categoryMap[row.categoryName].rows.push(cleanRow);
+    });
+    
+    return Object.values(categoryMap);
+  }, [paginatedRows, categories]);
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
       <NavbarSimple />
@@ -26,7 +76,19 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
 
             <SummaryCardsGrid categories={categories} />
 
-            <CategoryCardsList categories={categories} />
+            <CategoryCardsList categories={paginatedCategories} />
+
+            {allRows.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={allRows.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+              />
+            )}
           </div>
         </div>
       </div>

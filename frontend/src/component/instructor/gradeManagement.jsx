@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import {
-  IconUsers,
-  IconFilter,
-  IconRefresh,
-  IconBrandGoogle,
-} from "@tabler/icons-react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import {
+  PageHeader,
+  MobileHeader,
+  MobileActionButtons,
+  SectionSelector,
+  SectionDetails,
+  TabNavigation,
+  CategoryTable,
+  EmptyState,
+  ScheduleModal,
+  LoadingSpinner,
+} from "./ui/grades";
 
 /* ---------- toast refs ---------- */
 function useToastRefs(notifications) {
@@ -26,7 +32,7 @@ export default function GradeManagement() {
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
   const [students, setStudents] = useState([]);
-  const [grades, setGrades] = useState({});
+  const [_grades, setGrades] = useState({});
   const [activities, setActivities] = useState({
     classStanding: [],
     laboratory: [],
@@ -252,21 +258,20 @@ export default function GradeManagement() {
   }, [fetchInstructorSections]);
 
   useEffect(() => {
-    if (!selectedSection?._id) return;
-    fetchActivities();
-  }, [selectedSection?._id, fetchActivities]);
-
-  useEffect(() => {
-    if (
-      !selectedSection?._id ||
-      (!activities.classStanding.length &&
-        !activities.laboratory.length &&
-        !activities.majorOutput.length)
-    ) {
-      return;
-    }
-    fetchStudentsAndGrades(activities);
-  }, [selectedSection?._id, activities, fetchStudentsAndGrades]);
+    const loadSectionData = async () => {
+      if (!selectedSection?._id) return;
+      
+      // First fetch activities
+      const fetchedActivities = await fetchActivities();
+      
+      // Then fetch students and grades with the fetched activities
+      if (fetchedActivities) {
+        await fetchStudentsAndGrades(fetchedActivities);
+      }
+    };
+    
+    loadSectionData();
+  }, [selectedSection?._id, fetchActivities, fetchStudentsAndGrades]);
 
   useEffect(() => {
     if (!students.length) return;
@@ -401,27 +406,6 @@ export default function GradeManagement() {
   };
 
   /* ---------- rendering helpers ---------- */
-  const tones = {
-    classStanding: {
-      bg: "bg-blue-50",
-      line: "text-blue-600",
-      cell: "bg-blue-100",
-      num: "text-blue-700",
-    },
-    laboratory: {
-      bg: "bg-green-50",
-      line: "text-green-600",
-      cell: "bg-green-100",
-      num: "text-green-700",
-    },
-    majorOutput: {
-      bg: "bg-purple-50",
-      line: "text-purple-600",
-      cell: "bg-purple-100",
-      num: "text-purple-700",
-    },
-  };
-
   const eqFromPercent = (avg) => {
     if (avg >= 97) return 1.0;
     if (avg >= 94) return 1.25;
@@ -470,228 +454,20 @@ export default function GradeManagement() {
       s.studid?.toLowerCase().includes(filterTerm.toLowerCase())
   );
 
-  const WeightBadge = ({ category }) => (
-    <div className="flex-shrink-0 rounded-full px-2 sm:px-3 py-1 text-xs font-semibold bg-gray-900/80 text-white">
-      {getWeight(category)}%
-    </div>
-  );
-
-  // Fully responsive category table
-  const CategoryTable = ({ category, title }) => {
-    const tone = tones[category];
-    const acts = activities?.[category] ?? [];
-    const weight = getWeight(category);
-
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className={`p-3 sm:p-4 border-b border-gray-200 ${tone.bg}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 truncate">
-                {title} Scores
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                Weighted at <span className="font-semibold">{weight}%</span> of
-                final grade
-              </p>
-            </div>
-            <WeightBadge category={category} />
-          </div>
-        </div>
-
-        {/* Desktop/Large Tablet Table */}
-        <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-50">
-              <tr>
-                <th className="border border-gray-200 px-2 py-2 text-left w-12 text-xs">
-                  #
-                </th>
-                <th className="border border-gray-200 px-2 py-2 text-left w-24 text-xs">
-                  ID
-                </th>
-                <th className="border border-gray-200 px-3 py-2 text-left min-w-[180px] text-xs">
-                  Name
-                </th>
-
-                {acts.map((a) => (
-                  <th
-                    key={a._id}
-                    className={`border border-gray-200 px-2 py-2 text-center w-20 ${tone.cell}`}
-                  >
-                    <div
-                      className="font-medium truncate text-xs"
-                      title={a.title}
-                    >
-                      {a.title.length > 8
-                        ? a.title.substring(0, 8) + "..."
-                        : a.title}
-                    </div>
-                    <div className={`text-xs ${tone.line}`}>
-                      /{a.maxScore ?? 100}
-                    </div>
-                  </th>
-                ))}
-
-                <th
-                  className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
-                >
-                  Avg
-                </th>
-                <th
-                  className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
-                >
-                  Grade
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStudents.map((student, i) => {
-                const avg = categoryAverage(student, category);
-                const eq = eqFromPercent(avg);
-                return (
-                  <tr key={student._id} className="hover:bg-gray-50">
-                    <td className="border border-gray-200 px-2 py-4 text-center text-xs">
-                      {i + 1}
-                    </td>
-                    <td className="border border-gray-200 px-2 py-4 text-xs truncate">
-                      {student.studid}
-                    </td>
-                    <td className="border border-gray-200 px-2 py-4 font-medium text-xs">
-                      {student.fullName}
-                    </td>
-
-                    {acts.map((a) => {
-                      const raw =
-                        student.activityScores?.find(
-                          (s) => String(s.activity_id) === String(a._id)
-                        )?.score ??
-                        student.grades?.find(
-                          (g) => String(g.activity_id) === String(a._id)
-                        )?.score ??
-                        0;
-                      return (
-                        <td
-                          key={`${student._id}-${a._id}`}
-                          className="border border-gray-200 px-2 py-4 text-center"
-                        >
-                          <div className={`font-semibold text-xs ${tone.num}`}>
-                            {Math.round(raw)}
-                          </div>
-                        </td>
-                      );
-                    })}
-
-                    <td
-                      className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
-                    >
-                      {avg ? `${avg.toFixed(1)}%` : "0%"}
-                    </td>
-                    <td
-                      className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
-                    >
-                      {eq.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile/Tablet Cards - responsive layout */}
-        <div className="lg:hidden">
-          {filteredStudents.length > 0 ? (
-            <div className="divide-y divide-gray-200">
-              {filteredStudents.map((student, i) => {
-                const avg = categoryAverage(student, category);
-                const eq = eqFromPercent(avg);
-                return (
-                  <div key={student._id} className="p-3 sm:p-4">
-                    {/* Student Info Header */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500">
-                          #{i + 1} • {student.studid}
-                        </div>
-                        <div className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-                          {student.fullName}
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xs text-gray-500">Average</div>
-                        <div className="text-sm sm:text-base font-bold text-gray-900">
-                          {avg ? `${avg.toFixed(1)}%` : "0%"}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Grade: {eq.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Activities Grid - responsive */}
-                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
-                      {acts.map((a) => {
-                        const raw =
-                          student.activityScores?.find(
-                            (s) => String(s.activity_id) === String(a._id)
-                          )?.score ??
-                          student.grades?.find(
-                            (g) => String(g.activity_id) === String(a._id)
-                          )?.score ??
-                          0;
-                        const max = a.maxScore ?? 100;
-                        return (
-                          <div
-                            key={`${student._id}-${a._id}`}
-                            className={`rounded-lg border p-2 sm:p-3 ${tone.cell}`}
-                          >
-                            <div
-                              className="text-xs text-gray-600 truncate"
-                              title={a.title}
-                            >
-                              {a.title}
-                            </div>
-                            <div
-                              className={`text-sm font-semibold mt-1 ${tone.num}`}
-                            >
-                              {Math.round(raw)}/{max}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              <IconUsers className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-              <p className="text-sm">No students found</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+  const getActivityScore = (student, activity) => {
+    const hit =
+      student.activityScores?.find(
+        (s) => String(s.activity_id) === String(activity._id)
+      ) ||
+      student.grades?.find(
+        (g) => String(g.activity_id) === String(activity._id)
+      );
+    return Number(hit?.score ?? 0);
   };
 
   /* ---------- early load ---------- */
   if (loading && !selectedSection) {
-    return (
-      <div className="flex min-h-screen bg-gray-50">
-        {/* Sidebar - responsive */}
-        <div className="hidden lg:block">
-          <InstructorSidebar />
-        </div>
-        <div className="flex-1 w-full lg:ml-64 p-6 sm:p-8 max-w-7xl mx-auto">
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   /* ---------- UI ---------- */
@@ -711,301 +487,87 @@ export default function GradeManagement() {
               <InstructorSidebar />
             </div>
 
-            {/* Mobile header */}
-            <div className="lg:hidden px-4">
-              <h2 className="font-outfit text-[#1E3A5F] text-2xl font-bold sm:text-2xl lg:text-4xl">
-                Grade Management
-              </h2>
-              <p className="text-gray-600 mt-1 text-sm md:text-base">
-                Manage student grades and generate reports
-              </p>
-            </div>
+            <MobileHeader />
 
             {/* Content area */}
             <div className="p-3 sm:p-4 md:p-6 lg:p-8">
               <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header section - responsive */}
-                <div className="hidden lg:block">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
-                        Grade Management
-                      </h2>
-                      <p className="text-gray-600 mt-1 text-sm md:text-base">
-                        Manage student grades and generate reports
-                      </p>
-                    </div>
+                <PageHeader
+                  onRefresh={refreshData}
+                  onExport={openScheduleModal}
+                  loading={loading}
+                  disabled={!selectedSection || !students.length}
+                />
 
-                    {/* Action Buttons - Desktop */}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={refreshData}
-                        disabled={loading}
-                        className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium"
-                      >
-                        {loading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        ) : (
-                          <IconRefresh size={18} />
-                        )}
-                        Refresh
-                      </button>
-                      <button
-                        onClick={openScheduleModal}
-                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
-                        disabled={
-                          !selectedSection || !students.length || loading
-                        }
-                      >
-                        <IconBrandGoogle size={18} />
-                        Export to Google Sheets
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <MobileActionButtons
+                  onRefresh={refreshData}
+                  onExport={openScheduleModal}
+                  loading={loading}
+                  disabled={!selectedSection || !students.length}
+                />
 
-                {/* Mobile action buttons */}
-                <div className="lg:hidden flex flex-col xs:flex-row gap-2">
-                  <button
-                    onClick={refreshData}
-                    disabled={loading}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <IconRefresh size={16} />
-                    )}
-                    <span>Refresh</span>
-                  </button>
-                  <button
-                    onClick={openScheduleModal}
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
-                    disabled={!selectedSection || !students.length || loading}
-                  >
-                    <IconBrandGoogle size={16} />
-                    <span>Export to Sheets</span>
-                  </button>
-                </div>
+                <SectionSelector
+                  selectedSection={selectedSection}
+                  sections={sections}
+                  onSectionChange={(section) => {
+                    setSelectedSection(section);
+                    setGrades({});
+                  }}
+                  filterTerm={filterTerm}
+                  onFilterChange={setFilterTerm}
+                />
 
-                {/* Responsive Section Selector and Search */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
-                  <div className="space-y-4">
-                    {/* Section Selector */}
-                    <div className="w-full">
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                        Select Section
-                      </label>
-                      <select
-                        value={selectedSection?._id || ""}
-                        onChange={(e) => {
-                          const sec =
-                            sections.find((s) => s._id === e.target.value) ||
-                            null;
-                          setSelectedSection(sec);
-                          setGrades({});
-                        }}
-                        className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                      >
-                        <option value="">Select a section</option>
-                        {sections.map((s) => (
-                          <option key={s._id} value={s._id}>
-                            {s.subject?.subjectCode} - {s.sectionName} (
-                            {s.schoolYear} {s.term} Semester)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {selectedSection && (
+                  <SectionDetails section={selectedSection} studentCount={students.length} />
+                )}
 
-                    {/* Search Students - Only show when section is selected */}
-                    {selectedSection && (
-                      <div className="w-full">
-                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                          Search Students
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Search by name or student ID..."
-                            value={filterTerm}
-                            onChange={(e) => setFilterTerm(e.target.value)}
-                            className="w-full px-3 py-2 pl-10 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <IconFilter
-                            className="absolute left-3 top-2.5 text-gray-400"
-                            size={16}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Section Details - Responsive */}
-                  {selectedSection && (
-                    <div className="mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-100">
-                      <h3 className="font-medium text-blue-800 mb-3 text-sm sm:text-base flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                        Section Details
-                      </h3>
-
-                      {/* Details Grid - Responsive layout */}
-                      <div className="space-y-2 sm:space-y-3">
-                        {/* Subject Info */}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                          <span className="text-blue-600 font-medium text-xs sm:text-sm whitespace-nowrap">
-                            Subject:
-                          </span>
-                          <span className="text-gray-700 text-xs sm:text-sm break-words">
-                            {selectedSection.subject?.subjectCode} -{" "}
-                            {selectedSection.subject?.subjectName}
-                          </span>
-                        </div>
-
-                        {/* Section and Students Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-blue-600 font-medium text-xs sm:text-sm">
-                              Section:
-                            </span>
-                            <span className="text-gray-700 text-xs sm:text-sm">
-                              {selectedSection.sectionName}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-blue-600 font-medium text-xs sm:text-sm">
-                              Students:
-                            </span>
-                            <span className="text-gray-700 text-xs sm:text-sm font-semibold">
-                              {students.length}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Grading Schema */}
-                        <div className="pt-2 border-t border-blue-200">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                            <span className="text-blue-600 font-medium text-xs sm:text-sm whitespace-nowrap">
-                              Grading Schema:
-                            </span>
-                            <div className="flex flex-wrap gap-1 sm:gap-2 text-xs sm:text-sm text-gray-700">
-                              <span className="px-2 py-1 bg-white rounded border">
-                                CS:{" "}
-                                {selectedSection.gradingSchema?.classStanding}%
-                              </span>
-                              <span className="px-2 py-1 bg-white rounded border">
-                                Lab: {selectedSection.gradingSchema?.laboratory}
-                                %
-                              </span>
-                              <span className="px-2 py-1 bg-white rounded border">
-                                MO: {selectedSection.gradingSchema?.majorOutput}
-                                %
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Responsive Tabs */}
                 {selectedSection && (
                   <>
-                    <div className="mb-4 sm:mb-6">
-                      {/* Tab Navigation - Responsive */}
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 hidden sm:block">
-                          Grade Categories
-                        </h3>
-
-                        {/* Tab Buttons - Horizontal scroll on mobile */}
-                        <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
-                          <div className="flex gap-2 sm:gap-3 w-max sm:w-auto">
-                            {[
-                              {
-                                key: "classStanding",
-                                label: "Class Standing",
-                                shortLabel: "Class Standing",
-                              },
-                              {
-                                key: "laboratory",
-                                label: "Laboratory Activity",
-                                shortLabel: "Laboratory Activity",
-                              },
-                              {
-                                key: "majorOutput",
-                                label: "Major Output",
-                                shortLabel: "Major Output",
-                              },
-                            ].map((t) => (
-                              <button
-                                key={t.key}
-                                onClick={() => setActiveTab(t.key)}
-                                className={[
-                                  "flex-shrink-0 px-3 sm:px-4 py-2 rounded-lg border transition-all duration-200 text-sm sm:text-base font-medium",
-                                  activeTab === t.key
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
-                                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400",
-                                ].join(" ")}
-                              >
-                                {/* Show short label on very small screens, full label on larger screens */}
-                                <span className="xs:hidden">
-                                  {t.shortLabel}
-                                </span>
-                                <span className="hidden xs:inline">
-                                  {t.label}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
                     {loading ? (
-                      <div className="flex justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      </div>
+                      <LoadingSpinner />
                     ) : filteredStudents.length ? (
                       <>
                         {activeTab === "classStanding" && (
                           <CategoryTable
                             category="classStanding"
                             title="Class Standing"
+                            activities={activities.classStanding || []}
+                            students={filteredStudents}
+                            weight={getWeight("classStanding")}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={eqFromPercent}
+                            getActivityScore={getActivityScore}
                           />
                         )}
                         {activeTab === "laboratory" && (
                           <CategoryTable
                             category="laboratory"
                             title="Laboratory Activity"
+                            activities={activities.laboratory || []}
+                            students={filteredStudents}
+                            weight={getWeight("laboratory")}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={eqFromPercent}
+                            getActivityScore={getActivityScore}
                           />
                         )}
                         {activeTab === "majorOutput" && (
                           <CategoryTable
                             category="majorOutput"
                             title="Major Output"
+                            activities={activities.majorOutput || []}
+                            students={filteredStudents}
+                            weight={getWeight("majorOutput")}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={eqFromPercent}
+                            getActivityScore={getActivityScore}
                           />
                         )}
                       </>
                     ) : (
-                      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div className="text-center py-12">
-                          <IconUsers
-                            className="mx-auto text-gray-300 mb-4"
-                            size={48}
-                          />
-                          <h3 className="text-lg font-medium text-gray-600 mb-2">
-                            {filterTerm
-                              ? "No students match your search"
-                              : "No students in this section"}
-                          </h3>
-                          <p className="text-gray-500">
-                            {filterTerm
-                              ? "Try adjusting your search terms"
-                              : "Invite students to this section to start grading"}
-                          </p>
-                        </div>
-                      </div>
+                      <EmptyState hasFilter={!!filterTerm} />
                     )}
                   </>
                 )}
@@ -1014,138 +576,14 @@ export default function GradeManagement() {
           </div>
         </div>
 
-        {/* Schedule Information Modal */}
-        {showScheduleModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Class Schedule Information
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Please provide the class schedule details before exporting to Google Sheets
-                </p>
-              </div>
-
-              {/* Modal Body */}
-              <div className="px-6 py-4">
-                <div className="space-y-4">
-                  {/* Day */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Day <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleForm.day}
-                      onChange={(e) =>
-                        setScheduleForm({ ...scheduleForm, day: e.target.value })
-                      }
-                      placeholder="e.g., MWF, TTH, etc."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* Time */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Time <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleForm.time}
-                      onChange={(e) =>
-                        setScheduleForm({ ...scheduleForm, time: e.target.value })
-                      }
-                      placeholder="e.g., 7:30 AM - 10:00 AM"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* Room */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Room <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleForm.room}
-                      onChange={(e) =>
-                        setScheduleForm({ ...scheduleForm, room: e.target.value })
-                      }
-                      placeholder="e.g., Lab 3, Room 205, etc."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* Chairperson */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Chairperson <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleForm.chairperson}
-                      onChange={(e) =>
-                        setScheduleForm({
-                          ...scheduleForm,
-                          chairperson: e.target.value,
-                        })
-                      }
-                      placeholder="e.g., Dr. Juan Dela Cruz"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* Dean */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Dean <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={scheduleForm.dean}
-                      onChange={(e) =>
-                        setScheduleForm({ ...scheduleForm, dean: e.target.value })
-                      }
-                      placeholder="e.g., Dr. Maria Santos"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-lg flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-                <button
-                  onClick={() => setShowScheduleModal(false)}
-                  disabled={loading}
-                  className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={exportToGoogleSheets}
-                  disabled={loading}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Exporting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <IconBrandGoogle size={18} />
-                      <span>Export to Google Sheets</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ScheduleModal
+          isOpen={showScheduleModal}
+          scheduleForm={scheduleForm}
+          onScheduleChange={setScheduleForm}
+          onClose={() => setShowScheduleModal(false)}
+          onExport={exportToGoogleSheets}
+          loading={loading}
+        />
       </div>
     </NotificationProvider>
   );

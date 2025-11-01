@@ -117,20 +117,27 @@ export function InstructorSidebar() {
   // State for dropdown menus
   const [dropdownStates, setDropdownStates] = useState(() => {
     const initialState = {
-      "Section Management": false,
-      "Grade Management": false,
+      "Class Management": false,
+      "Schedule Management": false,
     };
 
+    // Open "Class Management" dropdown if on any of its child routes or nested routes
     if (
       location.pathname.startsWith("/instructor/my-sections") ||
-      location.pathname.startsWith("/instructor/semester-view") ||
+      location.pathname.startsWith("/instructor/sections/") ||
+      location.pathname.startsWith("/instructor/activity-management") ||
+      location.pathname.startsWith("/instructor/grades") ||
       location.pathname.startsWith("/instructor/students")
     ) {
-      initialState["Section Management"] = true;
+      initialState["Class Management"] = true;
     }
 
-    if (location.pathname.startsWith("/instructor/grades")) {
-      initialState["Grade Management"] = true;
+    // Open "Schedule Management" dropdown if on any of its child routes
+    if (
+      location.pathname.startsWith("/instructor/semester-view") ||
+      location.pathname.startsWith("/instructor/schedule")
+    ) {
+      initialState["Schedule Management"] = true;
     }
 
     return initialState;
@@ -149,7 +156,35 @@ export function InstructorSidebar() {
     // Add Profile to the check
     allItems.push({ link: "/instructor/profile", label: "Profile" });
 
-    const found = allItems.find((item) => item.link === location.pathname);
+    // First try exact match
+    let found = allItems.find((item) => item.link === location.pathname);
+
+    // If no exact match, try to match nested routes
+    if (!found) {
+      // Special cases for nested routes:
+      // /instructor/sections/:id/activities should highlight "My Sections"
+      if (location.pathname.match(/^\/instructor\/sections\/[^/]+\/activities/)) {
+        found = allItems.find((item) => item.link === "/instructor/my-sections");
+      }
+      // /instructor/sections/:id/activities/:activityId/scores should highlight "My Sections"
+      else if (location.pathname.match(/^\/instructor\/sections\/[^/]+\/activities\/[^/]+\/scores/)) {
+        found = allItems.find((item) => item.link === "/instructor/my-sections");
+      }
+
+      // Check if current path starts with any menu link (for other nested routes)
+      if (!found) {
+        found = allItems.find((item) => {
+          if (
+            item.link !== "/instructor" &&
+            location.pathname.startsWith(item.link)
+          ) {
+            return true;
+          }
+          return false;
+        });
+      }
+    }
+
     return found ? found.label : menuData[0].label;
   });
 
