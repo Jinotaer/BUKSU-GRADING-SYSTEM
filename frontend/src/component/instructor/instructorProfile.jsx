@@ -10,6 +10,7 @@ import {
   AcademicInfoCard,
   EditProfileModal,
   LoadingSpinner,
+  GoogleCalendarCard,
 } from "./ui/profile";
 
 export default function InstructorProfile() {
@@ -131,6 +132,7 @@ export default function InstructorProfile() {
             <PersonalInfoCard profile={profile} />
             <AccountInfoCard profile={profile} />
             <AcademicInfoCard profile={profile} />
+            <GoogleCalendarCard />
           </div>
         </div>
 

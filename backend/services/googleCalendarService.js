@@ -11,22 +11,40 @@ class GoogleCalendarService {
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
     );
+  }
 
-    // Set credentials if available
-    if (process.env.GOOGLE_CALENDAR_REFRESH_TOKEN) {
-      this.oauth2Client.setCredentials({
-        refresh_token: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN
-      });
-    }
+  /**
+   * Create authenticated calendar instance with instructor's tokens
+   */
+  getCalendarInstance(accessToken, refreshToken) {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
+    );
 
-    this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+    oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    return google.calendar({ version: 'v3', auth: oauth2Client });
   }
 
   /**
    * Create a calendar event
    */
-  async createEvent(eventData) {
+  async createEvent(eventData, accessToken, refreshToken) {
     try {
+      if (!accessToken || !refreshToken) {
+        return {
+          success: false,
+          error: 'Google Calendar not connected. Please connect your Google Calendar in settings.',
+        };
+      }
+
+      const calendar = this.getCalendarInstance(accessToken, refreshToken);
+
       const event = {
         summary: eventData.title,
         description: eventData.description || '',
@@ -54,7 +72,7 @@ class GoogleCalendarService {
         event.attendees = eventData.attendees.map(email => ({ email }));
       }
 
-      const response = await this.calendar.events.insert({
+      const response = await calendar.events.insert({
         calendarId: 'primary',
         resource: event,
         sendUpdates: 'all', // Send notifications to all attendees
@@ -77,8 +95,17 @@ class GoogleCalendarService {
   /**
    * Update a calendar event
    */
-  async updateEvent(eventId, eventData) {
+  async updateEvent(eventId, eventData, accessToken, refreshToken) {
     try {
+      if (!accessToken || !refreshToken) {
+        return {
+          success: false,
+          error: 'Google Calendar not connected. Please connect your Google Calendar in settings.',
+        };
+      }
+
+      const calendar = this.getCalendarInstance(accessToken, refreshToken);
+
       const event = {
         summary: eventData.title,
         description: eventData.description || '',
@@ -94,7 +121,7 @@ class GoogleCalendarService {
         colorId: this.getEventColorId(eventData.eventType),
       };
 
-      const response = await this.calendar.events.update({
+      const response = await calendar.events.update({
         calendarId: 'primary',
         eventId: eventId,
         resource: event,
@@ -118,9 +145,18 @@ class GoogleCalendarService {
   /**
    * Delete a calendar event
    */
-  async deleteEvent(eventId) {
+  async deleteEvent(eventId, accessToken, refreshToken) {
     try {
-      await this.calendar.events.delete({
+      if (!accessToken || !refreshToken) {
+        return {
+          success: false,
+          error: 'Google Calendar not connected. Please connect your Google Calendar in settings.',
+        };
+      }
+
+      const calendar = this.getCalendarInstance(accessToken, refreshToken);
+
+      await calendar.events.delete({
         calendarId: 'primary',
         eventId: eventId,
         sendUpdates: 'all',
@@ -141,9 +177,18 @@ class GoogleCalendarService {
   /**
    * Get calendar event by ID
    */
-  async getEvent(eventId) {
+  async getEvent(eventId, accessToken, refreshToken) {
     try {
-      const response = await this.calendar.events.get({
+      if (!accessToken || !refreshToken) {
+        return {
+          success: false,
+          error: 'Google Calendar not connected. Please connect your Google Calendar in settings.',
+        };
+      }
+
+      const calendar = this.getCalendarInstance(accessToken, refreshToken);
+
+      const response = await calendar.events.get({
         calendarId: 'primary',
         eventId: eventId,
       });
@@ -175,24 +220,6 @@ class GoogleCalendarService {
     };
 
     return colorMap[eventType] || '8';
-  }
-
-  /**
-   * Set access token (used when user authenticates)
-   */
-  setAccessToken(accessToken) {
-    this.oauth2Client.setCredentials({
-      access_token: accessToken,
-    });
-  }
-
-  /**
-   * Set refresh token
-   */
-  setRefreshToken(refreshToken) {
-    this.oauth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
   }
 }
 

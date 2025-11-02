@@ -93,20 +93,35 @@ export const createSchedule = async (req, res) => {
 
     // Sync to Google Calendar if requested
     if (syncToGoogleCalendar) {
-      const calendarEventData = {
-        title: `${title} - ${subject.subjectCode}`,
-        description: `${description || ''}\n\nSection: ${section.sectionName}\nType: ${eventType.toUpperCase()}`,
-        startDateTime: scheduleData.startDateTime.toISOString(),
-        endDateTime: scheduleData.endDateTime.toISOString(),
-        location: location || '',
-        eventType
-      };
+      // Get instructor's Google Calendar credentials
+      const instructorWithTokens = await Instructor.findById(instructorId).select(
+        'googleAccessToken googleRefreshToken googleCalendarConnected'
+      );
 
-      const calendarResult = await googleCalendarService.createEvent(calendarEventData);
+      if (instructorWithTokens && instructorWithTokens.googleCalendarConnected) {
+        const calendarEventData = {
+          title: `${title} - ${subject.subjectCode}`,
+          description: `${description || ''}\n\nSection: ${section.sectionName}\nType: ${eventType.toUpperCase()}`,
+          startDateTime: scheduleData.startDateTime.toISOString(),
+          endDateTime: scheduleData.endDateTime.toISOString(),
+          location: location || '',
+          eventType
+        };
 
-      if (calendarResult.success) {
-        scheduleData.googleEventId = calendarResult.eventId;
-        scheduleData.isGoogleCalendarSynced = true;
+        const calendarResult = await googleCalendarService.createEvent(
+          calendarEventData,
+          instructorWithTokens.googleAccessToken,
+          instructorWithTokens.googleRefreshToken
+        );
+
+        if (calendarResult.success) {
+          scheduleData.googleEventId = calendarResult.eventId;
+          scheduleData.isGoogleCalendarSynced = true;
+        } else {
+          console.warn('Failed to sync to Google Calendar:', calendarResult.error);
+        }
+      } else {
+        console.warn('Instructor has not connected Google Calendar');
       }
     }
 
@@ -454,19 +469,35 @@ export const updateSchedule = async (req, res) => {
 
     // Update Google Calendar event if synced
     if (syncToGoogleCalendar && schedule.googleEventId) {
-      const subject = await Subject.findById(schedule.subject);
-      const section = await Section.findById(schedule.section);
+      // Get instructor's Google Calendar credentials
+      const instructorWithTokens = await Instructor.findById(instructorId).select(
+        'googleAccessToken googleRefreshToken googleCalendarConnected'
+      );
 
-      const calendarEventData = {
-        title: `${schedule.title} - ${subject.subjectCode}`,
-        description: `${schedule.description || ''}\n\nSection: ${section.sectionName}\nType: ${schedule.eventType.toUpperCase()}`,
-        startDateTime: schedule.startDateTime.toISOString(),
-        endDateTime: schedule.endDateTime.toISOString(),
-        location: schedule.location || '',
-        eventType: schedule.eventType
-      };
+      if (instructorWithTokens && instructorWithTokens.googleCalendarConnected) {
+        const subject = await Subject.findById(schedule.subject);
+        const section = await Section.findById(schedule.section);
 
-      await googleCalendarService.updateEvent(schedule.googleEventId, calendarEventData);
+        const calendarEventData = {
+          title: `${schedule.title} - ${subject.subjectCode}`,
+          description: `${schedule.description || ''}\n\nSection: ${section.sectionName}\nType: ${schedule.eventType.toUpperCase()}`,
+          startDateTime: schedule.startDateTime.toISOString(),
+          endDateTime: schedule.endDateTime.toISOString(),
+          location: schedule.location || '',
+          eventType: schedule.eventType
+        };
+
+        const updateResult = await googleCalendarService.updateEvent(
+          schedule.googleEventId,
+          calendarEventData,
+          instructorWithTokens.googleAccessToken,
+          instructorWithTokens.googleRefreshToken
+        );
+
+        if (!updateResult.success) {
+          console.warn('Failed to update Google Calendar event:', updateResult.error);
+        }
+      }
     }
 
     await schedule.save();
@@ -590,7 +621,22 @@ export const deleteSchedule = async (req, res) => {
 
     // Delete from Google Calendar if synced
     if (schedule.googleEventId) {
-      await googleCalendarService.deleteEvent(schedule.googleEventId);
+      // Get instructor's Google Calendar credentials
+      const instructorWithTokens = await Instructor.findById(instructorId).select(
+        'googleAccessToken googleRefreshToken googleCalendarConnected'
+      );
+
+      if (instructorWithTokens && instructorWithTokens.googleCalendarConnected) {
+        const deleteResult = await googleCalendarService.deleteEvent(
+          schedule.googleEventId,
+          instructorWithTokens.googleAccessToken,
+          instructorWithTokens.googleRefreshToken
+        );
+
+        if (!deleteResult.success) {
+          console.warn('Failed to delete Google Calendar event:', deleteResult.error);
+        }
+      }
     }
 
     // Soft delete - mark as inactive

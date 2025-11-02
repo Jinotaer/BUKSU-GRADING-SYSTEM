@@ -6,6 +6,22 @@ const instructorSchema = new mongoose.Schema(
       type: String,
       default: null, // Google OAuth ID
     },
+    googleAccessToken: {
+      type: String,
+      default: null, // Google Calendar access token
+    },
+    googleRefreshToken: {
+      type: String,
+      default: null, // Google Calendar refresh token
+    },
+    googleCalendarConnected: {
+      type: Boolean,
+      default: false, // Whether instructor has connected their Google Calendar
+    },
+    googleCalendarConnectedAt: {
+      type: Date,
+      default: null, // When the Google Calendar was connected
+    },
     instructorid:{
       type: String,
       required: true,

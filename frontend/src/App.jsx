@@ -36,6 +36,7 @@ import ScheduleManagement from "./component/instructor/scheduleManagement";
 import InsArchiveManagement from './component/instructor/archiveManagemenent';
 import StudentScheduleView from "./component/student/studentScheduleView";
 import StudentArchiveManagement from './component/student/archiveManagement';
+import GoogleCalendarCallback from "./component/instructor/GoogleCalendarCallback";
 
 export default function App() {
   return (
@@ -228,6 +229,14 @@ export default function App() {
         element={
           <ProtectedRoute role="instructor">
             <ScheduleManagement/>
+          </ProtectedRoute>
+        }
+      />
+       <Route
+        path="/instructor/settings/google-calendar/callback"
+        element={
+          <ProtectedRoute role="instructor">
+            <GoogleCalendarCallback/>
           </ProtectedRoute>
         }
       />

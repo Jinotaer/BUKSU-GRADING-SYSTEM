@@ -6,3 +6,4 @@ export { AccountInfoCard } from "./AccountInfoCard";
 export { AcademicInfoCard } from "./AcademicInfoCard";
 export { EditProfileModal } from "./EditProfileModal";
 export { LoadingSpinner } from "./LoadingSpinner";
+export { GoogleCalendarCard } from "./GoogleCalendarCard";
