@@ -415,7 +415,7 @@ export default function GradeManagement() {
     if (avg >= 82) return 2.25;
     if (avg >= 79) return 2.5;
     if (avg >= 76) return 2.75;
-    if (avg >= 75) return 3.0;
+    if (avg >= 50) return 3.0;
     return 5.0;
   };
 

@@ -1,6 +1,7 @@
 // controllers/gradeController.js
 import Grade from "../models/grades.js";
 import Section from "../models/sections.js";
+import { calculateAndUpdateGrade } from "../utils/gradeCalculator.js";
 
 export const addOrUpdateGrade = async (req, res) => {
   try {
@@ -15,6 +16,10 @@ export const addOrUpdateGrade = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized to encode grades in this section" });
     }
 
+    // Note: This endpoint allows manual grade entry, but real-time grades
+    // are automatically calculated from activity scores via the gradeCalculator utility.
+    // This is kept for backward compatibility or manual overrides.
+    
     // Create or update grade
     let grade = await Grade.findOneAndUpdate(
       { student: studentId, section: sectionId },
@@ -32,10 +37,10 @@ export const addOrUpdateGrade = async (req, res) => {
         (majorOutput * (moWeight / 100))
       );
       
-      // Determine remarks based on final grade
-      if (grade.finalGrade >= 75) {
+      // Determine remarks based on final grade (50% passing rate)
+      if (grade.finalGrade >= 50) {
         grade.remarks = "Passed";
-      } else if (grade.finalGrade < 75) {
+      } else if (grade.finalGrade < 50) {
         grade.remarks = "Failed";
       }
       

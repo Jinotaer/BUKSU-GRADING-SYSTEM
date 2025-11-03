@@ -5,8 +5,8 @@ export const ArchiveHeader = () => {
   return (
     <div className="mb-8">
       <div className="flex items-center gap-3 mb-2">
-        <IconArchive className="w-8 h-8 text-gray-600" />
-        <h1 className="font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
+        {/* <IconArchive className="w-8 h-8 text-gray-600" /> */}
+        <h1 className="font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-3xl font-bold">
           Archived Subjects
         </h1>
       </div>

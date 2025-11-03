@@ -75,7 +75,7 @@ export function ScoresCards({
             </div>
 
             <div className="mt-4">
-              <div className="text-sm text-gray-500 mb-1">Progress</div>
+              <div className="text-sm text-gray-500 mb-1">Percentage</div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
                   className="bg-blue-600 h-2.5 rounded-full transition-all"

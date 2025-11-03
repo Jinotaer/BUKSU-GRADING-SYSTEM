@@ -10,7 +10,8 @@ import {
   getInstructorForSubject,
   getSubjectsWithMultipleInstructors,
   archiveSection,
-  unarchiveSection
+  unarchiveSection,
+  recalculateGrades
 } from "../controller/sectionController.js";
 import { instructorAuth, adminAuth, verifyGoogleAuthToken, requireRole } from "../middleware/auth.js";
 
@@ -43,5 +44,8 @@ router.get("/subject/:subjectId/instructor", verifyGoogleAuthToken, requireRole(
 // Archive and unarchive sections (instructors can archive their own sections)
 router.put("/:id/archive", verifyGoogleAuthToken, requireRole(["instructor"]), archiveSection);
 router.put("/:id/unarchive", verifyGoogleAuthToken, requireRole(["instructor"]), unarchiveSection);
+
+// Manually recalculate all grades in a section (instructors only)
+router.post("/:id/recalculate-grades", verifyGoogleAuthToken, requireRole(["instructor"]), recalculateGrades);
 
 export default router;

@@ -69,7 +69,7 @@ const percentToGrade = (percent) => {
   if (percent >= 82) return 2.25;
   if (percent >= 79) return 2.5;
   if (percent >= 76) return 2.75;
-  if (percent >= 75) return 3.0;
+  if (percent >= 50) return 3.0;
   return 5.0;
 };
 
@@ -1108,7 +1108,7 @@ export const exportToGoogleSheets = async (req, res) => {
         const moAvg = avgFor(majorOutputActivities, student, scoresByStudent);
         const finalPercent = (csAvg * csWeight) / 100 + (labAvg * labWeight) / 100 + (moAvg * moWeight) / 100;
         const finalGrade = percentToGrade(finalPercent);
-        const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+        const remarks = finalPercent >= 50 ? 'Passed' : 'Failed';
 
         return Grade.findOneAndUpdate(
           { student: student._id, section: section._id },

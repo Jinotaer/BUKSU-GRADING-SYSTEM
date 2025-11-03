@@ -1,12 +1,6 @@
 import React from "react";
 
-export function ScoresTable({ 
-  rows, 
-  max, 
-  rowStatus, 
-  onScoreChange, 
-  onUpload 
-}) {
+export function ScoresTable({ rows, max, rowStatus, onScoreChange, onUpload }) {
   if (rows.length === 0) {
     return (
       <div className="mt-6 hidden lg:block">
@@ -17,8 +11,12 @@ export function ScoresTable({
                 <th className="px-5 py-3 font-semibold">ID</th>
                 <th className="px-5 py-3 font-semibold">NAME</th>
                 <th className="px-5 py-3 font-semibold">SCORE</th>
-                <th className="px-5 py-3 font-semibold hidden xl:table-cell">PERCENTAGE</th>
-                <th className="px-5 py-3 font-semibold hidden xl:table-cell">RECORDED</th>
+                <th className="px-5 py-3 font-semibold hidden xl:table-cell">
+                  PERCENTAGE
+                </th>
+                <th className="px-5 py-3 font-semibold hidden xl:table-cell">
+                  RECORDED
+                </th>
                 <th className="px-5 py-3 font-semibold text-right">ACTIONS</th>
               </tr>
             </thead>
@@ -44,8 +42,12 @@ export function ScoresTable({
               <th className="px-5 py-3 font-semibold">ID</th>
               <th className="px-5 py-3 font-semibold">NAME</th>
               <th className="px-5 py-3 font-semibold">SCORE</th>
-              <th className="px-5 py-3 font-semibold hidden xl:table-cell">PERCENTAGE</th>
-              <th className="px-5 py-3 font-semibold hidden xl:table-cell">RECORDED</th>
+              <th className="px-5 py-3 font-semibold hidden lg:table-cell">
+                PERCENTAGE
+              </th>
+              <th className="px-5 py-3 font-semibold hidden xl:table-cell">
+                RECORDED
+              </th>
               <th className="px-5 py-3 font-semibold text-right">ACTIONS</th>
             </tr>
           </thead>
@@ -55,7 +57,10 @@ export function ScoresTable({
               const hasValue = r.score !== "";
               const numScore = hasValue ? Number(r.score) : 0;
               const safeScore = Number.isNaN(numScore) ? 0 : numScore;
-              const percent = rowMax > 0 ? Math.min(100, Math.max(0, (safeScore / rowMax) * 100)) : 0;
+              const percent =
+                rowMax > 0
+                  ? Math.min(100, Math.max(0, (safeScore / rowMax) * 100))
+                  : 0;
 
               const status = rowStatus[r.studentId];
               const isSaving = status?.state === "saving";
@@ -67,26 +72,38 @@ export function ScoresTable({
                   : "";
 
               return (
-                <tr key={r.studentId} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+                <tr
+                  key={r.studentId}
+                  className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/60"}
+                >
                   <td className="px-5 py-3 text-gray-800">{r.studid}</td>
-                  <td className="px-5 py-3 text-gray-900 font-medium">{r.fullName}</td>
+                  <td className="px-5 py-3 text-gray-900 font-medium">
+                    {r.fullName}
+                  </td>
                   <td className="px-5 py-3">
                     <input
                       type="number"
                       min={0}
                       max={rowMax}
                       value={r.score}
-                      onChange={(e) => onScoreChange(r.studentId, e.target.value)}
+                      onChange={(e) =>
+                        onScoreChange(r.studentId, e.target.value)
+                      }
                       className="w-24 xl:w-28 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </td>
 
-                  <td className="px-5 py-3 hidden xl:table-cell">
-                    <div className="w-40 bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="h-2.5 rounded-full bg-blue-600 transition-all"
-                        style={{ width: `${percent}%` }}
-                      />
+                  <td className="px-5 py-3 hidden lg:table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                        <div
+                          className="h-2.5 rounded-full bg-blue-600 transition-all"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="text-gray-700 font-medium min-w-[3rem]">
+                        {percent.toFixed(1)}%
+                      </span>
                     </div>
                   </td>
 
@@ -113,7 +130,7 @@ export function ScoresTable({
                         onClick={() => onUpload(r.studentId)}
                         disabled={isSaving}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md
-                                   bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                                   bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 cursor-pointer transition-colors"
                         title="Upload"
                       >
                         {isSaving ? "Uploading..." : "Upload"}

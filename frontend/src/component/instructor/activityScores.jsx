@@ -24,8 +24,10 @@ export default function ActivityScores() {
   const [rowStatus, setRowStatus] = useState({}); // { [studentId]: { state: "saving"|"success"|"error", message? } }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isUploadingAll, setIsUploadingAll] = useState(false);
 
   const max = activity?.maxScore ?? 100;
 
@@ -134,6 +136,92 @@ export default function ActivityScores() {
     }
   };
 
+  const uploadAllScores = async () => {
+    // Filter rows that have scores entered (not empty string)
+    const rowsWithScores = rows.filter((row) => row.score !== "");
+    const rowsWithoutScores = rows.filter((row) => row.score === "");
+    
+    if (rowsWithScores.length === 0) {
+      setError("No scores to upload. Please enter scores before uploading.");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    setIsUploadingAll(true);
+    
+    // Prepare all scores for batch upload
+    const scoresToUpload = rowsWithScores.map((row) => {
+      const rowMax = Number(row.maxScore ?? max) || max;
+      const numeric = Number(row.score);
+      const boundedScore = Math.max(0, Math.min(rowMax, Number.isNaN(numeric) ? 0 : numeric));
+      return { studentId: row.studentId, score: boundedScore };
+    });
+
+    // Mark all as saving
+    const savingStatus = {};
+    scoresToUpload.forEach((item) => {
+      savingStatus[item.studentId] = { state: "saving" };
+    });
+    setRowStatus(savingStatus);
+
+    try {
+      const payload = { sectionId, rows: scoresToUpload, notify: true };
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/instructor/activities/${activityId}/scores`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      let data = {};
+      try { data = await res.json(); } catch { data = {}; }
+      if (!res.ok) throw new Error(data?.message || `Upload failed (HTTP ${res.status})`);
+
+      // Update rows with bounded scores
+      setRows((prev) =>
+        prev.map((item) => {
+          const uploaded = scoresToUpload.find((s) => s.studentId === item.studentId);
+          return uploaded ? { ...item, score: uploaded.score } : item;
+        })
+      );
+
+      // Mark all as success
+      const successStatus = {};
+      scoresToUpload.forEach((item) => {
+        successStatus[item.studentId] = { state: "success" };
+      });
+      setRowStatus(successStatus);
+
+      // Show success message with email notification info
+      let message = `Successfully uploaded ${rowsWithScores.length} score(s).`;
+      if (rowsWithoutScores.length > 0) {
+        message += ` ${rowsWithoutScores.length} student(s) with no scores have been notified via email.`;
+      } else {
+        message += ` All students have been notified via email.`;
+      }
+      
+      setError(""); // Clear any previous errors
+      setSuccessMessage(message);
+
+      // Clear status and success message after delay
+      setTimeout(() => {
+        setRowStatus({});
+        setSuccessMessage("");
+      }, 4000);
+    } catch (e) {
+      // Mark all as error
+      const errorStatus = {};
+      scoresToUpload.forEach((item) => {
+        errorStatus[item.studentId] = { state: "error", message: e.message };
+      });
+      setRowStatus(errorStatus);
+      setError(e.message || "Failed to upload scores");
+    } finally {
+      setIsUploadingAll(false);
+    }
+  };
+
   const tableRows = useMemo(() => rows, [rows]);
 
   // Pagination calculations
@@ -157,9 +245,26 @@ export default function ActivityScores() {
           activity={activity} 
           section={section} 
           onBack={() => navigate(-1)} 
+          onUploadAll={uploadAllScores}
+          isUploadingAll={isUploadingAll}
         />
 
         <ErrorMessage error={error} />
+        
+        {successMessage && (
+          <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-green-800">{successMessage}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <LoadingSpinner />

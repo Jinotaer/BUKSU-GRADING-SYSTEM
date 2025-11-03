@@ -4,6 +4,7 @@ import Subject from "../models/subjects.js";
 import Instructor from "../models/instructor.js";
 import Student from "../models/student.js";
 import emailService from "../services/emailService.js";
+import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
 export const createSection = async (req, res) => {
   try {
@@ -263,6 +264,9 @@ export const updateSection = async (req, res) => {
       }
     }
 
+    // Check if grading schema is being updated
+    const gradingSchemaChanged = gradingSchema && JSON.stringify(gradingSchema) !== JSON.stringify(section.gradingSchema);
+
     const updatedSection = await Section.findByIdAndUpdate(
       id,
       {
@@ -276,6 +280,20 @@ export const updateSection = async (req, res) => {
       { new: true, runValidators: true }
     ).populate("instructor", "fullName email college department")
      .populate("subject", "subjectCode subjectName units college department");
+
+    // If grading schema was changed, recalculate all grades in the section
+    if (gradingSchemaChanged && updatedSection.students.length > 0) {
+      calculateAndUpdateAllGradesInSection(id, finalInstructorId)
+        .then(results => {
+          console.log(`[sectionController] Grades recalculated for ${results.successful.length} students after grading schema change`);
+          if (results.failed.length > 0) {
+            console.error(`[sectionController] Failed to recalculate grades for ${results.failed.length} students:`, results.failed);
+          }
+        })
+        .catch(err => {
+          console.error('[sectionController] Error recalculating grades after schema change:', err);
+        });
+    }
 
     res.json({ success: true, section: updatedSection });
   } catch (err) {
@@ -623,6 +641,56 @@ export const unarchiveSection = async (req, res) => {
     });
   } catch (error) {
     console.error("Unarchive section error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Manually recalculate all grades in a section (Instructor only)
+export const recalculateGrades = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.instructor?.id || req.user?.user?._id || req.user?._id;
+
+    const section = await Section.findById(id);
+    if (!section) {
+      return res.status(404).json({
+        success: false,
+        message: "Section not found",
+      });
+    }
+
+    // Verify instructor owns this section
+    if (section.instructor.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only recalculate grades for your own sections",
+      });
+    }
+
+    if (section.students.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Section has no students enrolled",
+      });
+    }
+
+    // Recalculate all grades
+    const results = await calculateAndUpdateAllGradesInSection(id, userId);
+
+    res.json({
+      success: true,
+      message: "Grades recalculated successfully",
+      results: {
+        successful: results.successful.length,
+        failed: results.failed.length,
+        failures: results.failed.length > 0 ? results.failed : undefined
+      }
+    });
+  } catch (error) {
+    console.error("Recalculate grades error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

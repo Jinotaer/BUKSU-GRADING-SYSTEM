@@ -6,7 +6,7 @@ export function PageHeader({ onRefresh, onExport, loading, disabled }) {
     <div className="hidden lg:block">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-2xl sm:text-3xl lg:text-4xl font-bold">
+          <h2 className="pt-4 sm:pt-6 md:pt-4 lg:pt-6 font-outfit text-[#1E3A5F] text-xl sm:text-2xl lg:text-3xl font-bold">
             Grade Management
           </h2>
           <p className="text-gray-600 mt-1 text-sm md:text-base">

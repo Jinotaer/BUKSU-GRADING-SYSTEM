@@ -6,6 +6,7 @@ import Student from "../models/student.js";
 import ActivityScore from "../models/activityScore.js";
 import emailService from "../services/emailService.js";
 import { getInstructorId } from "../utils/getInstructorId.js";
+import { calculateAndUpdateGrades } from "../utils/gradeCalculator.js";
 
 // GET /activities/:activityId/scores?sectionId=...
 export const getActivityScores = async (req, res) => {
@@ -189,6 +190,60 @@ export const upsertActivityScoresBulk = async (req, res) => {
           });
         })
       ).catch(() => {});
+    }
+
+    // Send notifications to students with NO scores (only if this is a bulk upload)
+    if (notify && incoming.length > 1) {
+      const uploadedStudentIds = new Set(incoming.map(r => r.studentId));
+      const studentsWithNoScores = section.students.filter(
+        student => !uploadedStudentIds.has(String(student._id))
+      );
+
+      if (studentsWithNoScores.length > 0) {
+        const instructorName = section?.instructor?.fullName || "Your Instructor";
+        const { subjectCode, subjectName } = section.subject;
+        const sectionName = section.sectionName;
+        const activityTitle = activity.title;
+
+        const base = process.env.STUDENT_PORTAL_BASE_URL || "http://localhost:5173";
+        const viewUrl = `${base}/student/sections/${sectionId}/activities`;
+
+        Promise.allSettled(
+          studentsWithNoScores.map((student) => {
+            if (!student.email) return Promise.resolve();
+            return emailService.sendNoScoreNotification({
+              studentEmail: student.email,
+              studentName: student.fullName,
+              instructorName,
+              sectionName,
+              subjectCode,
+              subjectName,
+              activityTitle,
+              maxScore: max,
+              viewUrl,
+            });
+          })
+        ).then(results => {
+          const successful = results.filter(r => r.status === 'fulfilled').length;
+          console.log(`[activityScores] Sent no-score notifications to ${successful}/${studentsWithNoScores.length} students`);
+        }).catch(() => {});
+      }
+    }
+
+    // Recalculate grades for all affected students in real-time
+    const affectedStudentIds = incoming.map(r => r.studentId);
+    if (affectedStudentIds.length > 0) {
+      // Run grade calculation in background (non-blocking)
+      calculateAndUpdateGrades(affectedStudentIds, sectionId, instructorId)
+        .then(results => {
+          console.log(`[activityScores] Grades updated for ${results.successful.length} students in section ${sectionId}`);
+          if (results.failed.length > 0) {
+            console.error(`[activityScores] Failed to update grades for ${results.failed.length} students:`, results.failed);
+          }
+        })
+        .catch(err => {
+          console.error('[activityScores] Error updating grades:', err);
+        });
     }
 
     return res.json({ success:true, message:"Scores saved" });

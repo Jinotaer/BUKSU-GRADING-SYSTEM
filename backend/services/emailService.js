@@ -470,20 +470,57 @@ async sendActivityScoreNotification({
     return { success: false, message: "Email service not configured" };
   }
 
-  const subject = `[${subjectCode}] Score posted: ${activityTitle}`;
+  const percentage = maxScore > 0 ? ((score / maxScore) * 100).toFixed(1) : 0;
+  const isPassing = percentage >= 60; // Adjust passing threshold as needed
+  const headerColor = isPassing ? '#28a745' : '#ffc107';
+
+  const subject = `[${subjectCode}] Score Posted: ${activityTitle}`;
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto;">
-      <h2 style="color:#1E3A5F;margin-bottom:8px;">BUKSU Grading System</h2>
-      <p>Hi <strong>${studentName || "Student"}</strong>,</p>
-      <p>Your instructor <strong>${instructorName || "Instructor"}</strong> posted a score:</p>
-      <ul>
-        <li><strong>Course:</strong> ${subjectCode} — ${subjectName}</li>
-        <li><strong>Section:</strong> ${sectionName}</li>
-        <li><strong>Activity:</strong> ${activityTitle}</li>
-        <li><strong>Score:</strong> ${score} / ${maxScore}</li>
-      </ul>
-      ${viewUrl ? `<p><a href="${viewUrl}">View in portal</a></p>` : ""}
-      <p style="color:#666">This is an automated notification.</p>
+    <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; border: 2px solid ${headerColor}; border-radius: 8px; overflow: hidden;">
+      <div style="background-color: ${isPassing ? '#d4edda' : '#fff3cd'}; padding: 20px; border-bottom: 2px solid ${headerColor};">
+        <h2 style="color: ${isPassing ? '#155724' : '#856404'}; margin: 0;">${isPassing ? '✅' : '📊'} BUKSU Grading System - Score Posted</h2>
+      </div>
+      
+      <div style="padding: 24px; background-color: white;">
+        <p style="font-size: 16px;">Hi <strong>${studentName || "Student"}</strong>,</p>
+        
+        <p style="font-size: 15px;">Your instructor <strong>${instructorName || "Your Instructor"}</strong> has posted a score for the following activity:</p>
+        
+        <div style="background-color: #f8f9fa; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${headerColor};">
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <li style="padding: 6px 0;"><strong>📚 Course:</strong> ${subjectCode} — ${subjectName}</li>
+            <li style="padding: 6px 0;"><strong>👥 Section:</strong> ${sectionName}</li>
+            <li style="padding: 6px 0;"><strong>📝 Activity:</strong> ${activityTitle}</li>
+            <li style="padding: 6px 0;"><strong>👨‍🏫 Instructor:</strong> ${instructorName || "Your Instructor"}</li>
+            <li style="padding: 6px 0;"><strong>📊 Max Score:</strong> ${maxScore}</li>
+          </ul>
+        </div>
+        
+        <div style="background-color: ${isPassing ? '#d4edda' : '#fff3cd'}; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${headerColor}; text-align: center;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Your Score</p>
+          <p style="margin: 0; font-size: 32px; font-weight: bold; color: ${headerColor};">${score} / ${maxScore}</p>
+          <p style="margin: 8px 0 0 0; font-size: 18px; font-weight: bold; color: ${isPassing ? '#155724' : '#856404'};">${percentage}%</p>
+        </div>
+        
+        <div style="background-color: ${isPassing ? '#d4edda' : '#fff3cd'}; padding: 12px 16px; border-radius: 6px; margin: 20px 0;">
+          <p style="margin: 0; color: ${isPassing ? '#155724' : '#856404'}; font-size: 14px;">
+            <strong>${isPassing ? '🎉 Great job!' : '📌 Keep working hard!'}</strong> ${isPassing ? 'You scored above the passing threshold.' : 'Remember that every score is an opportunity to learn and improve.'}
+          </p>
+        </div>
+        
+        ${viewUrl ? `
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${viewUrl}" 
+             style="display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            View Your Grades
+          </a>
+        </p>
+        ` : ""}
+        
+        <p style="color: #666; font-size: 13px; border-top: 1px solid #e0e0e0; padding-top: 16px; margin-top: 24px;">
+          This is an automated notification from BUKSU Grading System. You are receiving this because your instructor has posted a score for your activity.
+        </p>
+      </div>
     </div>
   `;
 
@@ -498,6 +535,81 @@ async sendActivityScoreNotification({
   } catch (error) {
     console.error("❌ Error sending score email:", error?.message || error);
     return { success: false, message: "Failed to send score email" };
+  }
+}
+
+// 📧 Notify student: no score recorded for activity
+async sendNoScoreNotification({
+  studentEmail,
+  studentName,
+  instructorName,
+  sectionName,
+  subjectCode,
+  subjectName,
+  activityTitle,
+  maxScore,
+  viewUrl,
+}) {
+  if (!(await this.ensureTransporter())) {
+    return { success: false, message: "Email service not configured" };
+  }
+
+  const subject = `[${subjectCode}] Notice: No score recorded for ${activityTitle}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; border: 2px solid #ffc107; border-radius: 8px; overflow: hidden;">
+      <div style="background-color: #fff3cd; padding: 20px; border-bottom: 2px solid #ffc107;">
+        <h2 style="color:#856404; margin: 0;">⚠️ BUKSU Grading System - Score Notice</h2>
+      </div>
+      
+      <div style="padding: 24px; background-color: white;">
+        <p style="font-size: 16px;">Hi <strong>${studentName || "Student"}</strong>,</p>
+        
+        <p style="font-size: 15px;">This is to inform you that <strong>no score has been recorded</strong> for the following activity:</p>
+        
+        <div style="background-color: #f8f9fa; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <li style="padding: 6px 0;"><strong>📚 Course:</strong> ${subjectCode} — ${subjectName}</li>
+            <li style="padding: 6px 0;"><strong>👥 Section:</strong> ${sectionName}</li>
+            <li style="padding: 6px 0;"><strong>📝 Activity:</strong> ${activityTitle}</li>
+            <li style="padding: 6px 0;"><strong>👨‍🏫 Instructor:</strong> ${instructorName || "Your Instructor"}</li>
+            <li style="padding: 6px 0;"><strong>📊 Max Score:</strong> ${maxScore}</li>
+            <li style="padding: 6px 0; color: #dc3545;"><strong>⚠️ Your Score:</strong> Not yet recorded (0/${maxScore})</li>
+          </ul>
+        </div>
+        
+        <div style="background-color: #fff3cd; padding: 12px 16px; border-radius: 6px; margin: 20px 0;">
+          <p style="margin: 0; color: #856404; font-size: 14px;">
+            <strong>📌 Important:</strong> This may be because you did not submit the activity, were absent, or your work has not yet been graded. Please contact your instructor <strong>${instructorName || "your instructor"}</strong> if you believe this is an error.
+          </p>
+        </div>
+        
+        ${viewUrl ? `
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="${viewUrl}" 
+             style="display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            View Your Grades
+          </a>
+        </p>
+        ` : ""}
+        
+        <p style="color: #666; font-size: 13px; border-top: 1px solid #e0e0e0; padding-top: 16px; margin-top: 24px;">
+          This is an automated notification from BUKSU Grading System. You are receiving this because grades were recently posted for this activity.
+        </p>
+      </div>
+    </div>
+  `;
+
+  try {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: studentEmail,
+      subject,
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Error sending no-score email:", error?.message || error);
+    return { success: false, message: "Failed to send no-score email" };
   }
 }
 
