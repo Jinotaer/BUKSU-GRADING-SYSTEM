@@ -2,6 +2,7 @@ import passport from "passport";
 import jwt from "jsonwebtoken";
 import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
+import logger from "../config/logger.js";
 import { handleFailedLogin, handleSuccessfulLogin } from "../middleware/bruteForceProtection.js";
 
 // JWT secret from environment variables
@@ -465,6 +466,14 @@ export const loginWithEmail = async (req, res) => {
 
     // Successful login - reset any failed attempts
     await handleSuccessfulLogin(email, actualUserType).catch(() => {});
+
+    // Log successful login
+    logger.auth(`Successful ${actualUserType} login`, {
+      userId: user._id,
+      email: user.email,
+      userType: actualUserType,
+      ip: req.ip
+    });
 
     // Generate JWT token
     const token = jwt.sign(

@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 import Lock from "../models/lock.js";
 
-const LEASE_MS = Number(process.env.LOCK_LEASE_MS ?? 10 * 60 * 1000); // default 10 minutes
+const LEASE_MS = Number(process.env.LOCK_LEASE_MS ?? 2 * 60 * 1000); // default 10 minutes
 const ALLOWED_TYPES = new Set(["semester", "subject", "section"]);
 
 const asObjectId = (id) => {

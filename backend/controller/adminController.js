@@ -7,6 +7,7 @@ import Subject from "../models/subjects.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import emailService from "../services/emailService.js";
+import logger from "../config/logger.js";
 import {
   handleFailedLogin,
   handleSuccessfulLogin,
@@ -218,6 +219,14 @@ export const loginAdmin = async (req, res) => {
           "Account has been temporarily locked due to too many failed login attempts.";
       }
 
+      // Log failed login attempt
+      logger.auth('Failed admin login attempt', {
+        email: email,
+        ip: req.ip,
+        remainingAttempts: result.remainingAttempts,
+        locked: result.locked
+      });
+
       return res.status(401).json({
         success: false,
         message,
@@ -230,6 +239,14 @@ export const loginAdmin = async (req, res) => {
     await handleSuccessfulLogin(email, req.inferredUserType || "admin").catch(
       () => {}
     );
+
+    // Log successful login
+    logger.auth('Successful admin login', {
+      adminId: admin._id,
+      email: admin.email,
+      role: admin.role,
+      ip: req.ip
+    });
 
     // Generate tokens
     const accessToken = generateToken(
@@ -267,7 +284,7 @@ export const loginAdmin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Admin login error:", error);
+    logger.error("Admin login error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

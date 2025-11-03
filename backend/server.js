@@ -5,6 +5,8 @@ import session from "express-session";
 import connectDB from "./config/db.js";
 import configurePassport from "./config/passport.js";
 import passport from "passport";
+import helmetConfig from "./config/helmet.js";
+import logger from "./config/logger.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -26,13 +28,23 @@ dotenv.config();
 
 // Connect to database and seed admin account
 const initializeApp = async () => {
-  await connectDB();
-  await seedAdminAccount();
+  try {
+    await connectDB();
+    logger.database('MongoDB connected successfully');
+    await seedAdminAccount();
+    logger.info('Admin account seeding completed');
+  } catch (error) {
+    logger.error('Failed to initialize application:', error);
+    process.exit(1);
+  }
 };
 
 initializeApp();
 
 const app = express();
+
+// Apply Helmet security headers (must be early in middleware chain)
+app.use(helmetConfig);
 
 // CORS configuration
 app.use(cors({
@@ -90,13 +102,28 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Global error handler with logging
 app.use((err, req, res, next) => {
-  console.error(err);
+  logger.error('Unhandled error:', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    ip: req.ip,
+  });
   res.status(500).json({ message: "Internal server error" });
 });
 
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
+// Log OAuth configuration status (not the actual secrets)
+logger.info('OAuth Configuration:', {
+  googleClientIdConfigured: !!process.env.GOOGLE_CLIENT_ID,
+  googleClientSecretConfigured: !!process.env.GOOGLE_CLIENT_SECRET,
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  logger.info(`🚀 Server running on port ${PORT}`);
+  logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔒 Security headers enabled with Helmet`);
+  logger.info(`📊 Logging configured with Winston`);
+});
