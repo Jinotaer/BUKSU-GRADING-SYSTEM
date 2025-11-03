@@ -16,13 +16,25 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
  */
 export const getAuthUrl = async (req, res) => {
   try {
-    const instructorId = req.user.id;
+    // Extract instructor ID - prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
+
+    console.log('=== Get Auth URL Debug ===');
+    console.log('req.user:', req.user);
+    console.log('Extracted instructorId:', instructorId);
+
+    if (!instructorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Instructor authentication required',
+      });
+    }
 
     // Generate auth URL with instructor ID in state
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
-      state: instructorId, // Pass instructor ID to retrieve after callback
+      state: instructorId.toString(), // Pass instructor ID as string to retrieve after callback
       prompt: 'consent', // Force consent screen to get refresh token
     });
 
@@ -45,17 +57,27 @@ export const handleCallback = async (req, res) => {
     const { code, state } = req.query;
     const instructorId = state; // Retrieve instructor ID from state
 
-    if (!code) {
+    console.log('=== OAuth Callback Debug ===');
+    console.log('Code:', code ? 'Present' : 'Missing');
+    console.log('State (instructorId):', instructorId);
+
+    if (!code || !instructorId) {
       return res.status(400).json({
         success: false,
-        message: 'Authorization code is required',
+        message: 'Authorization code and instructor ID are required',
       });
     }
 
     // Exchange code for tokens
     const { tokens } = await oauth2Client.getToken(code);
     
+    console.log('Tokens received:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+    });
+
     if (!tokens.refresh_token) {
+      console.warn('⚠️ No refresh token received. User may have already authorized the app.');
       return res.status(400).json({
         success: false,
         message: 'Failed to obtain refresh token. Please try again.',
@@ -63,18 +85,27 @@ export const handleCallback = async (req, res) => {
     }
 
     // Update instructor with tokens
-    await Instructor.findByIdAndUpdate(instructorId, {
-      googleAccessToken: tokens.access_token,
-      googleRefreshToken: tokens.refresh_token,
-      googleCalendarConnected: true,
-      googleCalendarConnectedAt: new Date(),
+    const updatedInstructor = await Instructor.findByIdAndUpdate(
+      instructorId,
+      {
+        googleAccessToken: tokens.access_token,
+        googleRefreshToken: tokens.refresh_token,
+        googleCalendarConnected: true,
+        googleCalendarConnectedAt: new Date(),
+      },
+      { new: true }
+    );
+
+    console.log('✅ Instructor updated successfully:', {
+      instructorId: updatedInstructor._id,
+      connected: updatedInstructor.googleCalendarConnected,
     });
 
     // Redirect to frontend with success message
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/instructor/profile?googleCalendar=connected`);
   } catch (error) {
-    console.error('Error handling OAuth callback:', error);
+    console.error('❌ Error handling OAuth callback:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/instructor/profile?googleCalendar=error`);
   }
@@ -85,7 +116,18 @@ export const handleCallback = async (req, res) => {
  */
 export const checkConnectionStatus = async (req, res) => {
   try {
-    const instructorId = req.user.id;
+    // Extract instructor ID - prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
+
+    console.log('=== Check Connection Status Debug ===');
+    console.log('Extracted instructorId:', instructorId);
+
+    if (!instructorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Instructor authentication required',
+      });
+    }
 
     const instructor = await Instructor.findById(instructorId).select(
       'googleCalendarConnected googleCalendarConnectedAt'
@@ -118,7 +160,18 @@ export const checkConnectionStatus = async (req, res) => {
  */
 export const disconnectCalendar = async (req, res) => {
   try {
-    const instructorId = req.user.id;
+    // Extract instructor ID - prioritize Google OAuth structure (req.user.user._id)
+    const instructorId = req.user?.user?._id || req.instructor?.id || req.user?._id;
+
+    console.log('=== Disconnect Calendar Debug ===');
+    console.log('Extracted instructorId:', instructorId);
+
+    if (!instructorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Instructor authentication required',
+      });
+    }
 
     const instructor = await Instructor.findById(instructorId);
 
