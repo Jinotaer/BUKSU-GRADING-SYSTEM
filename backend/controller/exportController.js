@@ -453,39 +453,17 @@ const applyFormatting = async (
 ) => {
   const frozenRowCount = headerStartRow + headerRowCount;
   const requests = [
-    // Merge top title rows - text starts at column F
-    // Row 1: University name (columns F onwards)
+    // Merge logo cell vertically (rows 0-2, columns A-B)
     {
       mergeCells: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 5, endColumnIndex: columnCount },
-        mergeType: 'MERGE_ALL',
-      },
-    },
-    // Row 2: City (columns F onwards)
-    {
-      mergeCells: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 5, endColumnIndex: columnCount },
-        mergeType: 'MERGE_ALL',
-      },
-    },
-    // Row 3: Contact info (columns F onwards)
-    {
-      mergeCells: {
-        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 5, endColumnIndex: columnCount },
-        mergeType: 'MERGE_ALL',
-      },
-    },
-    // Merge logo cell vertically (rows 0-2, column E)
-    {
-      mergeCells: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 4, endColumnIndex: 5 },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 2 },
         mergeType: 'MERGE_ALL',
       },
     },
     // Style logo cell - center alignment
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 4, endColumnIndex: 5 },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 2 },
         cell: { 
           userEnteredFormat: { 
             horizontalAlignment: 'CENTER', 
@@ -495,16 +473,32 @@ const applyFormatting = async (
         fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
       },
     },
+    // Merge top title rows - text starts at column C
+    // Row 1: University name (columns C onwards)
     {
       mergeCells: {
-        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: columnCount },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: columnCount },
         mergeType: 'MERGE_ALL',
       },
     },
-    // Title region styles - university header (columns F onwards)
+    // Row 2: City (columns C onwards)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 2, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Row 3: Contact info (columns C onwards)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 2, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
+    // Title region styles - university header (columns C onwards)
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 5, endColumnIndex: columnCount },
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: columnCount },
         cell: { userEnteredFormat: {  horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: true, fontSize: 12 } } },
         fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
       },
@@ -512,23 +506,29 @@ const applyFormatting = async (
     // Second row - city (not bold)
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 5, endColumnIndex: columnCount },
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 2, endColumnIndex: columnCount },
         cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: false, fontSize: 10 } } },
         fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
       },
     },
-    // Third row - contact info (hyperlink, slightly smaller)
+    // Third row - contact info (hyperlink, slightly smaller, blue color)
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 5, endColumnIndex: columnCount },
-        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: false, fontSize: 9 } } },
+        range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 2, endColumnIndex: columnCount },
+        cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', textFormat: { bold: false, fontSize: 9, foregroundColor: { red: 0.06, green: 0.33, blue: 0.8 } } } },
         fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
       },
     },
-    // CLASS RECORD title
+    // CLASS RECORD title (columns C onwards, leaving A-B for logo spacing)
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 2, endColumnIndex: columnCount },
+        mergeType: 'MERGE_ALL',
+      },
+    },
     {
       repeatCell: {
-        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: columnCount },
+        range: { sheetId, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 2, endColumnIndex: columnCount },
         cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontSize: 12 } } },
         fields: 'userEnteredFormat(horizontalAlignment,textFormat)',
       },
@@ -547,17 +547,20 @@ const applyFormatting = async (
         fields: 'userEnteredFormat',
       },
     },
-    // Freeze header rows
+    // Remove frozen rows - everything scrolls together
     {
       updateSheetProperties: {
-        properties: { sheetId, gridProperties: { frozenRowCount } },
+        properties: { sheetId, gridProperties: { frozenRowCount: 0 } },
         fields: 'gridProperties.frozenRowCount',
       },
     },
   ];
 
+  // Merge category header cells to span across their activity columns
   for (const range of colorRanges) {
     if (range.start == null || range.end == null || !range.color) continue;
+    
+    // Apply background color to all rows in the category
     requests.push({
       repeatCell: {
         range: {
@@ -571,7 +574,66 @@ const applyFormatting = async (
         fields: 'userEnteredFormat.backgroundColor',
       },
     });
+    
+    // Merge the category label cell across all its activities (first row only, skip base columns)
+    if (range.start >= staticColumnCount) {
+      requests.push({
+        mergeCells: {
+          range: {
+            sheetId,
+            startRowIndex: headerStartRow,
+            endRowIndex: headerStartRow + 1,
+            startColumnIndex: range.start,
+            endColumnIndex: range.end,
+          },
+          mergeType: 'MERGE_ALL',
+        },
+      });
+    }
   }
+
+  // Merge base column headers vertically (Ctrl No, ID Number, NAME) across rows 15-16
+  // Ctrl No (column C)
+  requests.push({
+    mergeCells: {
+      range: {
+        sheetId,
+        startRowIndex: headerStartRow + 1,
+        endRowIndex: headerStartRow + 3,
+        startColumnIndex: 2,
+        endColumnIndex: 3,
+      },
+      mergeType: 'MERGE_ALL',
+    },
+  });
+  
+  // ID Number (column D)
+  requests.push({
+    mergeCells: {
+      range: {
+        sheetId,
+        startRowIndex: headerStartRow + 1,
+        endRowIndex: headerStartRow + 3,
+        startColumnIndex: 3,
+        endColumnIndex: 4,
+      },
+      mergeType: 'MERGE_ALL',
+    },
+  });
+  
+  // NAME (column E)
+  requests.push({
+    mergeCells: {
+      range: {
+        sheetId,
+        startRowIndex: headerStartRow + 1,
+        endRowIndex: headerStartRow + 3,
+        startColumnIndex: 4,
+        endColumnIndex: 5,
+      },
+      mergeType: 'MERGE_ALL',
+    },
+  });
 
   // Center-align category headers (Class Standing, Laboratory, Major Output) in first row
   if (finalGradeColumnStart > staticColumnCount) {
@@ -590,7 +652,59 @@ const applyFormatting = async (
     });
   }
 
-  // Apply text rotation to activity titles (third header row)
+  // Center-align base column headers (Ctrl No, ID Number, NAME) in merged cells with all borders
+  requests.push({
+    repeatCell: {
+      range: {
+        sheetId,
+        startRowIndex: headerStartRow + 1,
+        endRowIndex: headerStartRow + 3,
+        startColumnIndex: 2,
+        endColumnIndex: 5,
+      },
+      cell: { 
+        userEnteredFormat: { 
+          horizontalAlignment: 'CENTER', 
+          verticalAlignment: 'MIDDLE',
+          borders: {
+            top: { style: 'SOLID' },
+            bottom: { style: 'SOLID' },
+            left: { style: 'SOLID' },
+            right: { style: 'SOLID' },
+          }
+        } 
+      },
+      fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,borders)',
+    },
+  });
+
+  // Remove borders from activity number row (row 15) for activity columns
+  if (finalGradeColumnStart > staticColumnCount) {
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: headerStartRow + 1,
+          endRowIndex: headerStartRow + 2,
+          startColumnIndex: staticColumnCount,
+          endColumnIndex: finalGradeColumnStart,
+        },
+        cell: { 
+          userEnteredFormat: { 
+            borders: {
+              top: { style: 'SOLID' },
+              bottom: { style: 'SOLID' },
+              left: { style: 'SOLID' },
+              right: { style: 'SOLID' },
+            }
+          } 
+        },
+        fields: 'userEnteredFormat.borders',
+      },
+    });
+  }
+
+  // Apply text rotation to activity titles (third header row) and make them regular (not bold)
   if (finalGradeColumnStart > staticColumnCount) {
     requests.push({
       repeatCell: {
@@ -601,13 +715,13 @@ const applyFormatting = async (
           startColumnIndex: staticColumnCount,
           endColumnIndex: finalGradeColumnStart,
         },
-        cell: { userEnteredFormat: { textRotation: { angle: -90 } } },
-        fields: 'userEnteredFormat.textRotation',
+        cell: { userEnteredFormat: { textRotation: { angle: -90 }, textFormat: { bold: false } } },
+        fields: 'userEnteredFormat(textRotation,textFormat)',
       },
     });
   }
 
-  // Resize base columns (Ctrl No, ID Number, NAME)
+  // Resize logo column A (floating on the left, close to text)
   requests.push({
     updateDimensionProperties: {
       range: {
@@ -617,12 +731,13 @@ const applyFormatting = async (
         endIndex: 1,
       },
       properties: {
-        pixelSize: 50, // Ctrl No column
+        pixelSize: 80, // Logo column A (tight fit for logo)
       },
       fields: 'pixelSize',
     },
   });
 
+  // Resize column B (small padding/margin between logo and text)
   requests.push({
     updateDimensionProperties: {
       range: {
@@ -632,12 +747,13 @@ const applyFormatting = async (
         endIndex: 2,
       },
       properties: {
-        pixelSize: 100, // ID Number column
+        pixelSize: 10, // Small margin/padding column B
       },
       fields: 'pixelSize',
     },
   });
 
+  // Resize base table columns (Ctrl No, ID Number, NAME) - now columns C, D, E
   requests.push({
     updateDimensionProperties: {
       range: {
@@ -647,29 +763,43 @@ const applyFormatting = async (
         endIndex: 3,
       },
       properties: {
-        pixelSize: 180, // NAME column
+        pixelSize: 50, // Ctrl No column (C)
       },
       fields: 'pixelSize',
     },
   });
 
-  // Resize logo column E to appropriate size
   requests.push({
     updateDimensionProperties: {
       range: {
         sheetId,
         dimension: 'COLUMNS',
         startIndex: 3,
-        endIndex: 5,
+        endIndex: 4,
       },
       properties: {
-        pixelSize: 90,
+        pixelSize: 100, // ID Number column (D)
       },
       fields: 'pixelSize',
     },
   });
 
-  // Resize activity columns (with rotated text) to narrower width
+  requests.push({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: 'COLUMNS',
+        startIndex: 4,
+        endIndex: 5,
+      },
+      properties: {
+        pixelSize: 180, // NAME column (E)
+      },
+      fields: 'pixelSize',
+    },
+  });
+
+  // Resize activity columns (with rotated text)
   if (finalGradeColumnStart > staticColumnCount) {
     requests.push({
       updateDimensionProperties: {
@@ -680,7 +810,7 @@ const applyFormatting = async (
           endIndex: finalGradeColumnStart,
         },
         properties: {
-          pixelSize: 75,
+          pixelSize: 50,
         },
         fields: 'pixelSize',
       },
@@ -755,7 +885,7 @@ const insertLogo = async (sheets, spreadsheetId, sheetId, logoUrl) => {
                   values: [
                     {
                       userEnteredValue: {
-                        formulaValue: `=IMAGE("${logoUrl}", 1)`,
+                        formulaValue: `=IMAGE("${logoUrl}", 2)`,
                       },
                     },
                   ],
@@ -766,8 +896,8 @@ const insertLogo = async (sheets, spreadsheetId, sheetId, logoUrl) => {
                 sheetId,
                 startRowIndex: 0,
                 endRowIndex: 1,
-                startColumnIndex: 4,
-                endColumnIndex: 5,
+                startColumnIndex: 0,
+                endColumnIndex: 1,
               },
             },
           },
@@ -977,29 +1107,30 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // 7) Compose values for the sheet
   const headerData = [
-    ['', '', '', '', '', 'BUKIDNON STATE UNIVERSITY'], // Empty cells A-E, text starts at F
-    ['', '', '', '', '', 'Malaybalay City, Bukidnon 8700'],
-    ['', '', '', '', '', '=HYPERLINK("http://www.buksu.edu.ph", "Tel (088) 813-5661 to 5663; Telefax (088) 813-2717; www.buksu.edu.ph")'],
+    ['', '', 'BUKIDNON STATE UNIVERSITY'], // Logo in A-B (floating), text starts at C
+    ['', '', 'Malaybalay City, Bukidnon 8700'],
+    ['', '', '=HYPERLINK("http://www.buksu.edu.ph", "Tel (088) 813-5661 to 5663; Telefax (088) 813-2717; www.buksu.edu.ph")'],
     [],
-    ['CLASS RECORD'],
+    ['', '', 'CLASS RECORD'],
     [],
   ];
 
   const sectionInfo = [
-    ['Section Code:', section.sectionCode || section.sectionName || 'N/A', '', 'Day:', schedule.day],
-    ['Subject Code:', section.subject?.subjectCode || 'N/A', '', 'Time:', schedule.time],
-    ['Descriptive Title:', section.subject?.subjectName || 'N/A', '', 'Rm:', schedule.room],
-    ['Semester:', `${section.term || ''} Sem`, '', 'Units:', section.subject?.units ?? 3],
-    ['School Year:', section.schoolYear || 'N/A', '', 'Chair:', chairperson],
-    ['Instructor:', section.instructor?.fullName || 'N/A', '', 'Dean:', dean],
+    ['', '', 'Section Code:', '', section.sectionCode || section.sectionName || 'N/A', '', '', '', 'Day:', schedule.day],
+    ['', '', 'Subject Code:','',  section.subject?.subjectCode || 'N/A', '', '', '', 'Time:', schedule.time],
+    ['', '', 'Descriptive Title:','', section.subject?.subjectName || 'N/A', '', '', '', 'Rm:', schedule.room],
+    ['', '', 'Semester:','',`${section.term || ''} Sem`, '', '', '', 'Units:', section.subject?.units ?? 3],
+    ['', '', 'School Year:','', section.schoolYear || 'N/A', '', '', '', 'Chair:', chairperson],
+    ['', '', 'Instructor:','', section.instructor?.fullName || 'N/A', '', '',  '', 'Dean:', dean],
     [],
   ];
 
-  const baseColumns = 3;
+  const baseColumns = 5; // A-B for logo spacing, C-E for table base columns
   const headerRows = {
-    category: ['', '', ''],
-    index: ['Ctrl\nNo', 'ID Number', 'NAME'],
-    title: ['', '', ''],
+    category: ['', '', '', '', ''], // Empty A-B for logo, C-E for base columns
+    index: ['', '', 'Ctrl\nNo', 'ID Number', 'NAME'], // Base columns in row 15
+    title: ['', '', '', '', ''], // Activity titles go here
+    maxScores: ['', '', '', '', ''], // Row for max scores
   };
   const headerColorRanges = [
     { start: 0, end: baseColumns, color: { red: 0.82, green: 0.82, blue: 0.82 } },
@@ -1019,9 +1150,11 @@ export const exportToGoogleSheets = async (req, res) => {
     cfg.activities.forEach((activity, idx) => {
       headerRows.category.push(idx === 0 ? cfg.label : '');
       headerRows.index.push(String(idx + 1)); // Restart numbering for each category
-      // Use activity title with max score, e.g., "Quiz 1/50"
-      const activityLabel = `${activity.title || 'Activity ' + (idx + 1)}/${activity.maxScore ?? 100}`;
+      // Activity title only (without max score)
+      const activityLabel = activity.title || 'Activity ' + (idx + 1);
       headerRows.title.push(activityLabel);
+      // Max score in separate row
+      headerRows.maxScores.push(String(activity.maxScore ?? 100));
       allActs.push(activity);
       columnCursor += 1;
     });
@@ -1033,7 +1166,7 @@ export const exportToGoogleSheets = async (req, res) => {
   const totalColumns = headerRows.category.length;
 
   const studentRows = section.students.map((student, idx) => {
-    const row = [String(idx + 1), student.studid || '', student.fullName || ''];
+    const row = ['', '', String(idx + 1), student.studid || '', student.fullName || '']; // Empty A-B for logo spacing
 
     for (const a of allActs) {
       const sMap = scoresByStudent[String(student._id)] || {};
@@ -1043,7 +1176,7 @@ export const exportToGoogleSheets = async (req, res) => {
     return row;
   });
 
-  const tableHeaderRows = [headerRows.category, headerRows.index, headerRows.title];
+  const tableHeaderRows = [headerRows.category, headerRows.index, headerRows.title, headerRows.maxScores];
 
   const allData = [
     ...headerData,
@@ -1078,6 +1211,43 @@ export const exportToGoogleSheets = async (req, res) => {
     );
   } catch (err) {
     warnings.push(`Formatting failed: ${err.message}`);
+  }
+
+  // 9a) Add borders to student data rows
+  try {
+    const dataStartRow = tableHeaderStartRow + headerRowCount;
+    const dataRowCount = studentRows.length;
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + dataRowCount,
+                startColumnIndex: 2,
+                endColumnIndex: totalColumns,
+              },
+              cell: {
+                userEnteredFormat: {
+                  borders: {
+                    top: { style: 'SOLID' },
+                    bottom: { style: 'SOLID' },
+                    left: { style: 'SOLID' },
+                    right: { style: 'SOLID' },
+                  },
+                },
+              },
+              fields: 'userEnteredFormat.borders',
+            },
+          },
+        ],
+      },
+    });
+  } catch (err) {
+    warnings.push(`Failed adding borders to student data: ${err.message}`);
   }
 
   // 9b) Insert logo

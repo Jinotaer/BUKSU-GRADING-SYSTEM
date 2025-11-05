@@ -81,10 +81,9 @@ export default function SubjectManagement() {
     "College of Technology",
     "College of Business",
     "College of Education",
-    "College of Arts and Sciences",
+    "College of Arts and Science",
     "College of Public Administration",
     "College of Nursing",
-    "College of Medicine",
     "College of Law",
   ];
 
@@ -144,7 +143,13 @@ export default function SubjectManagement() {
   /* ---------------- Universal input handler (smooth typing) ---------------- */
   const handleChange = (e) => {
     const { name, value } = e.target; // read before setState (avoids pooled event pitfalls)
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // If college changes, reset department
+    if (name === "college") {
+      setFormData((prev) => ({ ...prev, [name]: value, department: "" }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const resetForm = () => {

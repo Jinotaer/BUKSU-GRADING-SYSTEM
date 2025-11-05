@@ -9,7 +9,7 @@ export function PageHeader({ onCreateClick }) {
           Schedule Management
         </h1>
         <p className="text-gray-600 mt-2">
-          Create and manage your class schedules
+          Create and manage your Activity schedules
         </p>
       </div>
       <button

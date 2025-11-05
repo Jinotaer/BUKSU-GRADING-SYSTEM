@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { IconCheck } from "@tabler/icons-react";
+import { getDepartmentsByCollege } from "./departmrntData";
 
 export function SubjectForm({
   formData,
@@ -11,6 +12,17 @@ export function SubjectForm({
   collegeOptions,
   semesters,
 }) {
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+
+  // Update department options when college changes
+  useEffect(() => {
+    if (formData.college) {
+      const departments = getDepartmentsByCollege(formData.college);
+      setDepartmentOptions(departments);
+    } else {
+      setDepartmentOptions([]);
+    }
+  }, [formData.college]);
   return (
     <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -87,16 +99,38 @@ export function SubjectForm({
         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
           Department <span className="text-red-500">*</span>
         </label>
-        <input
-          type="text"
-          name="department"
-          value={formData.department}
-          onChange={onChange}
-          autoComplete="off"
-          className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400"
-          placeholder="e.g. Computer Science Department"
-          required
-        />
+        {formData.college && departmentOptions.length > 0 ? (
+          <select
+            name="department"
+            value={formData.department}
+            onChange={onChange}
+            className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white"
+            required
+          >
+            <option value="">Select Department</option>
+            {departmentOptions.map((dept) => (
+              <option key={dept.value} value={dept.value}>
+                {dept.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="text"
+            name="department"
+            value={formData.department}
+            onChange={onChange}
+            autoComplete="off"
+            placeholder={
+              formData.college
+                ? "No departments available"
+                : "Select a college first"
+            }
+            readOnly={!formData.college}
+            className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400"
+            required
+          />
+        )}
       </div>
 
       <div>
