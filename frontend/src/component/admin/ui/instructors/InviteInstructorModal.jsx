@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { getDepartmentsByCollege } from "./departmrntData";
 
 export function InviteInstructorModal({
   show,
@@ -8,6 +9,23 @@ export function InviteInstructorModal({
   onChange,
   colleges,
 }) {
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+
+  // Update department options when college changes
+  useEffect(() => {
+    if (inviteData.college) {
+      const departments = getDepartmentsByCollege(inviteData.college);
+      setDepartmentOptions(departments);
+      // Reset department selection when college changes
+      if (inviteData.department) {
+        onChange({ ...inviteData, department: "" });
+      }
+    } else {
+      setDepartmentOptions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteData.college]);
+
   if (!show) return null;
 
   return (
@@ -79,16 +97,39 @@ export function InviteInstructorModal({
               <label className="block text-sm font-medium mb-1">
                 Department
               </label>
-              <input
-                type="text"
-                placeholder="BSIT"
-                value={inviteData.department}
-                onChange={(e) =>
-                  onChange({ ...inviteData, department: e.target.value })
-                }
-                required
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {inviteData.college && departmentOptions.length > 0 ? (
+                <select
+                  value={inviteData.department}
+                  onChange={(e) =>
+                    onChange({ ...inviteData, department: e.target.value })
+                  }
+                  required
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select department</option>
+                  {departmentOptions.map((dept) => (
+                    <option key={dept.value} value={dept.value}>
+                      {dept.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder={
+                    inviteData.college
+                      ? "No departments available"
+                      : "Select a college first"
+                  }
+                  value={inviteData.department}
+                  onChange={(e) =>
+                    onChange({ ...inviteData, department: e.target.value })
+                  }
+                  required
+                  readOnly={!inviteData.college}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
             </div>
 
             <div className="flex justify-end gap-3 mt-6">

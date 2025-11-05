@@ -39,12 +39,13 @@ export default function InstructorManagement() {
   });
 
   const colleges = [
-    "College of Technologies",
+    "College of Technology",
     "College of Education",
     "College of Business",
-    "College of Arts and Sciences",
+    "College of Arts and Science",
     "College of Public Administration",
     "College of Nursing",
+    "College of Law",
   ];
 
   // Fetch instructors function
