@@ -15,7 +15,7 @@ export function StatsCards({
             <p className="text-sm text-gray-600">Total Archived</p>
             <p className="text-2xl font-bold text-gray-900">{totalArchived}</p>
           </div>
-          <IconArchive className="w-8 h-8 text-gray-400" />
+          <IconArchive className="w-8 h-8 text-red-400" />
         </div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

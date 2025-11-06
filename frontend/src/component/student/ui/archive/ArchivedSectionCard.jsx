@@ -20,7 +20,7 @@ export const ArchivedSectionCard = ({
       onClick={() => onViewDetails(section)}
     >
       {/* Card Header with gradient */}
-      <div className="h-32 bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center relative">
+      <div className="h-32 bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center relative">
         <div className="absolute top-2 right-2">
           <span className="px-2 py-1 bg-white/90 text-xs font-semibold text-gray-700 rounded-full">
             ARCHIVED

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { useNotifications } from "../../hooks/useNotifications";
+import { NotificationProvider } from "../common/NotificationModals";
 import {
   PageHeader,
   FilterSection,
@@ -17,6 +19,7 @@ import {
 
 export default function MySections() {
   const navigate = useNavigate();
+  const notifications = useNotifications();
   const [myAssignedSections, setMyAssignedSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -158,18 +161,18 @@ export default function MySections() {
       );
 
       if (res.ok) {
-        alert("Section archived successfully!");
+        notifications.showSuccess("Section archived successfully!");
         setShowArchiveModal(false);
         setSectionToArchive(null);
         // Refresh the sections list
         await fetchMyAssignedSections();
       } else {
         const errorData = await res.json();
-        alert(errorData.message || "Failed to archive section");
+        notifications.showError(errorData.message || "Failed to archive section");
       }
     } catch (error) {
       console.error("Error archiving section:", error);
-      alert("Error archiving section");
+      notifications.showError("Error archiving section");
     } finally {
       setArchiving(false);
     }
@@ -227,7 +230,7 @@ export default function MySections() {
 
       if (res.ok) {
         setShowActivityModal(false);
-        alert("Activity created successfully!");
+        notifications.showSuccess("Activity created successfully!");
         setActivityForm({
           title: "",
           description: "",
@@ -278,9 +281,10 @@ export default function MySections() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <InstructorSidebar />
-      <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
+    <NotificationProvider notifications={notifications}>
+      <div className="flex min-h-screen bg-gray-50">
+        <InstructorSidebar />
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
         <PageHeader
           onRefresh={fetchMyAssignedSections}
           loading={loading}
@@ -367,7 +371,8 @@ export default function MySections() {
           onConfirm={confirmArchive}
           loading={archiving}
         />
+        </div>
       </div>
-    </div>
+    </NotificationProvider>
   );
 }

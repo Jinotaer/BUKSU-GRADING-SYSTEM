@@ -17,7 +17,7 @@ export function SectionControls({
           Section
         </label>
         <select
-          className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm p-2 sm:p-2.5 border truncate"
+          className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm p-2 sm:p-2.5 border truncate focus:outline-none"
           value={selectedSection?._id || ""}
           onChange={(e) => {
             const sec = sections.find((s) => s._id === e.target.value);

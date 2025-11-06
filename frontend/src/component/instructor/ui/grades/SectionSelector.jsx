@@ -49,7 +49,7 @@ export function SectionSelector({
                 placeholder="Search by name or student ID..."
                 value={filterTerm}
                 onChange={(e) => onFilterChange(e.target.value)}
-                className="w-full px-3 py-2 pl-10 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pl-10 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
               />
               <IconFilter
                 className="absolute left-3 top-2.5 text-gray-400"

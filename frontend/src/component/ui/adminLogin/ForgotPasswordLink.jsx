@@ -9,7 +9,7 @@ export default function ForgotPasswordLink({ onClick }) {
           e.preventDefault();
           onClick();
         }}
-        className="text-sm text-blue-600 hover:underline cursor-pointer"
+        className="mt-2 text-sm text-blue-600 hover:underline cursor-pointer"
       >
         Forgot password?
       </a>

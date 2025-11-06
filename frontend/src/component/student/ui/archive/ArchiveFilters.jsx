@@ -30,7 +30,7 @@ export const ArchiveFilters = ({
               onSearchChange(e.target.value);
               onPageReset();
             }}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
           />
         </div>
 
@@ -41,7 +41,7 @@ export const ArchiveFilters = ({
             onYearChange(e.target.value);
             onPageReset();
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
         >
           {academicYears.map((year) => (
             <option key={year.value} value={year.value}>
@@ -57,7 +57,7 @@ export const ArchiveFilters = ({
             onSemesterChange(e.target.value);
             onPageReset();
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
         >
           {semesters.map((sem) => (
             <option key={sem.value} value={sem.value}>

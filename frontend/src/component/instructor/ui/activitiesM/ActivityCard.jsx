@@ -27,8 +27,8 @@ export function ActivityCard({
               {activity.title}
             </h3>
             <p className="text-gray-600 text-sm flex items-center gap-1">
-              <IconCalendar size={16} className="text-gray-400" />{" "}
-              Due: {formatDate(activity.dueDate)}
+              {/* <IconCalendar size={16} className="text-gray-400" />{" "} */}
+              {/* Due: {formatDate(activity.dueDate)} */}
             </p>
           </div>
         </div>

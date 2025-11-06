@@ -26,7 +26,7 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     );
   }, [categories]);
 
-  const totalPages = Math.ceil(allRows.length / itemsPerPage);
+  
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedRows = allRows.slice(startIndex, endIndex);
@@ -55,12 +55,6 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     return Object.values(categoryMap);
   }, [paginatedRows, categories]);
 
-  const handlePageChange = (page) => setCurrentPage(page);
-  const handleItemsPerPageChange = (newItemsPerPage) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
-  };
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
       <NavbarSimple />
@@ -78,17 +72,6 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
 
             <CategoryCardsList categories={paginatedCategories} />
 
-            {allRows.length > 0 && (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={allRows.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={handlePageChange}
-                onItemsPerPageChange={handleItemsPerPageChange}
-                rowsPerPageOptions={[5, 10, 25, 50]}
-              />
-            )}
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import Pagination from "../common/Pagination";
 import {
   PageHeader,
   SectionControls,
@@ -30,6 +31,10 @@ export default function SectionsStudentTable() {
 
   // Search for students in current section
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Notifications
   const notifications = useNotifications();
@@ -246,6 +251,26 @@ export default function SectionsStudentTable() {
   const totalStudents = students.length;
   const filteredStudentsCount = filteredStudents.length;
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStudents = filteredStudents.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search query or section changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [studentSearchQuery, selectedSection]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
   // ===== Helpers =====
   const sectionLabel = (sec) => {
     // Backend uses different field names
@@ -298,9 +323,19 @@ export default function SectionsStudentTable() {
 
                 <StudentsTable
                   students={students}
-                  filteredStudents={filteredStudents}
+                  filteredStudents={paginatedStudents}
                   onRemoveStudent={handleRemoveStudent}
                   onClearSearch={() => setStudentSearchQuery("")}
+                />
+
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredStudents.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
                 />
               </div>
             )}

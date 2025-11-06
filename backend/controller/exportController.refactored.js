@@ -1,4 +1,4 @@
-// controllers/exportController.js (refactored)
+// controllers/exportController.refactored.js
 import dotenv from 'dotenv';
 import { HttpError, normalizeSheetTitleLength } from '../utils/googleSheetsHelpers.js';
 import { getGoogleClients } from '../utils/googleSheetsHelpers.js';
@@ -37,9 +37,6 @@ for (const k of requiredEnv) {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* main controller                                                             */
-/* -------------------------------------------------------------------------- */
 export const exportToGoogleSheets = async (req, res) => {
   console.log('[exportController] ========== Export Request Started ==========');
   const warnings = [];

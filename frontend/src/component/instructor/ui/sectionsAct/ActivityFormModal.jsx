@@ -20,15 +20,15 @@ export function ActivityFormModal({
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title *
+            <label className="block text-sm font-medium text-gray-700 mb-1 ">
+              Title <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => onChange({ ...form, title: e.target.value })}
               required
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded focus:ring-2 focus:ring-blue-600 focus:border-transparent focus:outline-none border border-gray-300 "
             />
           </div>
 
@@ -42,19 +42,19 @@ export function ActivityFormModal({
               onChange={(e) =>
                 onChange({ ...form, description: e.target.value })
               }
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 rounded focus:ring-2 focus:ring-blue-600 focus:border-transparent focus:outline-none border border-gray-300"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category *
+                Category <span className="text-red-500">*</span>
               </label>
               <select
                 value={form.category}
                 onChange={(e) => onChange({ ...form, category: e.target.value })}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2  rounded focus:ring-2 focus:ring-blue-600 focus:border-transparent focus:outline-none border border-gray-300"
               >
                 <option value="classStanding">Class Standing</option>
                 <option value="laboratory">Laboratory</option>
@@ -63,14 +63,14 @@ export function ActivityFormModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Score *
+                Max Score <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
                 min={1}
                 value={form.maxScore}
                 onChange={(e) => onChange({ ...form, maxScore: e.target.value })}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2  rounded focus:ring-2 focus:ring-blue-600 focus:border-transparent focus:outline-none border border-gray-300"
               />
             </div>
           </div>
@@ -79,7 +79,7 @@ export function ActivityFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border rounded"
+              className="flex-1 px-4 py-2 rounded focus:ring-blue-600 focus:border-transparent focus:outline-none border border-gray-300"
               disabled={saving}
             >
               Cancel
@@ -87,7 +87,7 @@ export function ActivityFormModal({
             <button
               type="submit"
               disabled={saving || !form.title.trim()}
-              className="flex-1 px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+              className="flex-1 px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
             >
               {saving ? "Saving..." : isEdit ? "Update" : "Create"}
             </button>
