@@ -78,7 +78,7 @@ export default function ArchiveManagement() {
       archivedSections.map((s) => s.schoolYear).filter(Boolean)
     );
     const arr = Array.from(set).sort((a, b) => (a > b ? -1 : 1));
-    return [{ value: "all", label: "All Years" }].concat(
+    return [{ value: "all", label: "All Academic Year" }].concat(
       arr.map((y) => ({ value: y, label: y }))
     );
   }, [archivedSections]);

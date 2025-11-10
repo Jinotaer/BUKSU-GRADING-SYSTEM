@@ -38,14 +38,14 @@ export function RecentSections({ sections }) {
         <div className="text-center py-8">
           <IconChalkboard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 mb-4">No sections created yet</p>
-          <button
+          {/* <button
             onClick={() =>
               (window.location.href = "/instructor/add-sections")
             }
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Create Your First Section
-          </button>
+          </button> */}
         </div>
       )}
     </div>

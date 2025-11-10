@@ -28,6 +28,7 @@ export default function SectionManagement() {
   const [semesters, setSemesters] = useState([]);
   const [filteredSubjects, setFilteredSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -419,6 +420,7 @@ export default function SectionManagement() {
       },
     };
 
+    setSubmitting(true);
     try {
       const url = selectedSection
         ? `${API_BASE}/api/admin/sections/${selectedSection._id}`
@@ -458,6 +460,8 @@ export default function SectionManagement() {
     } catch (err) {
       console.error(err);
       showError("Error saving section");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -607,6 +611,7 @@ export default function SectionManagement() {
               onChange={handleChange}
               onSchemaChange={handleSchemaChange}
               onCancel={() => setShowAddModal(false)}
+              submitting={submitting}
             />
           </Modal>
 
@@ -641,6 +646,7 @@ export default function SectionManagement() {
                 setShowEditModal(false);
                 refreshLocksWithDelay();
               }}
+              submitting={submitting}
             />
           </Modal>
 

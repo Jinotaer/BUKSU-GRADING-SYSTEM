@@ -12,6 +12,7 @@ export function SectionForm({
   onChange,
   onSchemaChange,
   onCancel,
+  submitting, // <-- Add this line
 }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -166,10 +167,20 @@ export function SectionForm({
         </button>
         <button
           type="submit"
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+          disabled={submitting}
+          className="flex-1 bg-blue-600 text-white px-4 py-2 sm:py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm hover:shadow-md touch-manipulation"
         >
-          <IconCheck size={16} />
-          {isEdit ? "Update Section" : "Add Section"}
+          {submitting ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>{isEdit ? "Updating..." : "Adding..."}</span>
+            </>
+          ) : (
+            <>
+              <IconCheck size={16} className="flex-shrink-0" />
+              <span>{isEdit ? "Update Section" : "Add Section"}</span>
+            </>
+          )}
         </button>
       </div>
     </form>

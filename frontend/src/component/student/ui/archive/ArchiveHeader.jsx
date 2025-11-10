@@ -11,7 +11,8 @@ export const ArchiveHeader = () => {
         </h1>
       </div>
       <p className="text-gray-600">
-        View your past subjects that have been archived by your instructors.
+        View your past subjects that you have manually archived for future
+        reference.
       </p>
     </div>
   );
