@@ -5,16 +5,16 @@ import { getGoogleClients } from '../utils/googleSheetsHelpers.js';
 import { computeScoresByStudent } from '../utils/gradeUtils.js';
 import {
   createSpreadsheet,
-  addSheetToFallback,
   writeValues,
   resetSheet,
   resolveExistingSheet,
   setSheetTitle,
   moveFileToFolder,
+  createDriveFolder,
+  findOrCreateSectionFolder,
   tryShareWithInstructor,
   trySetPublicAccess,
   insertLogo,
-  EXPORT_HUB_SPREADSHEET_ID,
   GOOGLE_DRIVE_FOLDER_ID,
 } from '../services/googleSheetsService.js';
 import { applyFormatting, addStudentDataBorders } from '../services/sheetFormattingService.js';
@@ -89,8 +89,9 @@ export const exportToGoogleSheets = async (req, res) => {
   // 4) Initialize Google clients
   console.log('[exportController] Initializing Google clients...');
   let sheets, drive;
+  let forceServiceAccount = false;
   try {
-    ({ sheets, drive } = await getGoogleClients());
+    ({ sheets, drive } = await getGoogleClients(forceServiceAccount));
     console.log('[exportController] Google clients initialized successfully');
   } catch (err) {
     console.error('[exportController] Failed to initialize Google clients');
@@ -102,7 +103,10 @@ export const exportToGoogleSheets = async (req, res) => {
   const subjectCode = section.subject?.subjectCode || 'SUBJ';
   const sectionCodeForTitle = section.sectionCode || section.sectionName || '';
   const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}`;
-  const desiredSheetTitleBase = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
+  // Prefer a sheetName provided by the client (frontend) if available
+  const requestedSheetNameFromBody = req.body?.sheetName || null;
+  const desiredSheetTitleBase =
+    requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
   const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
 
   // 6) Handle spreadsheet creation or reuse
@@ -110,12 +114,10 @@ export const exportToGoogleSheets = async (req, res) => {
   const expectedSpreadsheetId = existingExport?.spreadsheetId || null;
   const expectedSheetId = existingExport?.sheetId ?? null;
   const expectedSheetTitle = existingExport?.sheetTitle || null;
-  const existingUsedFallback = existingExport?.usedFallbackHub || false;
 
   let spreadsheetId;
   let sheetId;
   let sheetTitle;
-  let usedFallbackHub = false;
   let reusedExisting = false;
 
   // Try to reuse existing spreadsheet
@@ -123,9 +125,8 @@ export const exportToGoogleSheets = async (req, res) => {
     try {
       ({ sheetId, sheetTitle } = await resolveExistingSheet(sheets, expectedSpreadsheetId, expectedSheetId, expectedSheetTitle));
       spreadsheetId = expectedSpreadsheetId;
-      usedFallbackHub = existingUsedFallback || expectedSpreadsheetId === EXPORT_HUB_SPREADSHEET_ID;
       reusedExisting = true;
-      console.log('[exportController] Reusing existing spreadsheet:', spreadsheetId, 'sheet:', sheetTitle);
+      console.log('[exportController] Reusing existing dedicated spreadsheet:', spreadsheetId, 'sheet:', sheetTitle);
     } catch (reuseErr) {
       console.warn('[exportController] Unable to reuse previous spreadsheet:', reuseErr.message);
       warnings.push(`Previous export could not be reused: ${reuseErr.message}`);
@@ -136,7 +137,7 @@ export const exportToGoogleSheets = async (req, res) => {
   if (!reusedExisting) {
     console.log('[exportController] Creating a new spreadsheet...');
     try {
-      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle));
+      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle, false, drive));
       console.log('[exportController] Spreadsheet created:', spreadsheetId);
       try {
         sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
@@ -144,50 +145,39 @@ export const exportToGoogleSheets = async (req, res) => {
         warnings.push(`Unable to rename sheet to desired title: ${renameErr.message}`);
       }
     } catch (err) {
-      const canFallback = err instanceof HttpError && err.status === 403 && EXPORT_HUB_SPREADSHEET_ID;
-      if (!canFallback) {
-        console.error('[exportController] Failed to create spreadsheet - returning error to client');
-        const status = err instanceof HttpError ? err.status : 500;
-        return res.status(status).json({ message: err.message });
-      }
-
-      console.warn('[exportController] Permission denied creating spreadsheet - attempting to use fallback hub');
+      console.error('[exportController] Failed to create spreadsheet - attempting with service account');
+      // Retry with service account
       try {
-        ({ spreadsheetId, sheetId, sheetTitle } = await addSheetToFallback(sheets, EXPORT_HUB_SPREADSHEET_ID, desiredSheetTitleBase));
-        usedFallbackHub = true;
-        console.log('[exportController] Fallback sheet created inside hub spreadsheet:', spreadsheetId, 'sheet:', sheetTitle);
-      } catch (fallbackErr) {
-        console.error('[exportController] Failed to use fallback hub spreadsheet');
-        const status = fallbackErr instanceof HttpError ? fallbackErr.status : 500;
-        return res.status(status).json({ message: fallbackErr.message });
+        ({ sheets, drive } = await getGoogleClients(true));
+        ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle, true, drive));
+        console.log('[exportController] Spreadsheet created with service account:', spreadsheetId);
+        try {
+          sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+        } catch (renameErr) {
+          warnings.push(`Unable to rename sheet to desired title: ${renameErr.message}`);
+        }
+      } catch (retryErr) {
+        console.error('[exportController] Failed to create spreadsheet with service account');
+        // Each section must have its own separate spreadsheet - no fallback to shared hub
+        console.error('[exportController] Unable to create dedicated spreadsheet for section - returning error');
+        const status = retryErr instanceof HttpError ? retryErr.status : 500;
+        return res.status(status).json({ 
+          message: `Failed to create dedicated spreadsheet for section: ${retryErr.message}`,
+          suggestion: 'Please check Google Drive storage quota and API permissions'
+        });
       }
     }
   }
 
-  // Handle reused existing spreadsheets
+  // Handle reused existing spreadsheets - each section has its own dedicated spreadsheet
   if (reusedExisting) {
-    const matchesDesiredTitle =
-      sheetTitle === desiredSheetTitleNormalized ||
-      (desiredSheetTitleNormalized && sheetTitle?.startsWith(`${desiredSheetTitleNormalized}_`));
-
-    if (spreadsheetId === EXPORT_HUB_SPREADSHEET_ID && !matchesDesiredTitle) {
-      console.warn('[exportController] Existing fallback sheet belongs to another section; creating a dedicated tab');
-      try {
-        const fallbackSheet = await addSheetToFallback(sheets, EXPORT_HUB_SPREADSHEET_ID, desiredSheetTitleBase);
-        ({ spreadsheetId, sheetId, sheetTitle } = fallbackSheet);
-        usedFallbackHub = true;
-        reusedExisting = false;
-        warnings.push('Created a new fallback tab to avoid overwriting another section.');
-      } catch (fallbackErr) {
-        const status = fallbackErr instanceof HttpError ? fallbackErr.status : 500;
-        return res.status(status).json({ message: fallbackErr.message });
-      }
-    }
+    console.log('[exportController] Reusing existing dedicated spreadsheet for this section');
+    // No need to check for hub conflicts since each section has its own spreadsheet
   }
 
   if (reusedExisting) {
-    const shouldAttemptRename =
-      sheetTitle !== desiredSheetTitleNormalized && spreadsheetId !== EXPORT_HUB_SPREADSHEET_ID;
+    // Always attempt to align sheet title with current section format
+    const shouldAttemptRename = sheetTitle !== desiredSheetTitleNormalized;
     if (shouldAttemptRename) {
       try {
         sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
@@ -204,21 +194,67 @@ export const exportToGoogleSheets = async (req, res) => {
     }
   }
 
-  // 7) Move spreadsheet to folder (new files only)
-  if (!reusedExisting && !usedFallbackHub) {
-    const moveRes = await moveFileToFolder(drive, spreadsheetId, GOOGLE_DRIVE_FOLDER_ID);
-    if (!moveRes.ok) {
-      if (GOOGLE_DRIVE_FOLDER_ID) {
-        warnings.push(`Could not move spreadsheet to target folder: ${moveRes.message}`);
+  // 7) Move spreadsheet to folder with enhanced section-specific organization
+  // Create separate folders for each section automatically
+  const { parentFolderId: requestedParentFolderId, sheetName: requestedSheetName } = req.body || {};
+
+  if (!reusedExisting) {
+    let createdFolderId = null;
+    
+    // Generate section folder name following the pattern: "IT101_T101_1st"
+    const sectionFolderName = requestedSheetName || desiredSheetTitleBase;
+    
+    // Determine the parent folder (requested folder or default from env)
+    const parentFolder = requestedParentFolderId || GOOGLE_DRIVE_FOLDER_ID;
+    
+    if (parentFolder) {
+      // Step 1: Check if section folder already exists
+      console.log('[exportController] 🔍 FOLDER CREATION DEBUG:');
+      console.log('[exportController] - Section folder name:', sectionFolderName);
+      console.log('[exportController] - Parent folder ID:', parentFolder);
+      console.log('[exportController] - Spreadsheet ID:', spreadsheetId);
+      console.log('[exportController] - Reused existing:', reusedExisting);
+      
+      const existingFolderRes = await findOrCreateSectionFolder(drive, sectionFolderName, parentFolder);
+      console.log('[exportController] 📁 Section folder result:', existingFolderRes);
+      
+      if (existingFolderRes.ok && existingFolderRes.id) {
+        createdFolderId = existingFolderRes.id;
+        
+        // Step 2: Move the spreadsheet to the section folder
+        console.log(`[exportController] Moving spreadsheet to section folder: ${sectionFolderName}`);
+        const moveRes = await moveFileToFolder(drive, spreadsheetId, createdFolderId);
+        if (!moveRes.ok) {
+          warnings.push(`Could not move spreadsheet to section folder (${createdFolderId}): ${moveRes.message}`);
+        } else {
+          console.log(`[exportController] Successfully moved spreadsheet to section folder: ${sectionFolderName}`);
+        }
       } else {
-        console.warn('[exportController] GOOGLE_DRIVE_FOLDER_ID not configured; spreadsheet left in Drive root');
+        warnings.push(`Could not create/find section folder "${sectionFolderName}": ${existingFolderRes.message}`);
+        
+        // Fallback: move directly to parent folder
+        const moveRes = await moveFileToFolder(drive, spreadsheetId, parentFolder);
+        if (!moveRes.ok) {
+          warnings.push(`Could not move spreadsheet to parent folder (${parentFolder}): ${moveRes.message}`);
+        } else {
+          createdFolderId = parentFolder;
+          warnings.push('Moved to parent folder as fallback since section folder creation failed.');
+        }
       }
+    } else {
+      console.warn('[exportController] No parent folder configured; spreadsheet left in Drive root');
+      warnings.push('No target folder configured; spreadsheet remains in Drive root.');
+    }
+
+    // Store the folder ID for metadata persistence
+    if (createdFolderId) {
+      res.locals = res.locals || {};
+      res.locals.createdFolderId = createdFolderId;
+      res.locals.sectionFolderName = sectionFolderName;
     }
   }
 
-  if (usedFallbackHub) {
-    warnings.push(`Used fallback hub spreadsheet (${spreadsheetId}); tab "${sheetTitle}" ${reusedExisting ? 'updated' : 'added'}.`);
-  }
+  // Each section now gets its own dedicated spreadsheet - no fallback hub used
 
   // 8) Build sheet data
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room, chairperson, dean };
@@ -305,9 +341,10 @@ export const exportToGoogleSheets = async (req, res) => {
       spreadsheetId,
       sheetId,
       sheetTitle,
-      usedFallbackHub,
       spreadsheetTitle,
       spreadsheetUrl,
+      folderId: res.locals?.createdFolderId || null,
+      sectionFolderName: res.locals?.sectionFolderName || null,
     });
   } catch (err) {
     warnings.push(`Failed to record export metadata: ${err?.message || err}`);
@@ -316,14 +353,15 @@ export const exportToGoogleSheets = async (req, res) => {
   // 17) Send success response
   return res.json({
     success: true,
-    message: 'Grades exported successfully',
+    message: 'Grades exported successfully to dedicated section folder',
     spreadsheetId,
     spreadsheetUrl,
     title: spreadsheetTitle,
     sheetTitle,
-    usedFallbackHub,
     reusedExisting,
-    note: 'If you cannot access the spreadsheet, share it manually with your email from the service account.',
+    sectionFolderName: res.locals?.sectionFolderName || null,
+    folderUrl: res.locals?.createdFolderId ? `https://drive.google.com/drive/folders/${res.locals.createdFolderId}` : null,
+    note: 'Each section has its own dedicated spreadsheet in its own folder.',
     serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     warnings,
   });

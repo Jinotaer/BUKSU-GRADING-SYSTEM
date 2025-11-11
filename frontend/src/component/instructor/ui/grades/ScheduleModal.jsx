@@ -40,7 +40,7 @@ export function ScheduleModal({
                   onScheduleChange({ ...scheduleForm, day: e.target.value })
                 }
                 placeholder="e.g., MWF, TTH, etc."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none "
               />
             </div>
 
@@ -56,7 +56,7 @@ export function ScheduleModal({
                   onScheduleChange({ ...scheduleForm, time: e.target.value })
                 }
                 placeholder="e.g., 7:30 AM - 10:00 AM"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none "
               />
             </div>
 
@@ -72,7 +72,7 @@ export function ScheduleModal({
                   onScheduleChange({ ...scheduleForm, room: e.target.value })
                 }
                 placeholder="e.g., Lab 3, Room 205, etc."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none "
               />
             </div>
 
@@ -91,7 +91,7 @@ export function ScheduleModal({
                   })
                 }
                 placeholder="e.g., Dr. Juan Dela Cruz"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none "
               />
             </div>
 
@@ -107,7 +107,7 @@ export function ScheduleModal({
                   onScheduleChange({ ...scheduleForm, dean: e.target.value })
                 }
                 placeholder="e.g., Dr. Maria Santos"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none "
               />
             </div>
           </div>

@@ -7,6 +7,15 @@ import googleCalendarService from '../services/googleCalendarService.js';
 import emailService from '../services/emailService.js';
 import mongoose from 'mongoose';
 
+// Helper: normalize datetime-local strings to include seconds if missing
+// Exported here at module scope so both createSchedule and updateSchedule can use it.
+const normalizeDateTimeString = (s) => {
+  if (!s) return s;
+  // If format is YYYY-MM-DDTHH:MM (no seconds), append :00
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return `${s}:00`;
+  return s;
+};
+
 export const createSchedule = async (req, res) => {
   try {
     // Get instructor ID from the authenticated user (from auth middleware)
@@ -38,6 +47,29 @@ export const createSchedule = async (req, res) => {
       notes,
       syncToGoogleCalendar
     } = req.body;
+
+    // Helper: normalize datetime-local strings to include seconds if missing
+    const normalizeDateTimeString = (s) => {
+      if (!s) return s;
+      // If format is YYYY-MM-DDTHH:MM (no seconds), append :00
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return `${s}:00`;
+      return s;
+    };
+
+    const normalizedStart = normalizeDateTimeString(startDateTime);
+    const normalizedEnd = normalizeDateTimeString(endDateTime);
+
+    // Validate that end is after start
+    if (normalizedStart && normalizedEnd) {
+      const startDateObj = new Date(normalizedStart);
+      const endDateObj = new Date(normalizedEnd);
+      if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid date format' });
+      }
+      if (startDateObj >= endDateObj) {
+        return res.status(400).json({ success: false, message: 'End date/time must be after start date/time' });
+      }
+    }
 
     // Validate required fields
     if (!title || !eventType || !startDateTime || !endDateTime || !sectionId || !subjectId) {
@@ -99,11 +131,17 @@ export const createSchedule = async (req, res) => {
       );
 
       if (instructorWithTokens && instructorWithTokens.googleCalendarConnected) {
+        // Use the original datetime-local strings sent from the client instead of
+        // scheduleData.startDateTime.toISOString() which converts to UTC and
+        // causes unwanted shifts when Google interprets the value.
+        // The `startDateTime` / `endDateTime` variables come from req.body and
+        // represent the user's local intended date/time (e.g. "2025-11-11T10:30").
         const calendarEventData = {
           title: `${title} - ${subject.subjectCode}`,
           description: `${description || ''}\n\nSection: ${section.sectionName}\nType: ${eventType.toUpperCase()}`,
-          startDateTime: scheduleData.startDateTime.toISOString(),
-          endDateTime: scheduleData.endDateTime.toISOString(),
+          // Use normalized values (with seconds) to satisfy RFC3339 requirements
+          startDateTime: normalizedStart || startDateTime,
+          endDateTime: normalizedEnd || endDateTime,
           location: location || '',
           eventType
         };
@@ -478,11 +516,33 @@ export const updateSchedule = async (req, res) => {
         const subject = await Subject.findById(schedule.subject);
         const section = await Section.findById(schedule.section);
 
+        // If the client provided updated start/end strings use them (they are
+        // datetime-local strings). Otherwise, format the existing Date object
+        // to a local-like string without the trailing Z to avoid UTC conversion.
+        // Normalize any provided incoming datetimes and validate them if both are present
+        const normalizedStartUpdate = normalizeDateTimeString(startDateTime);
+        const normalizedEndUpdate = normalizeDateTimeString(endDateTime);
+
+        if (normalizedStartUpdate && normalizedEndUpdate) {
+          const s = new Date(normalizedStartUpdate);
+          const e = new Date(normalizedEndUpdate);
+          if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+            return res.status(400).json({ success: false, message: 'Invalid date format' });
+          }
+          if (s >= e) {
+            return res.status(400).json({ success: false, message: 'End date/time must be after start date/time' });
+          }
+        }
+
+        // When updating, prefer the provided normalized values, otherwise format existing Date
+        const formattedStart = normalizedStartUpdate || (schedule.startDateTime instanceof Date ? schedule.startDateTime.toISOString().replace(/\.\d{3}Z$/, '') : schedule.startDateTime);
+        const formattedEnd = normalizedEndUpdate || (schedule.endDateTime instanceof Date ? schedule.endDateTime.toISOString().replace(/\.\d{3}Z$/, '') : schedule.endDateTime);
+
         const calendarEventData = {
           title: `${schedule.title} - ${subject.subjectCode}`,
           description: `${schedule.description || ''}\n\nSection: ${section.sectionName}\nType: ${schedule.eventType.toUpperCase()}`,
-          startDateTime: schedule.startDateTime.toISOString(),
-          endDateTime: schedule.endDateTime.toISOString(),
+          startDateTime: formattedStart,
+          endDateTime: formattedEnd,
           location: schedule.location || '',
           eventType: schedule.eventType
         };

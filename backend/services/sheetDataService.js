@@ -189,6 +189,7 @@ export const updateSectionMetadata = async (sectionId, schedule, spreadsheetMeta
           'chairperson': schedule.chairperson,
           'dean': schedule.dean,
           'exportMetadata.spreadsheetId': spreadsheetMetadata.spreadsheetId,
+          'exportMetadata.folderId': spreadsheetMetadata.folderId || null,
           'exportMetadata.sheetId': spreadsheetMetadata.sheetId,
           'exportMetadata.sheetTitle': spreadsheetMetadata.sheetTitle,
           'exportMetadata.usedFallbackHub': spreadsheetMetadata.usedFallbackHub,

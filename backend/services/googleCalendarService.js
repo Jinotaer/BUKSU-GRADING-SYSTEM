@@ -3,6 +3,27 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Ensure RFC3339-like datetime with explicit offset when possible.
+// If the provided dateTime string has no timezone designator (no Z or +hh:mm/-hh:mm),
+// append a timezone offset. For Manila we use +08:00 (no DST).
+const ensureRfc3339WithOffset = (dateTimeStr, timeZone) => {
+  if (!dateTimeStr) return dateTimeStr;
+  // If already has Z or an offset, leave as-is
+  if (/[Zz]$/.test(dateTimeStr) || /[+-]\d{2}:\d{2}$/.test(dateTimeStr)) return dateTimeStr;
+
+  // Add seconds if missing (e.g. 2025-11-12T13:43 -> 2025-11-12T13:43:00)
+  let s = dateTimeStr;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) s = `${s}:00`;
+
+  // Map known timezones to offsets; default to +00:00 if unknown.
+  const tzMap = {
+    'Asia/Manila': '+08:00',
+  };
+
+  const offset = tzMap[timeZone] || '+00:00';
+  return `${s}${offset}`;
+};
+
 class GoogleCalendarService {
   constructor() {
     // Initialize OAuth2 client
@@ -50,11 +71,12 @@ class GoogleCalendarService {
         description: eventData.description || '',
         location: eventData.location || '',
         start: {
-          dateTime: eventData.startDateTime,
+          // Ensure RFC3339 with explicit offset to avoid ambiguous naive datetimes
+          dateTime: ensureRfc3339WithOffset(eventData.startDateTime, 'Asia/Manila'),
           timeZone: 'Asia/Manila',
         },
         end: {
-          dateTime: eventData.endDateTime,
+          dateTime: ensureRfc3339WithOffset(eventData.endDateTime, 'Asia/Manila'),
           timeZone: 'Asia/Manila',
         },
         colorId: this.getEventColorId(eventData.eventType),
@@ -84,7 +106,13 @@ class GoogleCalendarService {
         htmlLink: response.data.htmlLink,
       };
     } catch (error) {
-      console.error('Error creating Google Calendar event:', error);
+      console.error('Error creating Google Calendar event:', error.message || error);
+      // Log full response for easier debugging when available
+      if (error.response && error.response.data) {
+        console.error('Full Google API error response:', JSON.stringify(error.response.data, null, 2));
+      } else {
+        console.error('Full error object:', error);
+      }
       return {
         success: false,
         error: error.message,
@@ -111,11 +139,11 @@ class GoogleCalendarService {
         description: eventData.description || '',
         location: eventData.location || '',
         start: {
-          dateTime: eventData.startDateTime,
+          dateTime: ensureRfc3339WithOffset(eventData.startDateTime, 'Asia/Manila'),
           timeZone: 'Asia/Manila',
         },
         end: {
-          dateTime: eventData.endDateTime,
+          dateTime: ensureRfc3339WithOffset(eventData.endDateTime, 'Asia/Manila'),
           timeZone: 'Asia/Manila',
         },
         colorId: this.getEventColorId(eventData.eventType),
@@ -134,7 +162,12 @@ class GoogleCalendarService {
         htmlLink: response.data.htmlLink,
       };
     } catch (error) {
-      console.error('Error updating Google Calendar event:', error);
+      console.error('Error updating Google Calendar event:', error.message || error);
+      if (error.response && error.response.data) {
+        console.error('Full Google API error response:', JSON.stringify(error.response.data, null, 2));
+      } else {
+        console.error('Full error object:', error);
+      }
       return {
         success: false,
         error: error.message,
@@ -166,7 +199,12 @@ class GoogleCalendarService {
         success: true,
       };
     } catch (error) {
-      console.error('Error deleting Google Calendar event:', error);
+      console.error('Error deleting Google Calendar event:', error.message || error);
+      if (error.response && error.response.data) {
+        console.error('Full Google API error response:', JSON.stringify(error.response.data, null, 2));
+      } else {
+        console.error('Full error object:', error);
+      }
       return {
         success: false,
         error: error.message,
@@ -198,7 +236,12 @@ class GoogleCalendarService {
         event: response.data,
       };
     } catch (error) {
-      console.error('Error getting Google Calendar event:', error);
+      console.error('Error getting Google Calendar event:', error.message || error);
+      if (error.response && error.response.data) {
+        console.error('Full Google API error response:', JSON.stringify(error.response.data, null, 2));
+      } else {
+        console.error('Full error object:', error);
+      }
       return {
         success: false,
         error: error.message,

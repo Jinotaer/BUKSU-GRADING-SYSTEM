@@ -31,25 +31,72 @@ export const initializeGoogleAuth = () => {
   }
   const privateKey = rawKey.replace(/\\n/g, '\n');
 
-  return new google.auth.JWT({
+  // Optional: impersonate a user if domain-wide delegation is set up for the service account.
+  // Set GOOGLE_SERVICE_ACCOUNT_SUBJECT (or GOOGLE_IMPERSONATE_USER_EMAIL) in env to the user email to impersonate.
+  const subject = process.env.GOOGLE_SERVICE_ACCOUNT_SUBJECT || process.env.GOOGLE_IMPERSONATE_USER_EMAIL || null;
+
+  const jwtOptions = {
     email,
     key: privateKey,
     scopes: [
       'https://www.googleapis.com/auth/drive',
       'https://www.googleapis.com/auth/spreadsheets',
     ],
-  });
+  };
+  if (subject) jwtOptions.subject = subject;
+
+  return new google.auth.JWT(jwtOptions);
 };
 
-export const getGoogleClients = async () => {
+export const initializeOAuthClient = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_CLIENT_REDIRECT_URI;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  oAuth2Client.setCredentials({ refresh_token: refreshToken });
+  return oAuth2Client;
+};
+
+export const getGoogleClients = async (forceServiceAccount = false) => {
+  // Prefer OAuth2 user credential (refresh token) if available and not forced to service account — this will create files as that user
+  if (!forceServiceAccount) {
+    const oauthClient = initializeOAuthClient();
+    if (oauthClient) {
+      try {
+        // Ensure the access token is current (this will refresh using the refresh token)
+        const token = await oauthClient.getAccessToken();
+        console.log('[googleSheetsHelpers] Using OAuth2 client for Google APIs (refresh token present).');
+        try {
+          // Try to fetch userinfo for debugging (may require openid/email scopes)
+          const oauth2 = google.oauth2({ auth: oauthClient, version: 'v2' });
+          const me = await oauth2.userinfo.get().catch(() => null);
+          if (me?.data?.email) console.log('[googleSheetsHelpers] OAuth2 acting as user:', me.data.email);
+        } catch (e) {
+          // ignore userinfo errors
+        }
+        const sheets = google.sheets({ version: 'v4', auth: oauthClient });
+        const drive = google.drive({ version: 'v3', auth: oauthClient });
+        return { sheets, drive };
+      } catch (err) {
+        console.warn('[googleSheetsHelpers] OAuth2 client failed to obtain access token, falling back to service account:', err?.message);
+        // fallthrough to service account
+      }
+    }
+  }
+
   const auth = initializeGoogleAuth();
   try {
     await auth.authorize();
+    console.log('[googleSheetsHelpers] Using service account:', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL);
   } catch (err) {
-    console.error('[googleSheetsHelpers] Google auth failed:', {
+    console.error('[googleSheetsHelpers] Google auth failed (service account):', {
       message: err?.message,
       code: err?.code,
-      stack: err?.stack
+      stack: err?.stack,
     });
     throw new HttpError(500, 'Google auth failed', { cause: err?.message });
   }

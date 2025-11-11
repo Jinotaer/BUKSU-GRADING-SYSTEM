@@ -352,13 +352,60 @@ export default function GradeManagement() {
   const exportToGoogleSheets = async () => {
     if (!selectedSection) return;
 
-    // Validate form
-    if (!scheduleForm.day || !scheduleForm.time || !scheduleForm.room || !scheduleForm.chairperson || !scheduleForm.dean) {
-      showErrorRef.current("Please fill in all schedule information");
-      return;
-    }
+  // Parent Drive folder where per-section folders will be created
+  const PARENT_FOLDER_ID = "1kzlYesJutCqHSMa3WEf8sq7CrUoMixXi";
+
+  const getSheetName = (section) => {
+    if (!section) return `Sheet_${Date.now()}`;
+
+    const extract = (val, keys = []) => {
+      if (!val) return '';
+      if (typeof val === 'string') return val.trim();
+      if (typeof val === 'number') return String(val);
+      if (typeof val === 'object') {
+        for (const k of keys) {
+          if (val[k]) return String(val[k]);
+        }
+      }
+      return '';
+    };
+
+    const subjectCode =
+      extract(section.subject, ['code', 'subjectCode', 'subjectName', 'name']) ||
+      extract(section, ['subjectCode', 'subject']) ||
+      '';
+    const sectionCode =
+      extract(section, ['sectionCode', 'code', 'sectionName', 'section']) ||
+      extract(section, ['code', 'section']) ||
+      '';
+    const term =
+      extract(section.semester, ['term', 'name']) || extract(section, ['term', 'semester']) || '';
+
+    const parts = [subjectCode, sectionCode, term].map((p) => p && String(p).replace(/\s+/g, '')).filter(Boolean);
+    return parts.length ? parts.join('_') : `Section_${section._id}`;
+  };
+
+  // Validate form
+  if (
+    !scheduleForm.day ||
+    !scheduleForm.time ||
+    !scheduleForm.room ||
+    !scheduleForm.chairperson ||
+    !scheduleForm.dean
+  ) {
+    showErrorRef.current("Please fill in all schedule information");
+    return;
+  }
 
     try {
+      // Debug: log payload so we can inspect sheetName/parentFolderId when troubleshooting
+      console.log('[gradeManagement] export payload preview:', {
+        schedule: { day: scheduleForm.day, time: scheduleForm.time, room: scheduleForm.room },
+        chairperson: scheduleForm.chairperson,
+        dean: scheduleForm.dean,
+        parentFolderId: PARENT_FOLDER_ID,
+        sheetName: getSheetName(selectedSection),
+      });
       setLoading(true);
       setShowScheduleModal(false);
       showSuccessRef.current("Exporting to Google Sheets...");
@@ -378,6 +425,8 @@ export default function GradeManagement() {
             },
             chairperson: scheduleForm.chairperson,
             dean: scheduleForm.dean,
+            parentFolderId: PARENT_FOLDER_ID,
+            sheetName: getSheetName(selectedSection),
           }),
         }
       );

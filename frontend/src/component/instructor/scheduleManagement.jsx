@@ -3,7 +3,6 @@ import { InstructorSidebar } from './instructorSidebar';
 import { authenticatedFetch } from '../../utils/auth';
 import {
   PageHeader,
-  Notification,
   CalendarHeader,
   MonthView,
   ListView,
@@ -12,6 +11,7 @@ import {
   ScheduleDetailModal,
   LoadingSpinner,
 } from './ui/schedules';
+import { NotificationModal, ConfirmationModal } from '../common/NotificationModals';
 
 export default function ScheduleManagement() {
   const [schedules, setSchedules] = useState([]);
@@ -21,7 +21,8 @@ export default function ScheduleManagement() {
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [notification, setNotification] = useState({ show: false, title: '', message: '', type: '' });
+  const [confirmDialog, setConfirmDialog] = useState({ show: false, title: '', message: '', onConfirm: null, onCancel: null });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month');
 
@@ -90,9 +91,18 @@ export default function ScheduleManagement() {
     // Kept for backward compatibility but does nothing
   };
 
-  const showNotification = (message, type) => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  const showNotification = (message, type, title = '') => {
+    const resolvedTitle = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Notice');
+    setNotification({ show: true, title: resolvedTitle, message, type });
+    setTimeout(() => setNotification({ show: false, title: '', message: '', type: '' }), 3000);
+  };
+
+  const showConfirmDialog = ({ title, message, onConfirm, onCancel }) => {
+    setConfirmDialog({ show: true, title, message, onConfirm, onCancel });
+  };
+
+  const hideConfirmDialog = () => {
+    setConfirmDialog({ show: false, title: '', message: '', onConfirm: null, onCancel: null });
   };
 
   const handleInputChange = (e) => {
@@ -105,7 +115,34 @@ export default function ScheduleManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    // Client-side validation: normalize datetime-local strings and ensure end > start
+    const normalizeDateTimeString = (s) => {
+      if (!s) return s;
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return `${s}:00`;
+      return s;
+    };
+
+    const normalizedStart = normalizeDateTimeString(formData.startDateTime);
+    const normalizedEnd = normalizeDateTimeString(formData.endDateTime);
+
+    if (!normalizedStart || !normalizedEnd) {
+      showNotification('Please provide both start and end date/time', 'error');
+      return;
+    }
+
+    const startObj = new Date(normalizedStart);
+    const endObj = new Date(normalizedEnd);
+
+    if (isNaN(startObj.getTime()) || isNaN(endObj.getTime())) {
+      showNotification('Invalid date/time format', 'error');
+      return;
+    }
+
+    if (startObj >= endObj) {
+      showNotification('End date/time must be after start date/time', 'error');
+      return;
+    }
+
     try {
       const url = selectedSchedule
         ? `http://localhost:5000/api/schedule/${selectedSchedule._id}`
@@ -137,9 +174,7 @@ export default function ScheduleManagement() {
     }
   };
 
-  const handleDelete = async (scheduleId) => {
-    if (!window.confirm('Are you sure you want to delete this schedule?')) return;
-
+  const confirmDelete = async (scheduleId) => {
     try {
       const response = await authenticatedFetch(`http://localhost:5000/api/schedule/${scheduleId}`, {
         method: 'DELETE',
@@ -156,6 +191,16 @@ export default function ScheduleManagement() {
       console.error('Error deleting schedule:', error);
       showNotification('Error deleting schedule', 'error');
     }
+  };
+
+  const handleDelete = (scheduleId) => {
+    // Open confirmation modal instead of using window.confirm
+    showConfirmDialog({
+      title: 'Delete Schedule',
+      message: 'Are you sure you want to delete this schedule?',
+      onConfirm: async () => await confirmDelete(scheduleId),
+      onCancel: hideConfirmDialog,
+    });
   };
 
   const resetForm = () => {
@@ -276,11 +321,7 @@ export default function ScheduleManagement() {
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
         <PageHeader onCreateClick={openCreateModal} />
 
-        <Notification
-          show={notification.show}
-          message={notification.message}
-          type={notification.type}
-        />
+        {/* legacy <Notification /> removed to avoid global name collision with window.Notification */}
 
         <CalendarHeader
           currentDate={currentDate}
@@ -333,6 +374,25 @@ export default function ScheduleManagement() {
           onClose={() => setShowDetailModal(false)}
           onEdit={() => openEditModal(selectedSchedule)}
           onDelete={handleDelete}
+        />
+
+        {/* Notification Modal (replaces the old Notification component) */}
+        <NotificationModal
+          isOpen={notification.show}
+          onClose={() => setNotification({ show: false, title: '', message: '', type: '' })}
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+        />
+
+        {/* Confirmation Modal for destructive actions */}
+        <ConfirmationModal
+          isOpen={confirmDialog.show}
+          onClose={hideConfirmDialog}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
         />
       </div>
     </div>

@@ -133,7 +133,7 @@ export const exportToGoogleSheets = async (req, res) => {
   if (!reusedExisting) {
     console.log('[exportController] Creating a new spreadsheet...');
     try {
-      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle));
+      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle, false, drive));
       console.log('[exportController] Spreadsheet created:', spreadsheetId);
       try {
         sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
