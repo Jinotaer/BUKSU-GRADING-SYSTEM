@@ -49,7 +49,7 @@ app.use(helmetConfig);
 // CORS configuration
 app.use(cors({
   origin: [
-    "http://localhost:5173",
+    "http://localhost:5174",
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true
@@ -77,7 +77,7 @@ app.use(passport.session());
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/student", studentRoutes);
-app.use("/api/students", studentRoutes); // Add plural route for search functionality
+app.use("/api/students", studentRoutes); 
 app.use("/api/instructor", instructorRoutes);
 app.use("/api/instructor", activityRoutes);
 app.use("/api/instructor", activityScoresRoutes);
