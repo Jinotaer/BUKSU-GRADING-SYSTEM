@@ -1,0 +1,179 @@
+[33mcommit f82630fe83bc12994bfca7d67ecd33706974d0e1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Tue Nov 11 23:30:01 2025 +0800
+
+    fixing the google sheets and google drive api in grade management
+
+[33mcommit 4e317d9c79f59d17af82918040199138860336d0[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Tue Nov 11 23:18:55 2025 +0800
+
+    fixing the google sheets and google drive api in grade management
+
+[33mcommit 596ce351a0a037845e7fcecda289d52dfa3b5db7[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Tue Nov 11 10:50:46 2025 +0800
+
+    updated port number and design
+
+[33mcommit e5e3fe62b3b0f8a611c28c054ab5df0cecc73c1b[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Nov 10 20:35:13 2025 +0800
+
+    fixing add section form
+
+[33mcommit 4d91b1275d530acf7095669f027569aa8f1cd51d[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Thu Nov 6 22:18:15 2025 +0800
+
+    Fixing ui design and google sheets format
+
+[33mcommit 0870a91dcb8befc94922a17aa691ec1c8037f9ea[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Thu Nov 6 00:54:31 2025 +0800
+
+    Partially fixing the format of Google Sheet
+
+[33mcommit caeb233f7e49d76acca7cefc7d31f1303903eeb7[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Wed Nov 5 10:15:47 2025 +0800
+
+    added courses data and department data
+
+[33mcommit 0781dda5b2d2ebe04b97d1b1afe3ec7e2c752be2[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Nov 3 17:32:33 2025 +0800
+
+    Fixing google calendar API to sync schedules
+
+[33mcommit 30b638ed716cbfc7d5d9fd8419d38af1a418f8b6[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Nov 3 16:49:59 2025 +0800
+
+    Added realtime grade change and button to upload all scores.
+
+[33mcommit 7743d963e583dfc350955ffc0d85806a46412cac[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Nov 3 13:16:16 2025 +0800
+
+    added logger and helmet
+
+[33mcommit c9fd499f9ef6e2b6f399dbce9a121ff1a951e39c[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sun Nov 2 21:24:20 2025 +0800
+
+    fixing the google calendar
+
+[33mcommit 4c20bd4ed9a127819084f5c4682f5457fbd70b72[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Nov 1 17:36:39 2025 +0800
+
+    fixing the dashboard quick actions
+
+[33mcommit 11a3f8c65d0b9710da845cf1991ea899566bfc2f[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Nov 1 17:21:57 2025 +0800
+
+    fixing codes in instructor part and added the pagination in every tables
+
+[33mcommit 01c2affa5a0d2456c0db1bd3b764985b45b73783[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Nov 1 15:06:47 2025 +0800
+
+    added the pagination in subjects management
+
+[33mcommit f8304795194ec519a020ffaa474ac9d51dfbafb8[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Nov 1 14:59:10 2025 +0800
+
+    making student and admin maintainable code
+
+[33mcommit 3e0125ce8686029989c0089ae1a514aefcec143b[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Nov 1 00:13:50 2025 +0800
+
+    added archive management in student and instructor
+
+[33mcommit 8ba6254ddbb05317a9e63fd901308e45483ece6c[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Fri Oct 31 21:20:13 2025 +0800
+
+    Added set schedule for instructor
+
+[33mcommit bb7bba482eac9d072d9489fcbce86d5ec88baedf[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Thu Oct 30 13:05:11 2025 +0800
+
+    added concurrency control indicator
+
+[33mcommit c8e0dab570af517b358dfaf2118b40a83ccb5311[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Wed Oct 29 01:42:15 2025 +0800
+
+    fixing instructor ui
+
+[33mcommit 946395502ef7029bd3a5e7c0609c9ed95e79a3c8[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Wed Oct 29 00:40:16 2025 +0800
+
+    apply concurrnecy control 2PL in admin Semester, Subjects, and sections
+
+[33mcommit 7f5e4db5fee2c96b5a2d8395b887c037a73681ac[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Tue Oct 28 22:39:33 2025 +0800
+
+    fixing the sheets overwriting the other sections
+
+[33mcommit 21660405985f3c26ad7c76542d3cf3cd0287f8c3[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Tue Oct 28 21:31:20 2025 +0800
+
+    fixing the google sheets and drive in the instructors
+
+[33mcommit e98ababd951d690b036dfed0fc0632ad2d1f6cf2[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Oct 27 20:39:34 2025 +0800
+
+    change admin controller
+
+[33mcommit 08aa134c565388de258dd8ae7ab8a92b90274a9b[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Oct 25 02:01:52 2025 +0800
+
+    added student score view
+
+[33mcommit 99eeee1925eabbb2229877e0246526bf70d4d1d6[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Sat Oct 25 01:04:39 2025 +0800
+
+    added manage score in instructor
+
+[33mcommit e3d01901085fec4ed8fc13ed7e77dcabda7bc272[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Fri Oct 24 01:19:15 2025 +0800
+
+    added instructor activity management
+
+[33mcommit d07a8b6e09afb8e275f75b71223df0f5fcaf223d[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Thu Oct 23 23:19:35 2025 +0800
+
+    added instructor upload scores
+
+[33mcommit b91e36253e8cb8d7897c18c33b4348763d1ca751[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Wed Oct 22 16:10:32 2025 +0800
+
+    Implementing the archived functions for admin
+
+[33mcommit c8f58104ba07a629e5f2f41c2615da429e97b2fa[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Oct 20 23:48:25 2025 +0800
+
+    edited ReadME.md
+
+[33mcommit 7cfa1848e99190a3ee425a0168d3e43ab8b4dbbb[m
+Author: Jino_Taer <2301106754@student.buksu.edu.ph>
+Date:   Mon Oct 20 23:45:14 2025 +0800
+
+    first commit
