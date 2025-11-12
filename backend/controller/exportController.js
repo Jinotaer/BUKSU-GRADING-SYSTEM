@@ -10,11 +10,11 @@ import {
   resolveExistingSheet,
   setSheetTitle,
   moveFileToFolder,
-  createDriveFolder,
   findOrCreateSectionFolder,
   tryShareWithInstructor,
   trySetPublicAccess,
-  insertLogo,
+  formatClassRecordLayout,
+  removeLeadingEmptyColumns, // <-- replaced to remove any number of leading empty columns
   GOOGLE_DRIVE_FOLDER_ID,
 } from '../services/googleSheetsService.js';
 import { applyFormatting, addStudentDataBorders } from '../services/sheetFormattingService.js';
@@ -305,10 +305,34 @@ export const exportToGoogleSheets = async (req, res) => {
     warnings.push(`Failed adding borders to student data: ${err.message}`);
   }
 
-  // 12) Insert logo
-  const logoUrl = 'https://drive.google.com/uc?export=view&id=1xstqF1mB98ZjOCt4nmeLJQBFb9g1u0be';
-  const logoRes = await insertLogo(sheets, spreadsheetId, sheetId, logoUrl);
-  if (!logoRes.ok) warnings.push(`Could not insert logo: ${logoRes.message}`);
+  // 12) Apply final sheet layout (replaces previous logo insertion)
+  try {
+    // freezeRows: freeze header + section info rows so table header remains visible
+    const freezeRows = headerData.length + sectionInfo.length; // keep title/header and section info frozen
+    const columnWidths = [40, 120, 320, 60, 60, 60, 60, 60, 60, 80, 80, 80]; // adjust if needed
+    const merges = [
+      { startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 12 },
+      { startRowIndex: 3, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 12 }
+    ];
+
+    const layoutRes = await formatClassRecordLayout(sheets, spreadsheetId, sheetId, {
+      // do not force removal here; instead detect and remove only if blank
+      freezeRows,
+      columnWidths,
+      merges,
+    });
+    if (!layoutRes.ok) warnings.push(`Layout formatting warning: ${layoutRes.message || 'unknown'}`);
+
+    // Remove stray left-most blank column(s) if present — detect across top rows and remove all leading empties
+    const leftColRes = await removeLeadingEmptyColumns(sheets, spreadsheetId, sheetId, 40);
+    if (!leftColRes.ok) {
+      warnings.push(`Left-column check/remove warning: ${leftColRes.message}`);
+    } else if (leftColRes.deleted) {
+      console.log('[exportController] Removed left-most blank column(s) to align layout', leftColRes);
+    }
+  } catch (err) {
+    warnings.push(`Failed applying final layout: ${err.message}`);
+  }
 
   // 13) Share with instructor and set public access
   const instructorEmail = section?.instructor?.email || null;

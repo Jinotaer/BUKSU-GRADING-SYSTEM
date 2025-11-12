@@ -17,7 +17,7 @@ export const loadSection = async (sectionId) => {
       .populate('subject')
       .populate('instructor')
       .populate('students');
-    if (!section) throw new HttpError(404, 'Section not found');
+    if (!section) throw new HttpError(402, 'Section not found');
     return section;
   } catch (err) {
     if (err instanceof HttpError) throw err;
