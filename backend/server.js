@@ -22,6 +22,7 @@ import exportRoutes from "./routes/exportRoutes.js";
 import lockRouter from "./routes/lockRoutes.js"; // This file is actually a router, not a controller
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
+import aiController from './controller/aiController.js';
 
 
 dotenv.config();
@@ -91,6 +92,7 @@ app.use("/api/export", exportRoutes);
 app.use("/api/locks", lockRouter);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/google-calendar", googleCalendarRoutes);
+app.use('/api/ai', aiController);
 // app.use("/api/instructor", instructorRoutes);
 
 // Health check endpoint

@@ -15,6 +15,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 import buksuLogo from "../../assets/logo1.png";
+import AIButton from "./AIButton";
 
 const menuData = [
   {
@@ -395,6 +396,9 @@ export function NavbarSimple() {
           onClick={() => setOpened(false)}
         />
       )}
+
+      {/* Floating AI button available on all student pages */}
+      <AIButton />
     </>
   );
 }
