@@ -1,5 +1,6 @@
 import React from "react";
 import { IconX, IconDeviceFloppy } from "@tabler/icons-react";
+import { coursesData, getCoursesByCollege } from "./coursesData";
 
 export function EditProfileModal({ 
   isOpen, 
@@ -18,7 +19,7 @@ export function EditProfileModal({
           <h2 className="text-lg font-semibold text-gray-800">Edit Profile</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
           >
             <IconX size={20} />
           </button>
@@ -46,30 +47,40 @@ export function EditProfileModal({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 College
               </label>
-              <input
-                type="text"
-                placeholder="e.g., College of Information and Computing Sciences"
-                value={editForm.college}
+              <select
+                value={editForm.college || ""}
                 onChange={(e) =>
-                  setEditForm({ ...editForm, college: e.target.value })
+                  // reset course when college changes
+                  setEditForm({ ...editForm, college: e.target.value, course: "" })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+              >
+                <option value="">Select College</option>
+                {Object.keys(coursesData).map((college) => (
+                  <option key={college} value={college}>
+                    {college}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Course
               </label>
-              <input
-                type="text"
-                placeholder="e.g., Bachelor of Science in Information Technology"
-                value={editForm.course}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, course: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                <select
+                  value={editForm.course || ""}
+                  onChange={(e) => setEditForm({ ...editForm, course: e.target.value })}
+                  disabled={!editForm.college}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Course</option>
+                  {getCoursesByCollege(editForm.college || "").map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
             </div>
 
             <div>
@@ -81,7 +92,7 @@ export function EditProfileModal({
                 onChange={(e) =>
                   setEditForm({ ...editForm, yearLevel: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
               >
                 <option value="">Select Year Level</option>
                 <option value="1st Year">1st Year</option>
@@ -102,7 +113,7 @@ export function EditProfileModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                 disabled={submitting}
               >
                 Cancel
@@ -110,7 +121,7 @@ export function EditProfileModal({
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>

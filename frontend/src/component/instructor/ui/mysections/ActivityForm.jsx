@@ -57,15 +57,15 @@ export function ActivityForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Instructions
+          Notes
         </label>
         <textarea
-          value={activityForm.instructions}
+          value={activityForm.notes}
           onChange={(e) =>
-            onFormChange({ ...activityForm, instructions: e.target.value })
+            onFormChange({ ...activityForm, notes: e.target.value })
           }
-          placeholder="Detailed instructions for students..."
-          rows={3}
+          placeholder="Additional notes (optional)..."
+          rows={2}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
@@ -80,7 +80,7 @@ export function ActivityForm({
             onChange={(e) =>
               onFormChange({ ...activityForm, category: e.target.value })
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
             required
           >
             <option value="classStanding">Class Standing</option>
@@ -107,25 +107,94 @@ export function ActivityForm({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Due Date (Optional)
-        </label>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Event Type *
+          </label>
+          <select
+            value={activityForm.eventType}
+            onChange={(e) =>
+              onFormChange({ ...activityForm, eventType: e.target.value })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+            required
+          >
+            <option value="quiz">Quiz</option>
+            <option value="laboratory">Laboratory</option>
+            <option value="exam">Exam</option>
+            <option value="assignment">Assignment</option>
+            <option value="project">Project</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Location
+          </label>
+          <input
+            type="text"
+            value={activityForm.location}
+            onChange={(e) =>
+              onFormChange({ ...activityForm, location: e.target.value })
+            }
+            placeholder="e.g., Room 101, Online"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Start Date & Time *
+          </label>
+          <input
+            type="datetime-local"
+            value={activityForm.startDateTime}
+            onChange={(e) =>
+              onFormChange({ ...activityForm, startDateTime: e.target.value })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            End Date & Time *
+          </label>
+          <input
+            type="datetime-local"
+            value={activityForm.endDateTime}
+            onChange={(e) =>
+              onFormChange({ ...activityForm, endDateTime: e.target.value })
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
         <input
-          type="datetime-local"
-          value={activityForm.dueDate}
+          type="checkbox"
+          checked={!!activityForm.syncToGoogleCalendar}
           onChange={(e) =>
-            onFormChange({ ...activityForm, dueDate: e.target.value })
+            onFormChange({ ...activityForm, syncToGoogleCalendar: e.target.checked })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
         />
+        <label className="text-sm font-medium text-gray-700">
+          Sync to Google Calendar
+        </label>
       </div>
 
       <div className="bg-yellow-50 p-3 rounded-lg">
         <p className="text-sm text-yellow-700">
           💡 <strong>Note:</strong> The activity will be available for all
-          students in this section. You can set scores and manage grades later
-          in the Grade Management section.
+          students in this section. A schedule will be automatically created with the provided date/time.
         </p>
       </div>
 
@@ -140,7 +209,7 @@ export function ActivityForm({
         </button>
         <button
           type="submit"
-          disabled={submitting || !activityForm.title.trim()}
+          disabled={submitting || !activityForm.title.trim() || !activityForm.startDateTime || !activityForm.endDateTime}
           className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {submitting ? (

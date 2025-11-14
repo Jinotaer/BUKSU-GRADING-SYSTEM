@@ -150,8 +150,8 @@ export default function AIHelper() {
       {/* Compact Chat Actions Header */}
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-300 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-1">
-          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs text-gray-600 font-medium">Online</span>
+          {/* <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-xs text-gray-600 font-medium">Online</span> */}
         </div>
         <div className="flex items-center gap-0.5">
           <button

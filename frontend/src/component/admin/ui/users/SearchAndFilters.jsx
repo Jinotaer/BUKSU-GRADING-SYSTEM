@@ -21,7 +21,7 @@ export function SearchAndFilters({
         <select
           value={roleFilter}
           onChange={(e) => onRoleFilterChange(e.target.value)}
-          className="w-full sm:w-auto sm:min-w-[120px] px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm bg-white"
+          className="w-full sm:w-auto sm:min-w-[120px] px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm bg-white cursor-pointer"
         >
           <option value="All">All Roles</option>
           <option value="Student">Students</option>

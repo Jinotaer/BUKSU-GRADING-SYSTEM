@@ -19,6 +19,7 @@ import {
   getStatusColor 
 } from "./ui/profile/profileUtils";
 
+
 export default function StudentProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -24,6 +24,7 @@ export default function SectionActivities() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("all");
+  const [termFilter, setTermFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
@@ -32,8 +33,15 @@ export default function SectionActivities() {
   const [form, setForm] = useState({
     title: "",
     description: "",
+    notes: "",
     category: "classStanding",
     maxScore: 100,
+    term: "Midterm",
+    eventType: "quiz",
+    location: "",
+    startDateTime: "",
+    endDateTime: "",
+    syncToGoogleCalendar: false,
   });
 
   const notifications = useNotifications();
@@ -80,14 +88,25 @@ export default function SectionActivities() {
   }, [sectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
-    if (tab === "all") return activities;
-    return activities.filter((a) => a.category === tab);
-  }, [activities, tab]);
+    let result = activities;
+    
+    // Filter by category
+    if (tab !== "all") {
+      result = result.filter((a) => a.category === tab);
+    }
+    
+    // Filter by term
+    if (termFilter !== "all") {
+      result = result.filter((a) => a.term === termFilter);
+    }
+    
+    return result;
+  }, [activities, tab, termFilter]);
 
-  // Reset to page 1 when tab changes
+  // Reset to page 1 when tab or term filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [tab]);
+  }, [tab, termFilter]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -106,19 +125,41 @@ export default function SectionActivities() {
     setForm({
       title: "",
       description: "",
+      notes: "",
       category: "classStanding",
       maxScore: 100,
+      term: "Midterm",
+      eventType: "quiz",
+      location: "",
+      startDateTime: "",
+      endDateTime: "",
+      syncToGoogleCalendar: false,
     });
     setShowForm(true);
   };
 
   const openEdit = (a) => {
     setEditingId(a._id);
+    // Format datetime values for datetime-local input
+    const formatDateTimeLocal = (dateStr) => {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return "";
+      return date.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+    };
+
     setForm({
       title: a.title || "",
       description: a.description || "",
+      notes: a.notes || "",
       category: a.category || "classStanding",
       maxScore: a.maxScore || 100,
+      term: a.term || "Midterm",
+      eventType: a.eventType || "quiz",
+      location: a.location || "",
+      startDateTime: formatDateTimeLocal(a.startDateTime),
+      endDateTime: formatDateTimeLocal(a.endDateTime),
+      syncToGoogleCalendar: a.syncToGoogleCalendar || false,
     });
     setShowForm(true);
   };
@@ -126,6 +167,27 @@ export default function SectionActivities() {
   const submitForm = async (e) => {
     e.preventDefault();
     if (!section) return;
+
+    // Validate required schedule fields
+    if (!form.startDateTime || !form.endDateTime) {
+      showError("Start date/time and end date/time are required");
+      return;
+    }
+
+    // Validate that end time is after start time
+    const startDate = new Date(form.startDateTime);
+    const endDate = new Date(form.endDateTime);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      showError("Invalid date/time format");
+      return;
+    }
+
+    if (startDate >= endDate) {
+      showError("End date/time must be after start date/time");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -226,7 +288,12 @@ export default function SectionActivities() {
 
           <SectionInfo section={section} />
 
-          <CategoryTabs activeTab={tab} onTabChange={setTab} />
+          <CategoryTabs 
+            activeTab={tab} 
+            onTabChange={setTab}
+            activeTerm={termFilter}
+            onTermChange={setTermFilter}
+          />
 
           {/* List */}
           <div className="mt-4">

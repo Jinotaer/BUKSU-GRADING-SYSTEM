@@ -4,14 +4,12 @@ import {
   IconSchool,
   IconUsers,
   IconClock,
-  IconRestore,
   IconEye,
 } from "@tabler/icons-react";
 
 export const ArchivedSectionCard = ({
   section,
   onViewDetails,
-  onUnarchiveClick,
   formatDate,
 }) => {
   return (
@@ -61,23 +59,16 @@ export const ArchivedSectionCard = ({
           </div>
         </div>
 
-        <div className="pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
-          <button
-            onClick={(e) => onUnarchiveClick(section, e)}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-          >
-            <IconRestore className="w-4 h-4" />
-            Unarchive
-          </button>
+        <div className="pt-3 border-t border-gray-100">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onViewDetails(section);
             }}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             <IconEye className="w-4 h-4" />
-            View
+            View Details
           </button>
         </div>
       </div>

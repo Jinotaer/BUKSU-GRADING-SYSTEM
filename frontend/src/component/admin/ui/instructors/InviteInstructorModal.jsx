@@ -83,7 +83,7 @@ export function InviteInstructorModal({
                   onChange({ ...inviteData, college: e.target.value })
                 }
                 required
-                className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="">Select college</option>
                 {colleges.map((college) => (
@@ -104,7 +104,7 @@ export function InviteInstructorModal({
                     onChange({ ...inviteData, department: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">Select department</option>
                   {departmentOptions.map((dept) => (
@@ -136,13 +136,13 @@ export function InviteInstructorModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md font-medium cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium"
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium cursor-pointer"
               >
                 Send Invitation
               </button>

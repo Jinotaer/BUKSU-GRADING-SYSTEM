@@ -18,7 +18,7 @@ export function PageHeader({ onRefresh, onExport, loading, disabled }) {
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm font-medium cursor-pointer disabled:cursor-not-allowed"
           >
             {loading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -29,7 +29,7 @@ export function PageHeader({ onRefresh, onExport, loading, disabled }) {
           </button>
           <button
             onClick={onExport}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium cursor-pointer disabled:cursor-not-allowed"
             disabled={disabled}
           >
             <IconBrandGoogle size={18} />

@@ -47,9 +47,9 @@ export const exportToGoogleSheets = async (req, res) => {
   // 1) Extract and validate request data
   const { sectionId } = req.params;
   const instructorId = req?.instructor?.id;
-  const { schedule, chairperson, dean } = req.body || {};
+  const { schedule, chairperson, dean, term } = req.body || {};
   
-  console.log('[exportController] SectionId:', sectionId, 'InstructorId:', instructorId);
+  console.log('[exportController] SectionId:', sectionId, 'InstructorId:', instructorId, 'Term filter:', term);
   
   if (!sectionId) {
     return res.status(400).json({ message: 'Missing sectionId' });
@@ -77,7 +77,7 @@ export const exportToGoogleSheets = async (req, res) => {
   let scoresByStudent = {};
   
   try {
-    activities = await loadActivities(section);
+    activities = await loadActivities(section, term);
     const allActivityIds = activities.map((a) => a._id);
     activityScores = await loadActivityScores(allActivityIds);
     scoresByStudent = computeScoresByStudent(activityScores);
@@ -102,15 +102,19 @@ export const exportToGoogleSheets = async (req, res) => {
   // 5) Prepare spreadsheet titles
   const subjectCode = section.subject?.subjectCode || 'SUBJ';
   const sectionCodeForTitle = section.sectionCode || section.sectionName || '';
-  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}`;
+  const termSuffix = term ? `-${term.toLowerCase().replace(/\s+/g, '')}` : '-allterms';
+  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}${termSuffix}`;
   // Prefer a sheetName provided by the client (frontend) if available
   const requestedSheetNameFromBody = req.body?.sheetName || null;
   const desiredSheetTitleBase =
-    requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
+    requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}${termSuffix}`;
   const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
 
   // 6) Handle spreadsheet creation or reuse
-  const existingExport = section.exportMetadata || {};
+  // Store term-specific metadata using a dynamic key
+  const termKey = term ? term.toLowerCase().replace(/\s+/g, '') : 'allterms';
+  const metadataKey = `exportMetadata_${termKey}`;
+  const existingExport = section[metadataKey] || {};
   const expectedSpreadsheetId = existingExport?.spreadsheetId || null;
   const expectedSheetId = existingExport?.sheetId ?? null;
   const expectedSheetTitle = existingExport?.sheetTitle || null;
@@ -120,7 +124,7 @@ export const exportToGoogleSheets = async (req, res) => {
   let sheetTitle;
   let reusedExisting = false;
 
-  // Try to reuse existing spreadsheet
+  // Try to reuse existing spreadsheet only if it's for the same term
   if (expectedSpreadsheetId) {
     try {
       ({ sheetId, sheetTitle } = await resolveExistingSheet(sheets, expectedSpreadsheetId, expectedSheetId, expectedSheetTitle));
@@ -307,12 +311,25 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // 12) Apply final sheet layout (replaces previous logo insertion)
   try {
-    // freezeRows: freeze header + section info rows so table header remains visible
-    const freezeRows = headerData.length + sectionInfo.length; // keep title/header and section info frozen
+    // First, remove stray left-most blank column(s) if present — detect across top rows and remove all leading empties
+    const leftColRes = await removeLeadingEmptyColumns(sheets, spreadsheetId, sheetId, 40);
+    let adjustedTotalColumns = totalColumns;
+    if (!leftColRes.ok) {
+      warnings.push(`Left-column check/remove warning: ${leftColRes.message}`);
+    } else if (leftColRes.deleted) {
+      console.log('[exportController] Removed left-most blank column(s) to align layout', leftColRes);
+      // Adjust totalColumns based on removed columns
+      adjustedTotalColumns = totalColumns - (leftColRes.removedCount || 0);
+    }
+
+    // Now apply formatting with the correct column count after removal
+    // freezeRows: freeze only the university header and "CLASS RECORD" title (rows 1-5)
+    // This allows section info and table headers to scroll together with the data
+    const freezeRows = 1; // Only freeze the top header (university name + CLASS RECORD title)
     const columnWidths = [40, 120, 320, 60, 60, 60, 60, 60, 60, 80, 80, 80]; // adjust if needed
     const merges = [
-      { startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 12 },
-      { startRowIndex: 3, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 12 }
+      { startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: adjustedTotalColumns },
+      { startRowIndex: 3, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: adjustedTotalColumns }
     ];
 
     const layoutRes = await formatClassRecordLayout(sheets, spreadsheetId, sheetId, {
@@ -322,14 +339,6 @@ export const exportToGoogleSheets = async (req, res) => {
       merges,
     });
     if (!layoutRes.ok) warnings.push(`Layout formatting warning: ${layoutRes.message || 'unknown'}`);
-
-    // Remove stray left-most blank column(s) if present — detect across top rows and remove all leading empties
-    const leftColRes = await removeLeadingEmptyColumns(sheets, spreadsheetId, sheetId, 40);
-    if (!leftColRes.ok) {
-      warnings.push(`Left-column check/remove warning: ${leftColRes.message}`);
-    } else if (leftColRes.deleted) {
-      console.log('[exportController] Removed left-most blank column(s) to align layout', leftColRes);
-    }
   } catch (err) {
     warnings.push(`Failed applying final layout: ${err.message}`);
   }
@@ -359,7 +368,7 @@ export const exportToGoogleSheets = async (req, res) => {
     warnings.push(`Grade persistence failed: ${err?.message || err}`);
   }
 
-  // 16) Update section metadata
+  // 16) Update section metadata with term-specific key
   try {
     await updateSectionMetadata(sectionId, scheduleInfo, {
       spreadsheetId,
@@ -369,7 +378,7 @@ export const exportToGoogleSheets = async (req, res) => {
       spreadsheetUrl,
       folderId: res.locals?.createdFolderId || null,
       sectionFolderName: res.locals?.sectionFolderName || null,
-    });
+    }, termKey);
   } catch (err) {
     warnings.push(`Failed to record export metadata: ${err?.message || err}`);
   }

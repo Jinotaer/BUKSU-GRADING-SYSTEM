@@ -9,8 +9,9 @@ import {
   getStudentGrades,
   getAvailableSubjects,
   searchStudents,
-  archiveStudentSection,
-  unarchiveStudentSection
+  hideStudentSection,
+  unhideStudentSection,
+  getHiddenSections
 } from "../controller/studentController.js";
 import { 
   instructorAuth,
@@ -85,17 +86,24 @@ router.get("/subjects/available", studentAuth, getAvailableSubjects);
 router.get("/search", auth, searchStudents);
 
 /**
- * @route   PUT /api/student/sections/:id/archive
- * @desc    Archive a section (student perspective)
+ * @route   GET /api/student/sections/hidden
+ * @desc    Get student's hidden sections
  * @access  Private (Student only)
  */
-router.put("/sections/:id/archive", studentAuth, archiveStudentSection);
+router.get("/sections/hidden", studentAuth, getHiddenSections);
 
 /**
- * @route   PUT /api/student/sections/:id/unarchive
- * @desc    Unarchive a section (student perspective)
+ * @route   PUT /api/student/sections/:id/hide
+ * @desc    Hide a section (student perspective)
  * @access  Private (Student only)
  */
-router.put("/sections/:id/unarchive", studentAuth, unarchiveStudentSection);
+router.put("/sections/:id/hide", studentAuth, hideStudentSection);
+
+/**
+ * @route   PUT /api/student/sections/:id/unhide
+ * @desc    Unhide a section (student perspective)
+ * @access  Private (Student only)
+ */
+router.put("/sections/:id/unhide", studentAuth, unhideStudentSection);
 
 export default router;

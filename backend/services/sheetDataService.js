@@ -31,15 +31,25 @@ export const authorizeInstructor = (section, instructorId) => {
   }
 };
 
-export const loadActivities = async (section) => {
+export const loadActivities = async (section, termFilter) => {
   try {
     if (!section?.subject?._id) return [];
     const query = {
       subject: section.subject._id,
       schoolYear: section.schoolYear,
-      term: toActivityTerm(section.term),
       isActive: true,
     };
+    
+    // If a specific term is requested, filter by it
+    // termFilter comes from frontend (Midterm, Finalterm, Summer, or empty for All Terms)
+    if (termFilter && termFilter !== '') {
+      query.term = termFilter;
+    } else {
+      // If no term filter or "All Terms", load activities from all terms (Midterm, Finalterm, Summer)
+      // Do not set query.term - this will get all activities regardless of term
+      // Optionally, you can explicitly specify: query.term = { $in: ['Midterm', 'Finalterm', 'Summer'] };
+    }
+    
     const activities = await Activity.find(query).sort({ createdAt: 1 });
     return activities;
   } catch (err) {
@@ -177,8 +187,9 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
   return { success: true, failedCount: failed.length };
 };
 
-export const updateSectionMetadata = async (sectionId, schedule, spreadsheetMetadata) => {
+export const updateSectionMetadata = async (sectionId, schedule, spreadsheetMetadata, termKey = 'allterms') => {
   try {
+    const metadataPrefix = `exportMetadata_${termKey}`;
     await Section.findByIdAndUpdate(
       sectionId,
       {
@@ -188,14 +199,14 @@ export const updateSectionMetadata = async (sectionId, schedule, spreadsheetMeta
           'schedule.room': schedule.room,
           'chairperson': schedule.chairperson,
           'dean': schedule.dean,
-          'exportMetadata.spreadsheetId': spreadsheetMetadata.spreadsheetId,
-          'exportMetadata.folderId': spreadsheetMetadata.folderId || null,
-          'exportMetadata.sheetId': spreadsheetMetadata.sheetId,
-          'exportMetadata.sheetTitle': spreadsheetMetadata.sheetTitle,
-          'exportMetadata.usedFallbackHub': spreadsheetMetadata.usedFallbackHub,
-          'exportMetadata.spreadsheetTitle': spreadsheetMetadata.spreadsheetTitle,
-          'exportMetadata.spreadsheetUrl': spreadsheetMetadata.spreadsheetUrl,
-          'exportMetadata.lastExportedAt': new Date(),
+          [`${metadataPrefix}.spreadsheetId`]: spreadsheetMetadata.spreadsheetId,
+          [`${metadataPrefix}.folderId`]: spreadsheetMetadata.folderId || null,
+          [`${metadataPrefix}.sheetId`]: spreadsheetMetadata.sheetId,
+          [`${metadataPrefix}.sheetTitle`]: spreadsheetMetadata.sheetTitle,
+          [`${metadataPrefix}.usedFallbackHub`]: spreadsheetMetadata.usedFallbackHub,
+          [`${metadataPrefix}.spreadsheetTitle`]: spreadsheetMetadata.spreadsheetTitle,
+          [`${metadataPrefix}.spreadsheetUrl`]: spreadsheetMetadata.spreadsheetUrl,
+          [`${metadataPrefix}.lastExportedAt`]: new Date(),
         },
       },
       { new: false }

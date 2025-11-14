@@ -3,6 +3,6 @@ export { SubjectFilters } from "./SubjectFilters";
 export { SubjectCard } from "./SubjectCard";
 export { SubjectGrid } from "./SubjectGrid";
 export { EmptySubjectState } from "./EmptySubjectState";
-export { ArchiveModal } from "./ArchiveModal";
+export { HideModal } from "./HideModal";
 export { LoadingState } from "./LoadingState";
 export { ErrorState } from "./ErrorState";

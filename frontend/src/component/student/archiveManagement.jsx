@@ -9,7 +9,6 @@ import {
   ArchiveFilters,
   ArchiveStats,
   ArchiveGrid,
-  UnarchiveModal,
   ErrorMessage,
 } from "./ui/archive";
 
@@ -27,11 +26,6 @@ export default function StudentArchiveManagement() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(9); // 3x3 grid default
-
-  // Unarchive modal
-  const [showUnarchiveModal, setShowUnarchiveModal] = useState(false);
-  const [sectionToUnarchive, setSectionToUnarchive] = useState(null);
-  const [unarchiving, setUnarchiving] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({
@@ -66,51 +60,7 @@ export default function StudentArchiveManagement() {
     }
   };
 
-  const handleUnarchiveClick = (section, e) => {
-    e.stopPropagation();
-    setSectionToUnarchive(section);
-    setShowUnarchiveModal(true);
-  };
 
-  const confirmUnarchive = async () => {
-    if (!sectionToUnarchive) return;
-
-    try {
-      setUnarchiving(true);
-      const res = await authenticatedFetch(
-        `http://localhost:5000/api/student/sections/${sectionToUnarchive._id}/unarchive`,
-        { method: "PUT" }
-      );
-
-      if (res.ok) {
-        setNotification({
-          show: true,
-          type: "success",
-          message: "Subject unarchived successfully!",
-        });
-        setShowUnarchiveModal(false);
-        setSectionToUnarchive(null);
-        // Refresh the sections list
-        await fetchArchivedSections();
-      } else {
-        const errorData = await res.json();
-        setNotification({
-          show: true,
-          type: "error",
-          message: errorData.message || "Failed to unarchive subject",
-        });
-      }
-    } catch (error) {
-      console.error("Error unarchiving subject:", error);
-      setNotification({
-        show: true,
-        type: "error",
-        message: "Error unarchiving subject",
-      });
-    } finally {
-      setUnarchiving(false);
-    }
-  };
 
   // Derived filter options
   const academicYears = useMemo(() => {
@@ -236,7 +186,6 @@ export default function StudentArchiveManagement() {
           currentPage={currentPage}
           totalPages={totalPages}
           onViewDetails={handleViewDetails}
-          onUnarchiveClick={handleUnarchiveClick}
           onClearFilters={handleClearFilters}
           onPageChange={setCurrentPage}
           formatDate={formatDate}
@@ -253,14 +202,6 @@ export default function StudentArchiveManagement() {
             rowsPerPageOptions={[9, 18, 27, 36]}
           />
         )}
-
-        <UnarchiveModal
-          isOpen={showUnarchiveModal}
-          section={sectionToUnarchive}
-          unarchiving={unarchiving}
-          onConfirm={confirmUnarchive}
-          onClose={() => setShowUnarchiveModal(false)}
-        />
 
         <NotificationModal
           isOpen={notification.show}

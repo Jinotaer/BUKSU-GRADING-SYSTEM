@@ -40,6 +40,7 @@ export default function GradeManagement() {
   });
   const [loading, setLoading] = useState(true);
   const [filterTerm, setFilterTerm] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
   const [activeTab, setActiveTab] = useState("classStanding");
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
@@ -95,13 +96,20 @@ export default function GradeManagement() {
       );
       if (!res.ok) return null;
       const data = await res.json();
+      const allActivities = data.activities || [];
+      
+      // Filter by term if selected
+      const filteredByTerm = selectedTerm 
+        ? allActivities.filter((a) => a.term === selectedTerm)
+        : allActivities;
+      
       const organized = {
         classStanding:
-          data.activities?.filter((a) => a.category === "classStanding") || [],
+          filteredByTerm.filter((a) => a.category === "classStanding") || [],
         laboratory:
-          data.activities?.filter((a) => a.category === "laboratory") || [],
+          filteredByTerm.filter((a) => a.category === "laboratory") || [],
         majorOutput:
-          data.activities?.filter((a) => a.category === "majorOutput") || [],
+          filteredByTerm.filter((a) => a.category === "majorOutput") || [],
       };
       setActivities(organized);
       return organized;
@@ -109,7 +117,7 @@ export default function GradeManagement() {
       console.error("Error fetching activities:", err);
       return null;
     }
-  }, [selectedSection?._id]);
+  }, [selectedSection?._id, selectedTerm]);
 
   const fetchStudentsAndGrades = useCallback(
     async (currentActivities) => {
@@ -271,7 +279,7 @@ export default function GradeManagement() {
     };
     
     loadSectionData();
-  }, [selectedSection?._id, fetchActivities, fetchStudentsAndGrades]);
+  }, [selectedSection?._id, selectedTerm, fetchActivities, fetchStudentsAndGrades]);
 
   useEffect(() => {
     if (!students.length) return;
@@ -427,6 +435,7 @@ export default function GradeManagement() {
             dean: scheduleForm.dean,
             parentFolderId: PARENT_FOLDER_ID,
             sheetName: getSheetName(selectedSection),
+            term: selectedTerm || undefined, // Include term filter if selected
           }),
         }
       );
@@ -564,6 +573,8 @@ export default function GradeManagement() {
                   }}
                   filterTerm={filterTerm}
                   onFilterChange={setFilterTerm}
+                  selectedTerm={selectedTerm}
+                  onTermChange={setSelectedTerm}
                 />
 
                 {selectedSection && (

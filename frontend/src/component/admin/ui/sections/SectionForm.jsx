@@ -24,7 +24,7 @@ export function SectionForm({
           name="semesterId"
           value={formData.semesterId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
         >
           <option value="">Select Semester</option>
@@ -44,7 +44,7 @@ export function SectionForm({
           name="subjectId"
           value={formData.subjectId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
           disabled={!formData.semesterId}
         >
@@ -71,7 +71,7 @@ export function SectionForm({
           name="instructorId"
           value={formData.instructorId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
         >
           <option value="">Select Instructor</option>

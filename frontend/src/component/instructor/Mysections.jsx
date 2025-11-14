@@ -46,10 +46,14 @@ export default function MySections() {
   const [activityForm, setActivityForm] = useState({
     title: "",
     description: "",
-    instructions: "",
+    notes: "",
     category: "classStanding",
     maxScore: 100,
-    dueDate: "",
+    eventType: "quiz",
+    location: "",
+    startDateTime: "",
+    endDateTime: "",
+    syncToGoogleCalendar: false,
   });
 
   // Fetch initial data
@@ -91,12 +95,14 @@ export default function MySections() {
   }, [myAssignedSections]);
 
   const semesters = useMemo(() => {
-    const set = new Set((myAssignedSections || []).map((s) => s.term).filter(Boolean));
-    const arr = Array.from(set);
-    return [{ value: "all", label: "All Semesters" }].concat(
-      arr.map((t) => ({ value: t, label: `${t} Semester` }))
-    );
-  }, [myAssignedSections]);
+    // Always show all possible semester options
+    return [
+      { value: "all", label: "All Semesters" },
+      { value: "1st", label: "1st Semester" },
+      { value: "2nd", label: "2nd Semester" },
+      { value: "Summer", label: "Summer Semester" }
+    ];
+  }, []);
 
   // Apply filters
   const filteredSections = useMemo(() => {
@@ -205,6 +211,25 @@ export default function MySections() {
     e.preventDefault();
     if (!selectedSection) return;
 
+    // Validate schedule fields
+    if (!activityForm.startDateTime || !activityForm.endDateTime) {
+      notifications.showError("Start and end date/time are required");
+      return;
+    }
+
+    const startObj = new Date(activityForm.startDateTime);
+    const endObj = new Date(activityForm.endDateTime);
+
+    if (isNaN(startObj.getTime()) || isNaN(endObj.getTime())) {
+      notifications.showError("Invalid date/time format");
+      return;
+    }
+
+    if (startObj >= endObj) {
+      notifications.showError("End date/time must be after start date/time");
+      return;
+    }
+
     try {
       setSubmitting(true);
       const res = await authenticatedFetch(
@@ -217,12 +242,14 @@ export default function MySections() {
           body: JSON.stringify({
             title: activityForm.title,
             description: activityForm.description,
-            instructions: activityForm.instructions,
+            notes: activityForm.notes || "",
             category: activityForm.category,
             maxScore: parseInt(activityForm.maxScore),
-            dueDate: activityForm.dueDate
-              ? new Date(activityForm.dueDate).toISOString()
-              : null,
+            eventType: activityForm.eventType || "quiz",
+            location: activityForm.location || "",
+            startDateTime: activityForm.startDateTime,
+            endDateTime: activityForm.endDateTime,
+            syncToGoogleCalendar: activityForm.syncToGoogleCalendar || false,
             sectionId: selectedSection._id,
           }),
         }
@@ -234,10 +261,14 @@ export default function MySections() {
         setActivityForm({
           title: "",
           description: "",
-          instructions: "",
+          notes: "",
           category: "classStanding",
           maxScore: 100,
-          dueDate: "",
+          eventType: "quiz",
+          location: "",
+          startDateTime: "",
+          endDateTime: "",
+          syncToGoogleCalendar: false,
         });
         if (showActivitiesModal) {
           await fetchSectionActivities(selectedSection._id);

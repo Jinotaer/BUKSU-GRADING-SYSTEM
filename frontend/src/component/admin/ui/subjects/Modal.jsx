@@ -12,7 +12,7 @@ export function Modal({ isOpen, onClose, title, children }) {
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hover:bg-gray-100 rounded-lg flex-shrink-0 touch-manipulation"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hover:bg-gray-100 rounded-lg flex-shrink-0 touch-manipulation cursor-pointer"
             aria-label="Close modal"
           >
             <IconX size={20} className="sm:w-5 sm:h-5" />

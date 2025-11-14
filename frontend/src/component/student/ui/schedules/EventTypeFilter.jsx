@@ -9,7 +9,7 @@ export const EventTypeFilter = ({ filter, onFilterChange }) => {
       <select
         value={filter}
         onChange={(e) => onFilterChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
       >
         <option value="all">All Events</option>
         <option value="quiz">Quizzes</option>

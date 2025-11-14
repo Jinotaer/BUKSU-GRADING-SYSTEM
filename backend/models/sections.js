@@ -38,6 +38,10 @@ const sectionSchema = new mongoose.Schema({
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
     archivedAt: { type: Date, default: Date.now }
   }], // Students who have archived this section
+  hiddenByStudents: [{ 
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
+    hiddenAt: { type: Date, default: Date.now }
+  }], // Students who have hidden this section
 });
 
 sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1 }, { unique: true });

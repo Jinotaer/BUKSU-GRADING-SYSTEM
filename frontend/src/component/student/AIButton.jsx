@@ -49,10 +49,10 @@ export default function AIButton() {
               <div className="flex items-center gap-2">
                 {/* AI Avatar */}
                 <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                  <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
                    <img src={buksuLogo} alt="BukSU logo" className="w-5 h-5 object-contain" />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full border border-white animate-pulse"></div>
+                  {/* <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full border border-white animate-pulse"></div> */}
                 </div>
                 
                 <div className="leading-tight">

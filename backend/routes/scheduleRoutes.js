@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-  createSchedule,
   getInstructorSchedules,
   getStudentSchedules,
   getScheduleById,
@@ -12,8 +11,8 @@ import { verifyGoogleAuthToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Create a new schedule (instructor only)
-router.post('/create', verifyGoogleAuthToken, requireRole(['instructor']), createSchedule);
+// Note: Schedule creation has been removed - schedules are now created automatically when creating activities
+// This ensures that every activity has a schedule and activities are the primary entry point
 
 // Get schedules based on user role
 router.get('/instructor/schedules', verifyGoogleAuthToken, requireRole(['instructor']), getInstructorSchedules);

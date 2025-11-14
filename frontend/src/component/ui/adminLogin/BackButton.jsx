@@ -4,7 +4,7 @@ export default function BackButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute top-8 left-8 text-gray-600 hover:text-gray-800 transition-colors"
+      className="absolute top-8 left-8 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
       aria-label="Go back"
     >
       <svg
