@@ -60,6 +60,12 @@ const menuData = [
     icon: IconArchive,
     type: "single",
   },
+  {
+    link: "/admin/monitoring",
+    label: "System Monitoring",
+    icon: IconAlertTriangle,
+    type: "single",
+  },
 ];
 
 export function NavbarSimple() {

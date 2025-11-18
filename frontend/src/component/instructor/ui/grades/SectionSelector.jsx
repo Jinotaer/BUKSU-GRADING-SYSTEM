@@ -53,7 +53,6 @@ export function SectionSelector({
               <option value="">All Terms</option>
               <option value="Midterm">Mid Term</option>
               <option value="Finalterm">Final Term</option>
-              <option value="Summer">Summer</option>
             </select>
           </div>
         )}

@@ -24,6 +24,7 @@ import {
   loadActivities,
   loadActivityScores,
   buildSheetData,
+  buildFinalGradeSheetData,
   persistGrades,
   updateSectionMetadata,
 } from '../services/sheetDataService.js';
@@ -262,13 +263,22 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // 8) Build sheet data
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room, chairperson, dean };
+  
+  // Use different sheet builder based on term selection
+  let sheetDataResult;
+  if (term === 'Final Grade') {
+    sheetDataResult = buildFinalGradeSheetData(section, activities, scoresByStudent, scheduleInfo);
+  } else {
+    sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
+  }
+  
   const {
     allData,
     tableHeaderRows,
     headerColorRanges,
     baseColumns,
     totalColumns,
-  } = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
+  } = sheetDataResult;
 
   // 9) Write values to sheet
   try {

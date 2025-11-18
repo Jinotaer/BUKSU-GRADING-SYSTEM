@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import emailService from "../services/emailService.js";
 import logger from "../config/logger.js";
+import { logUniversalActivity } from "../middleware/universalAuditLogger.js";
 import {
   handleFailedLogin,
   handleSuccessfulLogin,
@@ -358,11 +359,53 @@ export const inviteInstructor = async (req, res) => {
     if (!emailResult.success) {
       // If email fails, we might want to delete the instructor record
       await Instructor.findByIdAndDelete(instructor._id);
+      
+      // Log failed invitation
+      await logUniversalActivity(
+        adminId,
+        admin.email,
+        'admin',
+        'INSTRUCTOR_INVITED',
+        {
+          category: 'USER_MANAGEMENT',
+
+          success: false,
+          description: `Failed to invite instructor ${email} - email delivery failed`,
+          targetType: 'Instructor',
+          targetIdentifier: email,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      );
+      
       return res.status(500).json({
         success: false,
         message: "Failed to send invitation email",
       });
     }
+
+    // Log successful invitation
+    await logUniversalActivity(
+      adminId,
+      admin.email,
+      'admin',
+      'INSTRUCTOR_INVITED',
+      {
+        category: 'USER_MANAGEMENT',
+        success: true,
+        description: `Successfully invited instructor ${fullName} (${email})`,
+        targetType: 'Instructor',
+        targetId: instructor._id,
+        targetIdentifier: email,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        metadata: {
+          instructorId: instructor.instructorid,
+          college,
+          department
+        }
+      }
+    );
 
     res.status(201).json({
       success: true,
@@ -563,6 +606,30 @@ export const deleteStudent = async (req, res) => {
     // Delete the student
     await Student.findByIdAndDelete(studentId);
 
+    // Log student deletion
+    await logUniversalActivity(
+      req.admin.id,
+      req.admin.email,
+      'admin',
+      'STUDENT_DELETED',
+      {
+        category: 'USER_MANAGEMENT',
+        success: true,
+        description: `Successfully deleted student ${student.fullName} (${student.email})`,
+        targetType: 'Student',
+        targetId: student._id,
+        targetIdentifier: student.email,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        metadata: {
+          studentId: student.studid,
+          college: student.college,
+          course: student.course,
+          yearLevel: student.yearLevel
+        }
+      }
+    );
+
     res.status(200).json({
       success: true,
       message: "Student deleted successfully",
@@ -597,6 +664,29 @@ export const deleteInstructor = async (req, res) => {
 
     // Delete the instructor
     await Instructor.findByIdAndDelete(instructorId);
+
+    // Log instructor deletion
+    await logUniversalActivity(
+      req.admin.id,
+      req.admin.email,
+      'admin',
+      'INSTRUCTOR_DELETED',
+      {
+        category: 'USER_MANAGEMENT',
+        success: true,
+        description: `Successfully deleted instructor ${instructor.fullName} (${instructor.email})`,
+        targetType: 'Instructor',
+        targetId: instructor._id,
+        targetIdentifier: instructor.email,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        metadata: {
+          instructorId: instructor.instructorid,
+          college: instructor.college,
+          department: instructor.department
+        }
+      }
+    );
 
     res.status(200).json({
       success: true,

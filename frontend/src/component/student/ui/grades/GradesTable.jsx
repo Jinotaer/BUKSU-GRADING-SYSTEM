@@ -1,4 +1,5 @@
 import React from "react";
+import { formatGrade, getGradeColorClasses, getGradeDescription } from "../../../../utils/gradeUtils";
 
 export const GradesTable = ({ displayGrades, semesters, selectedSemester, selectedYear }) => {
   return (
@@ -53,19 +54,20 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                   <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
                     {grade.units > 0 ? grade.units.toFixed(1) : "N/A"}
                   </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.finalGrade > 0
-                      ? grade.finalGrade.toFixed(2)
-                      : "N/A"}
+                  <td className="px-4 py-2 text-sm whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span className={`font-semibold ${getGradeColorClasses(grade.finalGrade, grade.remarks).text}`}>
+                        {formatGrade(grade.finalGrade)}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {getGradeDescription(grade.finalGrade)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        grade.remarks === "Passed"
-                          ? "bg-green-100 text-green-800"
-                          : grade.remarks === "Failed"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
+                        getGradeColorClasses(grade.finalGrade, grade.remarks).badge
                       }`}
                     >
                       {grade.remarks}

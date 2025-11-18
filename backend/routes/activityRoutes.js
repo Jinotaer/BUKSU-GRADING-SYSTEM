@@ -9,6 +9,7 @@ import {
   toggleActivityStatus,
 } from "../controller/activityController.js";
 import { requireInstructor, requireAcademicUser } from "../middleware/auth.js";
+import { universalAuditLogger } from "../middleware/universalAuditLogger.js";
 
 const router = express.Router();
 
@@ -48,6 +49,7 @@ router.post(
   "/subjects/:subjectId/activities",
   requireInstructor,
   attachInstructorFromUser,
+  universalAuditLogger('INSTRUCTOR_ACTIVITY_CREATED', 'INSTRUCTOR_ACTIVITY'),
   createActivity
 );
 
@@ -56,6 +58,7 @@ router.get(
   "/sections/:sectionId/activities",
   requireAcademicUser,
   attachInstructorFromUser,
+  universalAuditLogger('ACTIVITY_VIEWED', 'ACADEMIC_MANAGEMENT'),
   getSectionActivities
 );
 
@@ -64,6 +67,7 @@ router.get(
   "/subjects/:subjectId/activities",
   requireAcademicUser,
   attachInstructorFromUser,
+  universalAuditLogger('ACTIVITY_VIEWED', 'ACADEMIC_MANAGEMENT'),
   getSubjectActivities
 );
 
@@ -72,6 +76,7 @@ router.put(
   "/activities/:activityId",
   requireInstructor,
   attachInstructorFromUser,
+  universalAuditLogger('ACTIVITY_UPDATED', 'INSTRUCTOR_ACTIVITY'),
   updateActivity
 );
 
@@ -80,6 +85,7 @@ router.delete(
   "/activities/:activityId",
   requireInstructor,
   attachInstructorFromUser,
+  universalAuditLogger('ACTIVITY_DELETED', 'INSTRUCTOR_ACTIVITY'),
   deleteActivity
 );
 
@@ -88,6 +94,7 @@ router.patch(
   "/activities/:activityId/toggle",
   requireInstructor,
   attachInstructorFromUser,
+  universalAuditLogger('ACTIVITY_TOGGLED', 'INSTRUCTOR_ACTIVITY'),
   toggleActivityStatus
 );
 

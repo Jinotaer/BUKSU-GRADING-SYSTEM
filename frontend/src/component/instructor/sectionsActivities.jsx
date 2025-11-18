@@ -11,6 +11,7 @@ import {
   CategoryTabs,
   ActivityCard,
   ActivityFormModal,
+  GradingSchemaModal,
 } from "./ui/sectionsAct";
 
 export default function SectionActivities() {
@@ -29,6 +30,8 @@ export default function SectionActivities() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const [showForm, setShowForm] = useState(false);
+  const [showGradingSchemaModal, setShowGradingSchemaModal] = useState(false);
+  const [gradingSchemaSubmitting, setGradingSchemaSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     title: "",
@@ -136,6 +139,10 @@ export default function SectionActivities() {
       syncToGoogleCalendar: false,
     });
     setShowForm(true);
+  };
+
+  const openGradingSchemaModal = () => {
+    setShowGradingSchemaModal(true);
   };
 
   const openEdit = (a) => {
@@ -271,6 +278,49 @@ export default function SectionActivities() {
     );
   };
 
+  const handleGradingSchemaSubmit = async (gradingSchema) => {
+    const total = gradingSchema.classStanding + gradingSchema.laboratory + gradingSchema.majorOutput;
+    
+    if (total !== 100) {
+      showError("Grading schema percentages must total 100%");
+      return;
+    }
+
+    try {
+      setGradingSchemaSubmitting(true);
+
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/instructor/sections/${sectionId}/grading-schema`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ gradingSchema }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data?.message || "Failed to update grading schema");
+      }
+
+      const responseData = await res.json();
+      
+      // Update the section state with the new grading schema
+      setSection((prev) => ({
+        ...prev,
+        gradingSchema: gradingSchema,
+      }));
+      
+      setShowGradingSchemaModal(false);
+      showSuccess(responseData.message || "Grading schema updated successfully!");
+    } catch (err) {
+      console.error(err);
+      showError(err.message || "Failed to update grading schema");
+    } finally {
+      setGradingSchemaSubmitting(false);
+    }
+  };
+
   const handleBack = () => {
     if (state?.fromArchive) {
       navigate("/instructor/archive");
@@ -284,7 +334,11 @@ export default function SectionActivities() {
       <div className="flex min-h-screen bg-gray-50">
         <InstructorSidebar />
         <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-          <PageHeader onBack={handleBack} onAdd={openAdd} />
+          <PageHeader 
+            onBack={handleBack} 
+            onAddActivity={openAdd}
+            onEditGradingSchema={openGradingSchemaModal}
+          />
 
           <SectionInfo section={section} />
 
@@ -343,6 +397,14 @@ export default function SectionActivities() {
             onClose={() => setShowForm(false)}
             onSubmit={submitForm}
             onChange={setForm}
+          />
+
+          <GradingSchemaModal
+            isOpen={showGradingSchemaModal}
+            onClose={() => setShowGradingSchemaModal(false)}
+            section={section}
+            onSubmit={handleGradingSchemaSubmit}
+            submitting={gradingSchemaSubmitting}
           />
         </div>
       </div>

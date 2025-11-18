@@ -172,17 +172,30 @@ export const updateSubject = async (req, res) => {
     const { id } = req.params;
     const { subjectCode, subjectName, units, college, department, semester, instructorId } = req.body;
 
+    console.log("🔄 UPDATE SUBJECT - Received request:");
+    console.log("📋 Subject ID:", id);
+    console.log("📦 Request body:", req.body);
+
     if (!subjectCode || !subjectName || !units || !college || !department || !semester) {
+      console.log("❌ Missing required fields");
       return res.status(400).json({ message: "All fields are required" });
     }
 
     const semesterExists = await Semester.findById(semester);
-    if (!semesterExists) return res.status(404).json({ message: "Semester not found" });
+    if (!semesterExists) {
+      console.log("❌ Semester not found:", semester);
+      return res.status(404).json({ message: "Semester not found" });
+    }
+    console.log("✅ Semester found:", semesterExists.schoolYear, "-", semesterExists.term);
 
     // Check if instructor exists (if provided)
     if (instructorId) {
       const instructor = await Instructor.findById(instructorId);
-      if (!instructor) return res.status(404).json({ message: "Instructor not found" });
+      if (!instructor) {
+        console.log("❌ Instructor not found:", instructorId);
+        return res.status(404).json({ message: "Instructor not found" });
+      }
+      console.log("✅ Instructor found:", instructor.fullName);
     }
 
     // Check if another subject exists with the same subjectCode and semester
@@ -193,9 +206,11 @@ export const updateSubject = async (req, res) => {
     });
     
     if (exists) {
+      console.log("❌ Duplicate subject code for semester");
       return res.status(400).json({ message: "Subject code already exists for this semester" });
     }
 
+    console.log("🔄 Updating subject in database...");
     const subject = await Subject.findByIdAndUpdate(
       id,
       { 
@@ -211,12 +226,14 @@ export const updateSubject = async (req, res) => {
     ).populate("semester").populate("assignedInstructor", "fullName email college department");
 
     if (!subject) {
+      console.log("❌ Subject not found after update");
       return res.status(404).json({ message: "Subject not found" });
     }
 
+    console.log("✅ Subject updated successfully:", subject);
     res.json({ success: true, subject });
   } catch (err) {
-    console.error("updateSubject:", err);
+    console.error("💥 updateSubject error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

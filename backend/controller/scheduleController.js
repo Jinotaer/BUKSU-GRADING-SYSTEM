@@ -49,7 +49,7 @@ export const getInstructorSchedules = async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate('section', 'sectionName')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email')
+      .populate('instructor', 'fullName email')
       .sort({ startDateTime: 1 });
 
     res.status(200).json({
@@ -118,21 +118,10 @@ export const getStudentSchedules = async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate('section', 'sectionName')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email fullName')
+      .populate('instructor', 'fullName email')
       .sort({ startDateTime: 1 });
 
-    console.log('=== Student Schedules Query Result ===');
-    console.log('Student schedules found:', schedules.length);
-    if (schedules.length > 0) {
-      console.log('First schedule instructor ID (raw):', schedules[0].instructor);
-      console.log('First schedule instructor populated:', JSON.stringify(schedules[0].instructor, null, 2));
-      console.log('Has instructor?:', !!schedules[0].instructor);
-      if (schedules[0].instructor) {
-        console.log('Instructor firstName:', schedules[0].instructor.firstName);
-        console.log('Instructor lastName:', schedules[0].instructor.lastName);
-        console.log('Instructor fullName:', schedules[0].instructor.fullName);
-      }
-    }
+
 
     res.status(200).json({
       success: true,
@@ -159,7 +148,7 @@ export const getScheduleById = async (req, res) => {
     const schedule = await Schedule.findById(id)
       .populate('section', 'sectionName students')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email');
+      .populate('instructor', 'fullName email');
 
     if (!schedule) {
       return res.status(404).json({
@@ -350,7 +339,7 @@ export const updateSchedule = async (req, res) => {
     const updatedSchedule = await Schedule.findById(schedule._id)
       .populate('section', 'sectionName students')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email fullName');
+      .populate('instructor', 'fullName email');
 
     // Send email notifications to all students in the section about the update
     try {
@@ -358,7 +347,7 @@ export const updateSchedule = async (req, res) => {
         .populate('students', 'email firstName lastName fullName');
       
       const instructor = await Instructor.findById(instructorId);
-      const instructorName = instructor?.fullName || instructor?.firstName + ' ' + instructor?.lastName || 'Your Instructor';
+      const instructorName = instructor?.fullName || 'Your Instructor';
 
       if (sectionWithStudents && sectionWithStudents.students && sectionWithStudents.students.length > 0) {
         const scheduleDetails = {
@@ -531,7 +520,7 @@ export const getUpcomingSchedules = async (req, res) => {
     const schedules = await Schedule.find(query)
       .populate('section', 'sectionName')
       .populate('subject', 'subjectCode subjectName')
-      .populate('instructor', 'firstName lastName email')
+      .populate('instructor', 'fullName email')
       .sort({ startDateTime: 1 })
       .limit(limit);
 

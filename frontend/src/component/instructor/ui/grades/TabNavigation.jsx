@@ -1,6 +1,6 @@
 import React from "react";
 
-const tabs = [
+const activityTabs = [
   {
     key: "classStanding",
     label: "Class Standing",
@@ -18,17 +18,54 @@ const tabs = [
   },
 ];
 
-export function TabNavigation({ activeTab, onTabChange }) {
+const gradeTabs = [
+  {
+    key: "midtermGrade",
+    label: "Midterm Grade",
+    shortLabel: "Midterm Grade",
+    availableFor: ["Midterm"]
+  },
+  {
+    key: "finalTermGrade", 
+    label: "Final Term Grade",
+    shortLabel: "Final Term Grade",
+    availableFor: ["Finalterm"]
+  },
+  {
+    key: "finalGrade",
+    label: "Final Grade", 
+    shortLabel: "Final Grade",
+    availableFor: [""]
+  },
+];
+
+export function TabNavigation({ activeTab, onTabChange, selectedTerm }) {
+  // Determine which tabs to show based on selected term
+  const getAvailableTabs = () => {
+    let availableGradeTabs = [];
+    
+    // Show specific grade tab based on selected term
+    if (selectedTerm === "Midterm") {
+      availableGradeTabs = gradeTabs.filter(tab => tab.key === "midtermGrade");
+    } else if (selectedTerm === "Finalterm") {
+      availableGradeTabs = gradeTabs.filter(tab => tab.key === "finalTermGrade");
+    } else if (!selectedTerm || selectedTerm === "") {
+      // Show Final Grade when All Terms is selected
+      availableGradeTabs = gradeTabs.filter(tab => tab.key === "finalGrade");
+    }
+    
+    // Always show activity tabs, plus relevant grade tabs
+    return [...activityTabs, ...availableGradeTabs];
+  };
+
+  const availableTabs = getAvailableTabs();
+
   return (
     <div className="mb-4 sm:mb-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-900 hidden sm:block">
-          Grade Categories
-        </h3>
-
         <div className="-mx-3 px-3 sm:mx-0 sm:px-0 overflow-x-auto">
           <div className="flex gap-2 sm:gap-3 w-max sm:w-auto">
-            {tabs.map((t) => (
+            {availableTabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => onTabChange(t.key)}

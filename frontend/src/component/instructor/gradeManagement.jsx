@@ -3,6 +3,11 @@ import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { 
+  getEquivalentGrade, 
+  getTermEquivalentGrade, 
+  getFinalEquivalentGrade 
+} from "../../utils/gradeUtils";
 import {
   PageHeader,
   MobileHeader,
@@ -463,18 +468,153 @@ export default function GradeManagement() {
     }
   };
 
+  const exportFinalGradeToGoogleSheets = async () => {
+    if (!selectedSection) return;
+
+    // Parent Drive folder where per-section folders will be created
+    const PARENT_FOLDER_ID = "1kzlYesJutCqHSMa3WEf8sq7CrUoMixXi";
+
+    const getSheetName = (section) => {
+      if (!section) return `FinalGrade_${Date.now()}`;
+
+      const extract = (val, keys = []) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val.trim();
+        if (typeof val === 'number') return String(val);
+        if (typeof val === 'object') {
+          for (const k of keys) {
+            if (val[k]) return String(val[k]);
+          }
+        }
+        return '';
+      };
+
+      const subjectCode =
+        extract(section.subject, ['code', 'subjectCode', 'subjectName', 'name']) ||
+        extract(section, ['subjectCode', 'subject']) ||
+        '';
+      const sectionCode =
+        extract(section, ['sectionCode', 'code', 'sectionName', 'section']) ||
+        extract(section, ['code', 'section']) ||
+        '';
+      const term =
+        extract(section.semester, ['term', 'name']) || extract(section, ['term', 'semester']) || '';
+
+      const parts = [subjectCode, sectionCode, 'FinalGrade', term].map((p) => p && String(p).replace(/\s+/g, '')).filter(Boolean);
+      return parts.length ? parts.join('_') : `FinalGrade_${section._id}`;
+    };
+
+    // Use default schedule values for final grade export
+    const defaultSchedule = {
+      day: selectedSection.schedule?.day || 'TBA',
+      time: selectedSection.schedule?.time || 'TBA', 
+      room: selectedSection.schedule?.room || 'TBA'
+    };
+    const defaultChairperson = selectedSection.chairperson || 'TBA';
+    const defaultDean = selectedSection.dean || 'TBA';
+
+    try {
+      console.log('[gradeManagement] final grade export payload preview:', {
+        schedule: defaultSchedule,
+        chairperson: defaultChairperson,
+        dean: defaultDean,
+        parentFolderId: PARENT_FOLDER_ID,
+        sheetName: getSheetName(selectedSection),
+        term: 'Final Grade'
+      });
+      
+      setLoading(true);
+      showSuccessRef.current("Exporting Final Grade to Google Sheets...");
+
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/export/google-sheets/${selectedSection._id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            schedule: defaultSchedule,
+            chairperson: defaultChairperson,
+            dean: defaultDean,
+            parentFolderId: PARENT_FOLDER_ID,
+            sheetName: getSheetName(selectedSection),
+            term: "Final Grade", // Special term to trigger final grade export
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to export final grade to Google Sheets");
+      }
+
+      const data = await res.json();
+
+      showSuccessRef.current("Final Grade successfully exported to Google Sheets!");
+
+      // Open the spreadsheet in a new tab
+      if (data.spreadsheetUrl) {
+        window.open(data.spreadsheetUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Final grade export error:", error);
+      showErrorRef.current(
+        error.message || "Failed to export final grade to Google Sheets"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* ---------- rendering helpers ---------- */
+  // Table 1: Grade Category Equivalency - converts percentage to equivalent grade
   const eqFromPercent = (avg) => {
-    if (avg >= 97) return 1.0;
-    if (avg >= 94) return 1.25;
-    if (avg >= 91) return 1.5;
-    if (avg >= 88) return 1.75;
-    if (avg >= 85) return 2.0;
-    if (avg >= 82) return 2.25;
-    if (avg >= 79) return 2.5;
-    if (avg >= 76) return 2.75;
-    if (avg >= 50) return 3.0;
-    return 5.0;
+    if (avg === "" || avg === null || avg === undefined || isNaN(Number(avg))) {
+      return "5.00";
+    }
+
+    const score = Number(avg);
+    
+    // Table 1: BukSU Grading Scale (Percentage to Grade)
+    if (score >= 97) return "1.00";  // 97-100 = Excellent
+    if (score >= 94) return "1.25";  // 94-96 = Very Good
+    if (score >= 91) return "1.50";  // 91-93 = Good
+    if (score >= 88) return "1.75";  // 88-90 = Satisfactory
+    if (score >= 85) return "2.00";  // 85-87 = Passing
+    if (score >= 82) return "2.25";  // 82-84 = Fair
+    if (score >= 79) return "2.50";  // 79-81 = Fair
+    if (score >= 76) return "2.75";  // 76-78 = Fair
+    if (score >= 75) return "3.00";  // 75 = Conditional/Passing
+    
+    // Below 75 is failing
+    return "5.00";  // Failed
+  };
+
+  // Table 2: Term Grade Equivalency - converts numeric grade to equivalent grade
+  const getTermEquivalentGrade = (numericGrade) => {
+    if (numericGrade === "" || numericGrade === null || numericGrade === undefined || isNaN(Number(numericGrade))) {
+      return "5.00";
+    }
+
+    const grade = Number(numericGrade);
+    
+    // Table 2: Term Grade Equivalency Table
+    if (grade >= 0 && grade <= 1.1250) return "1.00";
+    if (grade >= 1.1251 && grade <= 1.3750) return "1.25";
+    if (grade >= 1.3751 && grade <= 1.6250) return "1.50";
+    if (grade >= 1.6251 && grade <= 1.8750) return "1.75";
+    if (grade >= 1.8751 && grade <= 2.1250) return "2.00";
+    if (grade >= 2.1251 && grade <= 2.3750) return "2.25";
+    if (grade >= 2.3751 && grade <= 2.6250) return "2.50";
+    if (grade >= 2.6251 && grade <= 2.8750) return "2.75";
+    if (grade >= 2.8751 && grade <= 3.1250) return "3.00";
+    if (grade >= 3.1251 && grade <= 3.3750) return "3.25";
+    if (grade >= 3.3751 && grade <= 3.6250) return "3.50";
+    if (grade >= 3.6251 && grade <= 9) return "5.00";
+    
+    // Above 9 or invalid
+    return "5.00";  // Failed
   };
 
   const getWeight = (cat) => {
@@ -486,24 +626,29 @@ export default function GradeManagement() {
       : gs.majorOutput ?? 0;
   };
 
-  const percentFor = (student, activity) => {
-    const hit =
-      student.activityScores?.find(
-        (s) => String(s.activity_id) === String(activity._id)
-      ) ||
-      student.grades?.find(
-        (g) => String(g.activity_id) === String(activity._id)
-      );
-    const score = Number(hit?.score ?? 0);
-    const max = Number(hit?.maxScore ?? activity?.maxScore ?? 100);
-    return max > 0 ? (score / max) * 100 : 0;
-  };
-
   const categoryAverage = (student, cat) => {
     const acts = activities?.[cat] ?? [];
     if (!acts.length) return 0;
-    const vals = acts.map((a) => percentFor(student, a));
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
+    
+    // Use weighted calculation (matches backend logic)
+    // This properly accounts for different activity point values
+    let totalEarned = 0;
+    let totalMax = 0;
+    
+    acts.forEach((activity) => {
+      const hit = student.activityScores?.find(
+        (s) => String(s.activity_id) === String(activity._id)
+      ) || student.grades?.find(
+        (g) => String(g.activity_id) === String(activity._id)
+      );
+      const earned = Number(hit?.score ?? 0);
+      const max = Number(hit?.maxScore ?? activity?.maxScore ?? 100);
+      
+      totalEarned += earned;
+      totalMax += max;
+    });
+    
+    return totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
   };
 
   const filteredStudents = students.filter(
@@ -553,6 +698,7 @@ export default function GradeManagement() {
                 <PageHeader
                   onRefresh={refreshData}
                   onExport={openScheduleModal}
+                  onExportFinalGrade={exportFinalGradeToGoogleSheets}
                   loading={loading}
                   disabled={!selectedSection || !students.length}
                 />
@@ -583,7 +729,7 @@ export default function GradeManagement() {
 
                 {selectedSection && (
                   <>
-                    <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+                    <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} selectedTerm={selectedTerm} />
 
                     {loading ? (
                       <LoadingSpinner />
@@ -597,7 +743,7 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("classStanding")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
                           />
                         )}
@@ -609,7 +755,7 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("laboratory")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
                           />
                         )}
@@ -621,8 +767,59 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("majorOutput")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
+                          />
+                        )}
+                        {activeTab === "midtermGrade" && (
+                          <CategoryTable
+                            category="classStanding"
+                            title="Midterm Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="midterm"
+                            getWeight={getWeight}
+                            allActivities={activities}
+                            getTermEquivalentGrade={getTermEquivalentGrade}
+                          />
+                        )}
+                        {activeTab === "finalTermGrade" && (
+                          <CategoryTable
+                            category="laboratory"
+                            title="Final Term Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="finalTerm"
+                            getWeight={getWeight}
+                            allActivities={activities}
+                            getTermEquivalentGrade={getTermEquivalentGrade}
+                          />
+                        )}
+                        {activeTab === "finalGrade" && (
+                          <CategoryTable
+                            category="majorOutput"
+                            title="Final Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="final"
+                            getWeight={getWeight}
+                            allActivities={activities}
+                            getTermEquivalentGrade={getFinalEquivalentGrade}
                           />
                         )}
                       </>

@@ -23,6 +23,8 @@ export function SubjectForm({
       setDepartmentOptions([]);
     }
   }, [formData.college]);
+
+
   return (
     <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -145,12 +147,21 @@ export function SubjectForm({
           required
         >
           <option value="">Select Semester</option>
-          {semesters.map((semester) => (
-            <option key={semester._id} value={semester._id}>
-              {semester.schoolYear} - {semester.term} Semester
-            </option>
-          ))}
+          {semesters && semesters.length > 0 ? (
+            semesters.map((semester) => (
+              <option key={semester._id} value={semester._id}>
+                {semester.schoolYear} - {semester.term} Semester
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>No semesters available</option>
+          )}
         </select>
+        {(!semesters || semesters.length === 0) && (
+          <p className="text-xs text-red-500 mt-1">
+            No semesters found. Please add semesters in Semester Management first.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 mt-4 sm:mt-5">

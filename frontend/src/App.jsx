@@ -19,6 +19,7 @@ import AdminResetPassword from "./component/admin/adminResetPassword";
 import AdminRequestCode from "./component/admin/adminRequestCode";
 import AdminVerifyCode from "./component/admin/adminVerifyCode";
 import ArchiveManagement from "./component/admin/archiveManagement";
+import MonitoringDashboard from "./component/admin/monitoringDashboard";
 import StudentProfile from "./component/student/studentProfile";
 import { Route, Routes, Navigate } from "react-router-dom";
 import ProtectedRoute from "./component/ProtectedRoute";
@@ -131,6 +132,14 @@ export default function App() {
         element={
           <ProtectedRoute role="Admin">
             <ArchiveManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/monitoring"
+        element={
+          <ProtectedRoute role="Admin">
+            <MonitoringDashboard />
           </ProtectedRoute>
         }
       />

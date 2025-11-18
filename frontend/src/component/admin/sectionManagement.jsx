@@ -59,6 +59,7 @@ export default function SectionManagement() {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
+
   // Notifications
   const notifications = useNotifications();
   const {
@@ -124,11 +125,21 @@ export default function SectionManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Unique college list (from subjects)
-  const collegeOptions = React.useMemo(() => {
-    const set = new Set((subjects || []).map((s) => s.college).filter(Boolean));
-    return Array.from(set).sort();
-  }, [subjects]);
+  // const collegeOptions = React.useMemo(() => {
+  //   const set = new Set((subjects || []).map((s) => s.college).filter(Boolean));
+  //   return Array.from(set).sort();
+  // }, [subjects]);
 
+  // College options
+  const collegeOptions = [
+    "College of Technology",
+    "College of Business",
+    "College of Education",
+    "College of Arts and Science",
+    "College of Public Administration",
+    "College of Nursing",
+    "College of Law",
+  ];
   // Apply search + filters to sections
   const filteredSections = React.useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -272,13 +283,48 @@ export default function SectionManagement() {
     }
 
     setSelectedSection(section);
-    const semesterId =
-      section.subject?.semester?._id || section.subject?.semester || "";
+    
+    // Find the semester ID - try multiple approaches
+    let semesterId = "";
+    
+    // Method 1: From subject.semester (most common)
+    if (section.subject?.semester) {
+      semesterId = section.subject.semester._id || section.subject.semester;
+    }
+    
+    // Method 2: Find semester by schoolYear and term if subject.semester not available
+    if (!semesterId && section.schoolYear && section.term) {
+      const matchingSemester = semesters.find(
+        (s) => s.schoolYear === section.schoolYear && s.term === section.term
+      );
+      if (matchingSemester) {
+        semesterId = matchingSemester._id;
+      }
+    }
+    
+    console.log('📝 Edit section - semester detection:', {
+      sectionSchoolYear: section.schoolYear,
+      sectionTerm: section.term,
+      subjectSemester: section.subject?.semester,
+      detectedSemesterId: semesterId,
+      availableSemesters: semesters.map(s => ({ id: s._id, schoolYear: s.schoolYear, term: s.term }))
+    });
+    
+    // Filter subjects based on the detected semester
     const filtered = semesterId
-      ? subjects.filter(
-          (s) => s.semester && (s.semester._id || s.semester) === semesterId
-        )
+      ? subjects.filter((s) => {
+          const subjectSemesterId = s.semester?._id || s.semester;
+          return subjectSemesterId === semesterId;
+        })
       : [];
+    
+    console.log('📚 Filtered subjects:', {
+      semesterId,
+      totalSubjects: subjects.length,
+      filteredCount: filtered.length,
+      selectedSubjectId: section.subject?._id || section.subject
+    });
+    
     setFilteredSubjects(filtered);
 
     setFormData({
@@ -533,7 +579,7 @@ export default function SectionManagement() {
     (parseInt(formData.gradingSchema.classStanding, 10) || 0) +
     (parseInt(formData.gradingSchema.laboratory, 10) || 0) +
     (parseInt(formData.gradingSchema.majorOutput, 10) || 0);
-
+ 
   return (
     <NotificationProvider notifications={notifications}>
       <div className="flex min-h-screen bg-gray-50">

@@ -16,6 +16,7 @@ import {
   requireAcademicUser 
 } from "../middleware/auth.js";
 import { bruteForceProtection } from "../middleware/bruteForceProtection.js";
+import { universalAuditLogger } from "../middleware/universalAuditLogger.js";
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.post("/validate-email", validateEmailDomain);
  * @desc    Login with email and user type validation with brute-force protection
  * @access  Public
  */
-router.post("/login", bruteForceProtection, loginWithEmail);
+router.post("/login", bruteForceProtection, universalAuditLogger('LOGIN', 'AUTHENTICATION'), loginWithEmail);
 
 /**
  * @route   GET /api/auth/google
@@ -52,14 +53,14 @@ router.get("/google/callback", handleGoogleCallback);
  * @desc    Get current authenticated user
  * @access  Private
  */
-router.get("/me", verifyGoogleAuthToken, getCurrentUser);
+router.get("/me", verifyGoogleAuthToken, universalAuditLogger('PROFILE_VIEWED', 'PROFILE_MANAGEMENT'), getCurrentUser);
 
 /**
  * @route   POST /api/auth/logout
  * @desc    Logout user and destroy session
  * @access  Private
  */
-router.post("/logout", logout);
+router.post("/logout", universalAuditLogger('LOGOUT', 'AUTHENTICATION'), logout);
 
 /**
  * @route   GET /api/auth/status

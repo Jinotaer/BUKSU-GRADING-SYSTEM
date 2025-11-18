@@ -94,6 +94,78 @@ export default function SubjectManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debug semesters and subjects state
+  useEffect(() => {
+    console.log('🎓 Semesters state updated:', semesters);
+    console.log('🎓 Semesters count:', semesters?.length);
+    
+    // Show current status
+    if (semesters?.length === 0) {
+      console.log('🚨 No semesters available - Subject form will show empty dropdown');
+    } else if (semesters?.length > 0) {
+      console.log('✅ Semesters loaded successfully:', semesters.map(s => `${s.schoolYear} - ${s.term}`));
+    }
+  }, [semesters]);
+
+  // Debug subjects state
+  useEffect(() => {
+    console.log('📚 Subjects state updated:', subjects);
+    console.log('📚 Subjects count:', subjects?.length);
+    console.log('📚 Loading status:', loading);
+    
+    if (subjects?.length === 0 && !loading) {
+      console.log('📭 No subjects in state after loading completed');
+    } else if (subjects?.length > 0) {
+      console.log('✅ Subjects loaded successfully:', subjects.map(s => `${s.subjectCode} - ${s.subjectName}`));
+    }
+  }, [subjects, loading]);
+
+  // Function to determine current semester based on current date
+  const getCurrentSemester = useCallback(() => {
+    if (!semesters || semesters.length === 0) return null;
+    
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
+    
+    // Determine current academic year and term
+    let currentAcademicYear;
+    let currentTerm;
+    
+    if (currentMonth >= 8) {
+      // August onwards = new academic year starts
+      currentAcademicYear = `${currentYear}-${currentYear + 1}`;
+      currentTerm = "1st";
+    } else if (currentMonth >= 1 && currentMonth <= 5) {
+      // January to May = 2nd semester
+      currentAcademicYear = `${currentYear - 1}-${currentYear}`;
+      currentTerm = "2nd";
+    } else {
+      // June to July = Summer
+      currentAcademicYear = `${currentYear - 1}-${currentYear}`;
+      currentTerm = "Summer";
+    }
+    
+    // Find matching semester
+    const currentSemester = semesters.find(
+      sem => sem.schoolYear === currentAcademicYear && sem.term === currentTerm
+    );
+    
+    // If exact match not found, return the most recent semester
+    if (!currentSemester) {
+      return semesters.sort((a, b) => {
+        const yearA = parseInt(a.schoolYear.split('-')[0]);
+        const yearB = parseInt(b.schoolYear.split('-')[0]);
+        if (yearA !== yearB) return yearB - yearA;
+        
+        const termOrder = { "1st": 1, "2nd": 2, "Summer": 3 };
+        return termOrder[b.term] - termOrder[a.term];
+      })[0];
+    }
+    
+    return currentSemester;
+  }, [semesters]);
+
   const fetchSubjects = useCallback(async () => {
     try {
       // Clean up expired locks first
@@ -112,17 +184,59 @@ export default function SubjectManagement() {
         console.error("Cleanup error:", cleanupErr);
       }
 
+      console.log("🔄 Fetching subjects from:", `${API_BASE}/api/admin/subjects`);
+      console.log("🔐 Authentication check - token exists:", !!localStorage.getItem('token'));
       setLoading(true);
+      
       const res = await authenticatedFetch(`${API_BASE}/api/admin/subjects`);
+      console.log("📡 Fetch subjects response status:", res.status);
+      console.log("📡 Response headers:", res.headers);
+      
       if (res.ok) {
         const data = await res.json();
-        setSubjects(data.subjects || []);
+        console.log("📋 Raw API response:", data);
+        console.log("📋 Subjects array:", data.subjects);
+        console.log("📋 Subjects fetched:", data.subjects?.length || 0, "items");
+        
+        if (!data.subjects) {
+          console.warn("⚠️ No subjects array in response");
+          setSubjects([]);
+          showError("No subjects data received from server");
+        } else if (data.subjects.length === 0) {
+          console.log("📭 No subjects found in database");
+          setSubjects([]);
+          showError("No subjects found in the database. Please add some subjects first.");
+        } else {
+          console.log("✅ Setting subjects state with:", data.subjects.length, "items");
+          setSubjects(data.subjects);
+        }
+      } else if (res.status === 401) {
+        console.error("🔒 Authentication failed");
+        showError("Session expired. Please log in again.");
+        // Optionally redirect to login
+        // window.location.href = '/admin/login';
+      } else if (res.status === 403) {
+        console.error("🚫 Access forbidden");
+        showError("Access denied. You don't have permission to view subjects.");
+      } else if (res.status === 500) {
+        console.error("💥 Server error");
+        showError("Server error. Please try again later.");
       } else {
-        showError("Failed to fetch subjects");
+        const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+        console.error("❌ Failed to fetch subjects:", res.status, errorData);
+        showError(`Failed to fetch subjects: ${errorData.message || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error(err);
-      showError("Error fetching subjects");
+      console.error("💥 Error fetching subjects:", err);
+      
+      // Check different types of errors
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        showError("Cannot connect to the server. Please ensure the backend is running on http://localhost:5000");
+      } else if (err.message.includes('NetworkError')) {
+        showError("Network error. Please check your internet connection.");
+      } else {
+        showError(`Error fetching subjects: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -130,13 +244,42 @@ export default function SubjectManagement() {
 
   const fetchSemesters = async () => {
     try {
-      const res = await authenticatedFetch(`${API_BASE}/api/admin/semesters`);
+      console.log('🔄 Fetching semesters from:', `${API_BASE}/api/semesters`);
+      const res = await authenticatedFetch(`${API_BASE}/api/semesters`);
+      console.log('📡 Semesters API response status:', res.status);
+      
       if (res.ok) {
         const data = await res.json();
+        console.log('📋 Semesters API response data:', data);
         setSemesters(data.semesters || []);
+        console.log('✅ Semesters set in state:', data.semesters?.length || 0, 'items');
+        
+        // If no semesters found, show helpful message
+        if (!data.semesters || data.semesters.length === 0) {
+          console.log('⚠️ No semesters found in database');
+          showError("No semesters found. Please go to 'Semester Management' and add at least one semester first (e.g., 2024-2025 - 1st Semester).");
+        }
+      } else {
+        console.error('❌ Failed to fetch semesters:', res.status, res.statusText);
+        const errorData = await res.json().catch(() => ({}));
+        console.error('❌ Error details:', errorData);
+        
+        // Check if it's a connection error
+        if (res.status === 0 || !res.status) {
+          showError("Cannot connect to server. Please ensure the backend is running.");
+        } else {
+          showError(`Failed to fetch semesters: ${errorData.message || res.statusText}`);
+        }
       }
     } catch (err) {
-      console.error("Error fetching semesters:", err);
+      console.error("💥 Error fetching semesters:", err);
+      
+      // Check if it's a network error
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        showError("Cannot connect to server. Please start the backend server first.");
+      } else {
+        showError("Error fetching semesters from server. Check console for details.");
+      }
     }
   };
 
@@ -153,13 +296,15 @@ export default function SubjectManagement() {
   };
 
   const resetForm = () => {
+    const currentSemester = getCurrentSemester();
     setFormData({
       subjectCode: "",
       subjectName: "",
       units: "3",
       college: "",
       department: "",
-      semester: "",
+      // Automatically set current semester as default
+      semester: currentSemester?._id || "",
     });
     setSelectedSubject(null);
   };
@@ -191,6 +336,7 @@ export default function SubjectManagement() {
       units: String(subject?.units ?? "3"),
       college: subject?.college || "",
       department: subject?.department || "",
+      // Keep the original semester when editing
       semester: subject?.semester?._id || subject?.semester || "",
     });
     setShowEditModal(true);
@@ -207,16 +353,27 @@ export default function SubjectManagement() {
 
       const method = selectedSubject ? "PUT" : "POST";
 
+      const requestData = {
+        ...formData,
+        units: parseInt(formData.units, 10),
+      };
+
+      console.log(`📤 ${method} Request to:`, url);
+      console.log("📦 Request data:", requestData);
+      console.log("🎯 Selected subject:", selectedSubject);
+
       const res = await authenticatedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          units: parseInt(formData.units, 10),
-        }),
+        body: JSON.stringify(requestData),
       });
 
+      console.log("📡 Response status:", res.status);
+
       if (res.ok) {
+        const responseData = await res.json();
+        console.log("✅ Response data:", responseData);
+        
         await fetchSubjects();
 
         // Release lock if editing
@@ -238,10 +395,11 @@ export default function SubjectManagement() {
         );
       } else {
         const data = await res.json();
+        console.error("❌ Error response:", data);
         showError(data.message || "Failed to save subject");
       }
     } catch (err) {
-      console.error(err);
+      console.error("💥 Submit error:", err);
       showError("Error saving subject");
     } finally {
       setSubmitting(false);
@@ -345,18 +503,53 @@ export default function SubjectManagement() {
   };
 
   /* -------------------------------- Filters -------------------------------- */
-  const filteredSubjects = subjects.filter((subject) => {
-    const code = (subject?.subjectCode || "").toLowerCase();
-    const name = (subject?.subjectName || "").toLowerCase();
-    const term = searchTerm.toLowerCase();
+  const filteredSubjects = React.useMemo(() => {
+    console.log('🔍 Filtering subjects:', {
+      totalSubjects: subjects?.length || 0,
+      searchTerm,
+      filterSemester,
+      filterCollege
+    });
 
-    const matchesSearch = code.includes(term) || name.includes(term);
-    const subjSemId = subject?.semester?._id || subject?.semester; // id or object
-    const matchesSemester = !filterSemester || subjSemId === filterSemester;
-    const matchesCollege = !filterCollege || subject?.college === filterCollege;
+    if (!subjects || subjects.length === 0) {
+      console.log('📭 No subjects to filter');
+      return [];
+    }
 
-    return matchesSearch && matchesSemester && matchesCollege;
-  });
+    const filtered = subjects.filter((subject) => {
+      const code = (subject?.subjectCode || "").toLowerCase();
+      const name = (subject?.subjectName || "").toLowerCase();
+      const term = searchTerm.toLowerCase();
+
+      const matchesSearch = !term || code.includes(term) || name.includes(term);
+      const subjSemId = subject?.semester?._id || subject?.semester; // id or object
+      const matchesSemester = !filterSemester || subjSemId === filterSemester;
+      const matchesCollege = !filterCollege || subject?.college === filterCollege;
+
+      const passes = matchesSearch && matchesSemester && matchesCollege;
+      
+      if (!passes) {
+        console.log('🚫 Subject filtered out:', {
+          subjectCode: subject.subjectCode,
+          matchesSearch,
+          matchesSemester,
+          matchesCollege,
+          subjSemId,
+          filterSemester
+        });
+      }
+
+      return passes;
+    });
+
+    console.log('✅ Filtered subjects result:', {
+      originalCount: subjects.length,
+      filteredCount: filtered.length,
+      subjects: filtered.map(s => s.subjectCode)
+    });
+
+    return filtered;
+  }, [subjects, searchTerm, filterSemester, filterCollege]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -368,6 +561,20 @@ export default function SubjectManagement() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedSubjects = filteredSubjects.slice(startIndex, endIndex);
+
+  // Debug pagination
+  React.useEffect(() => {
+    console.log('📄 Pagination state:', {
+      filteredCount: filteredSubjects.length,
+      currentPage,
+      itemsPerPage,
+      totalPages,
+      startIndex,
+      endIndex,
+      paginatedCount: paginatedSubjects.length,
+      paginatedSubjects: paginatedSubjects.map(s => s.subjectCode)
+    });
+  }, [filteredSubjects.length, currentPage, itemsPerPage, totalPages, startIndex, endIndex, paginatedSubjects]);
 
   const handlePageChange = (page) => setCurrentPage(page);
   const handleItemsPerPageChange = (newItemsPerPage) => {
@@ -452,6 +659,7 @@ export default function SubjectManagement() {
               isEdit={false}
               collegeOptions={collegeOptions}
               semesters={semesters}
+              currentSemester={getCurrentSemester()}
             />
           </Modal>
 
@@ -483,6 +691,7 @@ export default function SubjectManagement() {
               isEdit={true}
               collegeOptions={collegeOptions}
               semesters={semesters}
+              currentSemester={getCurrentSemester()}
             />
           </Modal>
         </div>
