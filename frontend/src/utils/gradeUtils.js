@@ -119,19 +119,31 @@ export const calculateComponentScore = (activities, studentId, scoresByStudent) 
 /**
  * Calculate term grade from component contributions
  * @param {Object} components - Component scores as percentages {classStanding, laboratory, majorOutput}
- * @param {boolean} hasLab - Whether subject has laboratory
+ * @param {Object|boolean} gradingSchemaOrHasLab - Section's grading schema or legacy hasLab boolean
  * @returns {number} Term grade as percentage (0-100)
  */
-export const calculateTermGrade = (components, hasLab) => {
+export const calculateTermGrade = (components, gradingSchemaOrHasLab) => {
   const { classStanding = 0, laboratory = 0, majorOutput = 0 } = components;
   
-  if (hasLab) {
-    // With Laboratory: CS=30%, Lab=30%, MO=40%
-    return (classStanding * 0.30) + (laboratory * 0.30) + (majorOutput * 0.40);
+  // Support both grading schema object and legacy hasLab boolean
+  let weights;
+  if (typeof gradingSchemaOrHasLab === 'object' && gradingSchemaOrHasLab !== null) {
+    // New: Using grading schema
+    weights = gradingSchemaOrHasLab;
   } else {
-    // No Laboratory: CS=60%, MO=40%
-    return (classStanding * 0.60) + (majorOutput * 0.40);
+    // Legacy: Using hasLab boolean
+    const hasLab = gradingSchemaOrHasLab;
+    weights = hasLab 
+      ? { classStanding: 30, laboratory: 30, majorOutput: 40 }
+      : { classStanding: 60, laboratory: 0, majorOutput: 40 };
   }
+  
+  // Use section's grading schema weights (as percentages)
+  const csWeight = (weights.classStanding || 60) / 100;
+  const labWeight = (weights.laboratory || 0) / 100;
+  const moWeight = (weights.majorOutput || 40) / 100;
+  
+  return (classStanding * csWeight) + (laboratory * labWeight) + (majorOutput * moWeight);
 };
 
 /**

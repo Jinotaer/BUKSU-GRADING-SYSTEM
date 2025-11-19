@@ -43,6 +43,11 @@ export default function GradeManagement() {
     laboratory: [],
     majorOutput: [],
   });
+  const [allActivitiesUnfiltered, setAllActivitiesUnfiltered] = useState({
+    classStanding: [],
+    laboratory: [],
+    majorOutput: [],
+  });
   const [loading, setLoading] = useState(true);
   const [filterTerm, setFilterTerm] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
@@ -103,7 +108,18 @@ export default function GradeManagement() {
       const data = await res.json();
       const allActivities = data.activities || [];
       
-      // Filter by term if selected
+      // Store unfiltered activities organized by category (for grade calculations)
+      const unfilteredOrganized = {
+        classStanding:
+          allActivities.filter((a) => a.category === "classStanding") || [],
+        laboratory:
+          allActivities.filter((a) => a.category === "laboratory") || [],
+        majorOutput:
+          allActivities.filter((a) => a.category === "majorOutput") || [],
+      };
+      setAllActivitiesUnfiltered(unfilteredOrganized);
+      
+      // Filter by term if selected (for display tabs)
       const filteredByTerm = selectedTerm 
         ? allActivities.filter((a) => a.term === selectedTerm)
         : allActivities;
@@ -527,7 +543,7 @@ export default function GradeManagement() {
       showSuccessRef.current("Exporting Final Grade to Google Sheets...");
 
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/export/google-sheets/${selectedSection._id}`,
+        `http://localhost:5000/api/export/final-grade/${selectedSection._id}`,
         {
           method: "POST",
           headers: {
@@ -539,7 +555,6 @@ export default function GradeManagement() {
             dean: defaultDean,
             parentFolderId: PARENT_FOLDER_ID,
             sheetName: getSheetName(selectedSection),
-            term: "Final Grade", // Special term to trigger final grade export
           }),
         }
       );
@@ -784,8 +799,7 @@ export default function GradeManagement() {
                             showGrades={true}
                             gradeType="midterm"
                             getWeight={getWeight}
-                            allActivities={activities}
-                            getTermEquivalentGrade={getTermEquivalentGrade}
+                            allActivities={allActivitiesUnfiltered}
                           />
                         )}
                         {activeTab === "finalTermGrade" && (
@@ -801,8 +815,7 @@ export default function GradeManagement() {
                             showGrades={true}
                             gradeType="finalTerm"
                             getWeight={getWeight}
-                            allActivities={activities}
-                            getTermEquivalentGrade={getTermEquivalentGrade}
+                            allActivities={allActivitiesUnfiltered}
                           />
                         )}
                         {activeTab === "finalGrade" && (
@@ -818,8 +831,7 @@ export default function GradeManagement() {
                             showGrades={true}
                             gradeType="final"
                             getWeight={getWeight}
-                            allActivities={activities}
-                            getTermEquivalentGrade={getFinalEquivalentGrade}
+                            allActivities={allActivitiesUnfiltered}
                           />
                         )}
                       </>

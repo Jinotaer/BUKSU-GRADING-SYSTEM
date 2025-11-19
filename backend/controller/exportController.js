@@ -261,16 +261,10 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // Each section now gets its own dedicated spreadsheet - no fallback hub used
 
-  // 8) Build sheet data
+  // 8) Build sheet data (CLASS RECORD only - not Final Grade)
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room, chairperson, dean };
   
-  // Use different sheet builder based on term selection
-  let sheetDataResult;
-  if (term === 'Final Grade') {
-    sheetDataResult = buildFinalGradeSheetData(section, activities, scoresByStudent, scheduleInfo);
-  } else {
-    sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
-  }
+  const sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
   
   const {
     allData,

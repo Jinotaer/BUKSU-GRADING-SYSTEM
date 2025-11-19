@@ -268,8 +268,9 @@ export const getSectionActivities = async (req, res) => {
       return res.status(404).json({ success: false, message: "Section not found" });
     }
 
-    // Fetch all active activities for this subject/year, regardless of term
-    // Term filtering is now handled on the frontend
+    // Fetch all active activities for this section's subject and school year
+    // Activities are tied to subject + schoolYear, so they persist across term changes
+    // but should match the section's current schoolYear
     const activities = await Activity.find({
       subject: section.subject,
       schoolYear: section.schoolYear,
@@ -279,7 +280,7 @@ export const getSectionActivities = async (req, res) => {
     .populate('subject', 'subjectCode subjectName')
     .sort({ startDateTime: 1, createdAt: -1 }); // Sort by schedule time first, then creation date
 
-    return res.status(200).json({ success: true, activities });
+    return res.status(200).json({ success: true, activities, section: { schoolYear: section.schoolYear, term: section.term } });
   } catch (error) {
     console.error("Get section activities error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });

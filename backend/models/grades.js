@@ -9,6 +9,10 @@ const gradeSchema = new mongoose.Schema({
   midtermGrade: { type: Number, default: 0 },
   finalTermGrade: { type: Number, default: 0 },
   
+  // Term equivalent grades (from Table 1)
+  midtermEquivalentGrade: { type: String, default: "" },
+  finalTermEquivalentGrade: { type: String, default: "" },
+  
   // Midterm component averages
   midtermClassStanding: { type: Number, default: 0 },
   midtermLaboratory: { type: Number, default: 0 },
@@ -26,6 +30,12 @@ const gradeSchema = new mongoose.Schema({
 
   // Final computed grade
   finalGrade: { type: Number, default: 0 },
+  
+  // Final grade numeric (weighted average of term equivalents)
+  finalGradeNumeric: { type: Number, default: 0 },
+  
+  // Equivalent grade (from Table 3)
+  equivalentGrade: { type: String, default: "" },
   
   // Subject characteristics
   hasLaboratory: { type: Boolean, default: false },

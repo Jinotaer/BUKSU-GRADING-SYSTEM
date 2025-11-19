@@ -1,5 +1,5 @@
 import React from "react";
-import { formatGrade, getGradeColorClasses, getGradeDescription } from "../../../../utils/gradeUtils";
+import { getGradeColorClasses, getGradeDescription } from "../../../../utils/gradeUtils";
 
 export const GradesTable = ({ displayGrades, semesters, selectedSemester, selectedYear }) => {
   return (
@@ -27,54 +27,98 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Instructor
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Units
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Midterm
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Final Term
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Final Grade
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Remarks
                 </th>
               </tr>
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayGrades.map((grade, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.courseCode}
-                  </td>
-                  <td className="px-4 py-2 text-sm whitespace-nowrap">
-                    {grade.subjectName}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.instructor}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    {grade.units > 0 ? grade.units.toFixed(1) : "N/A"}
-                  </td>
-                  <td className="px-4 py-2 text-sm whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className={`font-semibold ${getGradeColorClasses(grade.finalGrade, grade.remarks).text}`}>
-                        {formatGrade(grade.finalGrade)}
+              {displayGrades.map((grade, index) => {
+                const hasMidterm = grade.midtermEquivalentGrade && grade.midtermEquivalentGrade !== '' && grade.midtermEquivalentGrade !== '5.00';
+                const hasFinalTerm = grade.finalTermEquivalentGrade && grade.finalTermEquivalentGrade !== '' && grade.finalTermEquivalentGrade !== '5.00';
+                const hasFinalGrade = grade.equivalentGrade && grade.equivalentGrade !== '' && grade.equivalentGrade !== '5.00';
+                
+                return (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.courseCode}
+                    </td>
+                    <td className="px-4 py-2 text-sm whitespace-nowrap">
+                      {grade.subjectName}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                      {grade.instructor}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700 text-center whitespace-nowrap">
+                      {grade.units > 0 ? grade.units.toFixed(1) : "N/A"}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
+                      {hasMidterm ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500">
+                            {grade.midtermGrade ? `${grade.midtermGrade.toFixed(2)}%` : '-'}
+                          </span>
+                          <span className="font-semibold text-blue-600">
+                            {grade.midtermEquivalentGrade}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Grade</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
+                      {hasFinalTerm ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500">
+                            {grade.finalTermGrade ? `${grade.finalTermGrade.toFixed(2)}%` : '-'}
+                          </span>
+                          <span className="font-semibold text-blue-600">
+                            {grade.finalTermEquivalentGrade}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Grade</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
+                      {hasFinalGrade ? (
+                        <div className="flex flex-col items-center">
+                          <span className={`font-bold text-lg ${getGradeColorClasses(grade.equivalentGrade, grade.remarks).text}`}>
+                            {grade.equivalentGrade}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {getGradeDescription(grade.equivalentGrade)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Grade</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          getGradeColorClasses(grade.equivalentGrade || grade.finalGrade, grade.remarks).badge
+                        }`}
+                      >
+                        {grade.remarks || 'No Grade'}
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {getGradeDescription(grade.finalGrade)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        getGradeColorClasses(grade.finalGrade, grade.remarks).badge
-                      }`}
-                    >
-                      {grade.remarks}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (

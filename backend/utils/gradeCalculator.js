@@ -139,19 +139,19 @@ const calculateComponentScore = (activities, studentId, scoresByStudent) => {
  * STEP 2 & 3: Calculate term grade from component contributions
  * Returns the term grade as percentage (0-100)
  * @param {Object} components - Component scores as percentages {classStanding, laboratory, majorOutput}
- * @param {boolean} hasLab - Whether subject has laboratory
+ * @param {Object} gradingSchema - Section's grading schema with weights {classStanding, laboratory, majorOutput}
  * @returns {number} Term grade as percentage (0-100)
  */
-const calculateTermGradeFraction = (components, hasLab) => {
+const calculateTermGradeFraction = (components, gradingSchema) => {
   const { classStanding = 0, laboratory = 0, majorOutput = 0 } = components;
+  const weights = gradingSchema || { classStanding: 60, laboratory: 0, majorOutput: 40 };
   
-  if (hasLab) {
-    // With Laboratory: CS=30%, Lab=30%, MO=40%
-    return (classStanding * 0.30) + (laboratory * 0.30) + (majorOutput * 0.40);
-  } else {
-    // No Laboratory: CS=60%, MO=40%
-    return (classStanding * 0.60) + (majorOutput * 0.40);
-  }
+  // Use section's grading schema weights (as percentages)
+  const csWeight = weights.classStanding / 100;
+  const labWeight = weights.laboratory / 100;
+  const moWeight = weights.majorOutput / 100;
+  
+  return (classStanding * csWeight) + (laboratory * labWeight) + (majorOutput * moWeight);
 };
 
 /**
@@ -159,37 +159,37 @@ const calculateTermGradeFraction = (components, hasLab) => {
  * 
  * ALGORITHM STEPS:
  * 1. Calculate component scores (Class Standing, Laboratory, Major Output) as percentages
- * 2. Calculate term grades (Midterm, Final) as percentages using weighted components
+ * 2. Calculate term grades (Midterm, Final) as percentages using weighted components from grading schema
  * 3. Convert term percentages to equivalent grades using Table 1 (Grade Category Equivalency)
  * 4. Calculate weighted average of term equivalent grades (Midterm 40% + Final 60%)
  * 5. Convert final numeric grade to equivalent grade using Table 3 (Final Grade Equivalency)
  * 
  * @param {Object} data
- * @param {boolean} data.hasLab - Whether subject has laboratory component
+ * @param {Object} data.gradingSchema - Section's grading schema {classStanding, laboratory, majorOutput} as percentages
  * @param {Object} data.midterm - { classPercent?, labPercent?, majorPercent? } as percentages (0-100)
  * @param {Object} data.finalTerm - same shape as midterm
  * @param {Object} [options]
  * @returns {Object} { midtermPercent, finalTermPercent, midtermEquivalent, finalEquivalent, finalGradeNumeric, equivalentGrade, remarks }
  */
 const calculateGrades = (data, options = {}) => {
-  const { hasLab, midterm, finalTerm } = data;
+  const { gradingSchema, midterm, finalTerm } = data;
   
   // STEP 1: Extract component percentages (already calculated as 0-100)
   const midtermComponents = {
     classStanding: midterm.classPercent ?? 0,
-    laboratory: hasLab ? (midterm.labPercent ?? 0) : 0,
+    laboratory: midterm.labPercent ?? 0,
     majorOutput: midterm.majorPercent ?? 0
   };
   
   const finalComponents = {
     classStanding: finalTerm.classPercent ?? 0,
-    laboratory: hasLab ? (finalTerm.labPercent ?? 0) : 0,
+    laboratory: finalTerm.labPercent ?? 0,
     majorOutput: finalTerm.majorPercent ?? 0
   };
   
-  // STEP 2: Calculate term grades as percentages (0-100)
-  const midtermPercent = calculateTermGradeFraction(midtermComponents, hasLab);
-  const finalTermPercent = calculateTermGradeFraction(finalComponents, hasLab);
+  // STEP 2: Calculate term grades as percentages (0-100) using section's grading schema
+  const midtermPercent = calculateTermGradeFraction(midtermComponents, gradingSchema);
+  const finalTermPercent = calculateTermGradeFraction(finalComponents, gradingSchema);
   
   // STEP 3: Convert term percentages to equivalent grades using Table 1
   const midtermEquivalent = getEquivalentGrade(midtermPercent);
@@ -295,15 +295,15 @@ export const calculateAndUpdateGrade = async (studentId, sectionId, instructorId
     }
 
     // Get all active activities for this section
+    // Note: Activity.term stores "Midterm"/"Finalterm" (grading period), not semester term
     const activityQuery = {
       subject: section.subject._id,
       schoolYear: section.schoolYear,
-      term: toActivityTerm(section.term),
       isActive: true,
     };
     const activities = await Activity.find(activityQuery).sort({ createdAt: 1 });
 
-    // Group activities by category and term
+    // Group activities by category and grading period (Midterm/Finalterm)
     const midtermActivities = activities.filter(a => a.term === 'Midterm');
     const finalTermActivities = activities.filter(a => a.term === 'Finalterm');
     
@@ -347,7 +347,7 @@ export const calculateAndUpdateGrade = async (studentId, sectionId, instructorId
     
     // Use the calculateGrades function with correct algorithm implementation
     const gradeResult = calculateGrades({
-      hasLab: subjectHasLab,
+      gradingSchema: section.gradingSchema,
       midterm: {
         classPercent: midtermClassStanding,
         labPercent: midtermLaboratory,

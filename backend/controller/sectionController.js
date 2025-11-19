@@ -3,6 +3,7 @@ import Section from "../models/sections.js";
 import Subject from "../models/subjects.js";
 import Instructor from "../models/instructor.js";
 import Student from "../models/student.js";
+import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
@@ -52,9 +53,9 @@ export const createSection = async (req, res) => {
       schoolYear,
       term,
       gradingSchema: gradingSchema || {
-        classStanding: 40,
+        classStanding: 30,
         laboratory: 30,
-        majorOutput: 30
+        majorOutput: 40
       },
     });
 
@@ -266,6 +267,10 @@ export const updateSection = async (req, res) => {
 
     // Check if grading schema is being updated
     const gradingSchemaChanged = gradingSchema && JSON.stringify(gradingSchema) !== JSON.stringify(section.gradingSchema);
+    
+    // Check if school year changed
+    const schoolYearChanged = schoolYear && schoolYear !== section.schoolYear;
+    const oldSchoolYear = section.schoolYear;
 
     const updatedSection = await Section.findByIdAndUpdate(
       id,
@@ -281,6 +286,30 @@ export const updateSection = async (req, res) => {
     ).populate("instructor", "fullName email college department")
      .populate("subject", "subjectCode subjectName units college department");
 
+    // If school year changed, update activities for THIS SECTION ONLY
+    // We do this by finding activities that were created for this section's schedule
+    if (schoolYearChanged) {
+      // Find all schedules for this section
+      const Schedule = (await import("../models/schedule.js")).default;
+      const schedules = await Schedule.find({ section: id });
+      const scheduleIds = schedules.map(s => s._id);
+      
+      if (scheduleIds.length > 0) {
+        // Update activities tied to this section's schedules
+        const updateResult = await Activity.updateMany(
+          {
+            schedule: { $in: scheduleIds },
+            schoolYear: oldSchoolYear
+          },
+          {
+            $set: { schoolYear: schoolYear }
+          }
+        );
+        
+        console.log(`[sectionController] Updated ${updateResult.modifiedCount} activities from ${oldSchoolYear} to ${schoolYear} for section ${updatedSection.sectionName}`);
+      }
+    }
+
     // If grading schema was changed, recalculate all grades in the section
     if (gradingSchemaChanged && updatedSection.students.length > 0) {
       calculateAndUpdateAllGradesInSection(id, finalInstructorId)
@@ -292,6 +321,17 @@ export const updateSection = async (req, res) => {
         })
         .catch(err => {
           console.error('[sectionController] Error recalculating grades after schema change:', err);
+        });
+    }
+    
+    // If school year changed, recalculate grades for students
+    if (schoolYearChanged && updatedSection.students.length > 0) {
+      calculateAndUpdateAllGradesInSection(id, finalInstructorId)
+        .then(results => {
+          console.log(`[sectionController] Grades recalculated for ${results.successful.length} students after school year change`);
+        })
+        .catch(err => {
+          console.error('[sectionController] Error recalculating grades:', err);
         });
     }
 

@@ -2,7 +2,10 @@
 import Subject from "../models/subjects.js";
 import Semester from "../models/semester.js";
 import Instructor from "../models/instructor.js";
+import Section from "../models/sections.js";
+import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
+import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
 export const addSubject = async (req, res) => {
   try {
@@ -210,6 +213,15 @@ export const updateSubject = async (req, res) => {
       return res.status(400).json({ message: "Subject code already exists for this semester" });
     }
 
+    // Get old subject data to check if semester changed
+    const oldSubject = await Subject.findById(id);
+    if (!oldSubject) {
+      console.log("❌ Subject not found");
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    const semesterChanged = oldSubject.semester.toString() !== semester.toString();
+
     console.log("🔄 Updating subject in database...");
     const subject = await Subject.findByIdAndUpdate(
       id,
@@ -225,9 +237,45 @@ export const updateSubject = async (req, res) => {
       { new: true, runValidators: true }
     ).populate("semester").populate("assignedInstructor", "fullName email college department");
 
-    if (!subject) {
-      console.log("❌ Subject not found after update");
-      return res.status(404).json({ message: "Subject not found" });
+    // If semester changed, update all related sections and activities
+    if (semesterChanged) {
+      console.log("📅 Semester changed! Updating related sections and activities...");
+      
+      // Update all sections for this subject
+      const sectionUpdateResult = await Section.updateMany(
+        { subject: id },
+        { 
+          $set: { 
+            schoolYear: semesterExists.schoolYear,
+            term: semesterExists.term
+          }
+        }
+      );
+      console.log(`✅ Updated ${sectionUpdateResult.modifiedCount} sections to match new semester`);
+
+      // Update all activities for this subject
+      const activityUpdateResult = await Activity.updateMany(
+        { subject: id },
+        { 
+          $set: { 
+            semester: semester,
+            schoolYear: semesterExists.schoolYear,
+            term: semesterExists.term === "1st" ? "Midterm" : semesterExists.term === "2nd" ? "Finalterm" : "Summer"
+          }
+        }
+      );
+      console.log(`✅ Updated ${activityUpdateResult.modifiedCount} activities to match new semester`);
+
+      // Recalculate grades for all affected sections
+      const affectedSections = await Section.find({ subject: id });
+      for (const section of affectedSections) {
+        try {
+          await calculateAndUpdateAllGradesInSection(section._id);
+          console.log(`✅ Recalculated grades for section ${section._id}`);
+        } catch (gradeError) {
+          console.error(`❌ Error recalculating grades for section ${section._id}:`, gradeError);
+        }
+      }
     }
 
     console.log("✅ Subject updated successfully:", subject);

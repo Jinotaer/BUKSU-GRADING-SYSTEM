@@ -3,18 +3,18 @@ import { IconX, IconCheck } from "@tabler/icons-react";
 
 export function GradingSchemaModal({ isOpen, onClose, section, onSubmit, submitting }) {
   const [gradingSchema, setGradingSchema] = useState({
-    classStanding: 40,
-    laboratory: 30,
-    majorOutput: 30,
+    classStanding: 0,
+    laboratory: 0,
+    majorOutput: 0,
   });
 
   // Initialize form with section's current grading schema
   useEffect(() => {
     if (section?.gradingSchema) {
       setGradingSchema({
-        classStanding: section.gradingSchema.classStanding || 40,
-        laboratory: section.gradingSchema.laboratory || 30,
-        majorOutput: section.gradingSchema.majorOutput || 30,
+        classStanding: section.gradingSchema.classStanding || 0,
+        laboratory: section.gradingSchema.laboratory || 0,
+        majorOutput: section.gradingSchema.majorOutput || 0,
       });
     }
   }, [section]);

@@ -416,9 +416,22 @@ export const getStudentGrades = async (req, res) => {
     if (term) sectionQuery.term = term;
     if (sectionId) sectionQuery._id = sectionId;
 
+    console.log('Student grades query:', { studentId, sectionQuery });
+
     const sections = await Section.find(sectionQuery)
       .populate("subject", "subjectCode subjectName units")
       .populate("instructor", "fullName");
+
+    console.log(`Found ${sections.length} sections for student`);
+    if (sections.length > 0) {
+      console.log('Sample section:', {
+        id: sections[0]._id,
+        name: sections[0].sectionName,
+        schoolYear: sections[0].schoolYear,
+        term: sections[0].term,
+        studentCount: sections[0].students?.length
+      });
+    }
 
     // Get grades for ALL sections (including archived)
     const sectionIds = sections.map(section => section._id);
@@ -441,6 +454,17 @@ export const getStudentGrades = async (req, res) => {
         }
       });
 
+    console.log(`Found ${grades.length} grade records`);
+    if (grades.length > 0) {
+      console.log('Sample grade:', {
+        section: grades[0].section?.sectionName,
+        midtermEquivalentGrade: grades[0].midtermEquivalentGrade,
+        finalTermEquivalentGrade: grades[0].finalTermEquivalentGrade,
+        equivalentGrade: grades[0].equivalentGrade,
+        remarks: grades[0].remarks
+      });
+    }
+
     // Combine section info with grades
     const gradesWithSections = sections.map(section => {
       const grade = grades.find(g => g.section._id.toString() === section._id.toString());
@@ -455,13 +479,54 @@ export const getStudentGrades = async (req, res) => {
           gradingSchema: section.gradingSchema
         },
         grade: grade ? {
+          // Component averages
           classStanding: grade.classStanding,
           laboratory: grade.laboratory,
           majorOutput: grade.majorOutput,
-          finalGrade: grade.finalGrade,
-          remarks: grade.remarks,
+          
+          // Term grades and equivalents
+          midtermGrade: grade.midtermGrade,
+          finalTermGrade: grade.finalTermGrade,
+          midtermEquivalentGrade: grade.midtermEquivalentGrade || "",
+          finalTermEquivalentGrade: grade.finalTermEquivalentGrade || "",
+          
+          // Term component breakdowns
+          midtermClassStanding: grade.midtermClassStanding,
+          midtermLaboratory: grade.midtermLaboratory,
+          midtermMajorOutput: grade.midtermMajorOutput,
+          finalClassStanding: grade.finalClassStanding,
+          finalLaboratory: grade.finalLaboratory,
+          finalMajorOutput: grade.finalMajorOutput,
+          
+          // Final grade
+          finalGradeNumeric: grade.finalGradeNumeric,
+          finalGrade: grade.finalGrade || grade.equivalentGrade || 0,
+          equivalentGrade: grade.equivalentGrade || "",
+          remarks: grade.remarks || "INC",
+          hasLaboratory: grade.hasLaboratory,
           updatedAt: grade.updatedAt
-        } : null
+        } : {
+          // Default values when no grade exists yet
+          classStanding: 0,
+          laboratory: 0,
+          majorOutput: 0,
+          midtermGrade: 0,
+          finalTermGrade: 0,
+          midtermEquivalentGrade: "",
+          finalTermEquivalentGrade: "",
+          midtermClassStanding: 0,
+          midtermLaboratory: 0,
+          midtermMajorOutput: 0,
+          finalClassStanding: 0,
+          finalLaboratory: 0,
+          finalMajorOutput: 0,
+          finalGradeNumeric: 0,
+          finalGrade: 0,
+          equivalentGrade: "",
+          remarks: "INC",
+          hasLaboratory: false,
+          updatedAt: null
+        }
       };
     });
 

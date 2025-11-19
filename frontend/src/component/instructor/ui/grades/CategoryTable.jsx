@@ -2,12 +2,8 @@ import React from "react";
 import { IconUsers } from "@tabler/icons-react";
 import { 
   getEquivalentGrade, 
-  getTermEquivalentGrade, 
   getFinalEquivalentGrade,
-  calculateTermGrade,
-  getGradeColorClasses,
-  formatGrade,
-  getGradeDescription
+  calculateTermGrade
 } from "../../../../utils/gradeUtils";
 
 const tones = {
@@ -51,63 +47,63 @@ export function CategoryTable({
   showGrades = false,
   gradeType = null, // 'midterm', 'finalTerm', or 'final'
   getWeight = null,
-  getTermEquivalentGrade = null,
   allActivities = null, // All activities grouped by category
 }) {
   const tone = tones[category];
-
-  // Use the imported grade conversion functions
-  const termEquivalentGrade = getTermEquivalentGrade;
 
   // Grade calculation function - implements BukSU grading algorithm
   const calculateGrade = (student) => {
     if (!showGrades || !gradeType || !getWeight) return null;
     
-    const labWeight = getWeight("laboratory") || 0;
-    const hasLab = labWeight > 0;
+    // Build grading schema from weights
+    const gradingSchema = {
+      classStanding: getWeight("classStanding") || 60,
+      laboratory: getWeight("laboratory") || 0,
+      majorOutput: getWeight("majorOutput") || 40
+    };
     
     if (gradeType === 'midterm') {
       // Calculate midterm grade as percentage using only midterm activities
       const midtermCS = calculateTermCategoryAverage(student, "classStanding", "Midterm");
-      const midtermLab = hasLab ? calculateTermCategoryAverage(student, "laboratory", "Midterm") : 0;
+      const midtermLab = calculateTermCategoryAverage(student, "laboratory", "Midterm");
       const midtermMO = calculateTermCategoryAverage(student, "majorOutput", "Midterm");
       
-      // Use the utility function for term grade calculation
+      // Use the utility function for term grade calculation with grading schema
       const midtermComponents = {
         classStanding: midtermCS,
         laboratory: midtermLab,
         majorOutput: midtermMO
       };
-      return calculateTermGrade(midtermComponents, hasLab);
+      return calculateTermGrade(midtermComponents, gradingSchema);
     } else if (gradeType === 'finalTerm') {
       // Calculate final term grade as percentage using only final term activities  
       const finalCS = calculateTermCategoryAverage(student, "classStanding", "Finalterm");
-      const finalLab = hasLab ? calculateTermCategoryAverage(student, "laboratory", "Finalterm") : 0;
+      const finalLab = calculateTermCategoryAverage(student, "laboratory", "Finalterm");
       const finalMO = calculateTermCategoryAverage(student, "majorOutput", "Finalterm");
       
-      // Use the utility function for term grade calculation
+      // Use the utility function for term grade calculation with grading schema
       const finalComponents = {
         classStanding: finalCS,
         laboratory: finalLab,
         majorOutput: finalMO
       };
-      return calculateTermGrade(finalComponents, hasLab);
+      return calculateTermGrade(finalComponents, gradingSchema);
     } else if (gradeType === 'final') {
       // Calculate final grade using the complete BukSU algorithm
       const midtermCS = calculateTermCategoryAverage(student, "classStanding", "Midterm");
-      const midtermLab = hasLab ? calculateTermCategoryAverage(student, "laboratory", "Midterm") : 0;
+      const midtermLab = calculateTermCategoryAverage(student, "laboratory", "Midterm");
       const midtermMO = calculateTermCategoryAverage(student, "majorOutput", "Midterm");
       
       const finalCS = calculateTermCategoryAverage(student, "classStanding", "Finalterm");
-      const finalLab = hasLab ? calculateTermCategoryAverage(student, "laboratory", "Finalterm") : 0;
+      const finalLab = calculateTermCategoryAverage(student, "laboratory", "Finalterm");
       const finalMO = calculateTermCategoryAverage(student, "majorOutput", "Finalterm");
       
-      // Calculate term percentages using utility function
+      // Calculate term percentages using utility function with grading schema
       const midtermComponents = { classStanding: midtermCS, laboratory: midtermLab, majorOutput: midtermMO };
       const finalComponents = { classStanding: finalCS, laboratory: finalLab, majorOutput: finalMO };
       
-      const midtermPercent = calculateTermGrade(midtermComponents, hasLab);
-      const finalTermPercent = calculateTermGrade(finalComponents, hasLab);
+      const midtermPercent = calculateTermGrade(midtermComponents, gradingSchema);
+      const finalTermPercent = calculateTermGrade(finalComponents, gradingSchema);
       
       // Convert term percentages to equivalent grades using Table 1
       const midtermEquivalent = getEquivalentGrade(midtermPercent);
@@ -224,22 +220,26 @@ export function CategoryTable({
                 </th>
               ))}
 
-              <th
-                className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
-              >
-                Avg
-              </th>
-              <th
-                className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
-              >
-                Grade
-              </th>
+              {!showGrades && (
+                <>
+                  <th
+                    className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
+                  >
+                    Avg
+                  </th>
+                  <th
+                    className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
+                  >
+                    Grade
+                  </th>
+                </>
+              )}
               {showGrades && (
                 <>
                   <th
                     className={`border border-gray-200 px-2 py-2 text-center w-20 bg-blue-100 text-xs`}
                   >
-                    {getGradeTitle()}
+                    {gradeType === 'midterm' ? 'Midterm %' : gradeType === 'finalTerm' ? 'Final Term %' : 'Final %'}
                   </th>
                   <th
                     className={`border border-gray-200 px-2 py-2 text-center w-16 bg-blue-100 text-xs`}
@@ -285,16 +285,20 @@ export function CategoryTable({
                     );
                   })}
 
-                  <td
-                    className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
-                  >
-                    {avg ? `${avg.toFixed(1)}%` : "0%"}
-                  </td>
-                  <td
-                    className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
-                  >
-                    {category === 'laboratory' && weight === 0 ? '0.00' : eq}
-                  </td>
+                  {!showGrades && (
+                    <>
+                      <td
+                        className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
+                      >
+                        {avg ? `${avg.toFixed(1)}%` : "0%"}
+                      </td>
+                      <td
+                        className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
+                      >
+                        {category === 'laboratory' && weight === 0 ? '0.00' : eq}
+                      </td>
+                    </>
+                  )}
                   {showGrades && (() => {
                     const grade = calculateGrade(student);
                     const isFinalGrade = gradeType === 'final';
@@ -303,56 +307,38 @@ export function CategoryTable({
                     
                     if (isFinalGrade && grade?.isFinal) {
                       // For final grade, use the complete BukSU algorithm
-                      const { 
-                        midtermPercent, 
-                        finalTermPercent, 
-                        midtermEquivalent,
-                        finalEquivalent,
-                        finalGradeNumeric,
-                        equivalentGrade,
-                        remarks: calculatedRemarks 
-                      } = grade;
-                      
-                      // Use the already calculated values from the grade object
-                      gradePercent = finalGradeNumeric; // Show the weighted numeric average
-                      gradeEquiv = equivalentGrade; // Final grade from Table 3
-                      
-                      // Remarks from the calculation
+                      gradePercent = grade.finalGradeNumeric; // Numeric average
+                      gradeEquiv = grade.equivalentGrade; // Final grade from Table 3
                       const gradeValue = parseFloat(gradeEquiv);
                       isPassing = gradeValue <= 3.00;
-                      remarks = calculatedRemarks || (isPassing ? 'PASSED' : 'FAILED');
+                      remarks = grade.remarks || (isPassing ? 'PASSED' : 'FAILED');
                     } else {
-                      // For term grades, convert percentage to equivalent using Table 1
+                      // For term grades (midterm/finalTerm), show percentage
                       gradePercent = grade || 0;
-                      gradeEquiv = getEquivalentGrade(gradePercent); // Use Table 1 (new scale)
-                      isPassing = gradePercent >= 71; // 71% is 3.00 in new scale (passing)
-                      remarks = '-';
+                      gradeEquiv = getEquivalentGrade(gradePercent); // Use Table 1
+                      const gradeValue = parseFloat(gradeEquiv);
+                      isPassing = gradeValue <= 3.00; // 3.00 and below is passing
+                      remarks = isPassing ? 'PASSED' : 'FAILED';
                     }
                     
                     return (
                       <>
                         <td className="border border-gray-200 px-1 py-4 text-center font-semibold text-xs bg-blue-50">
-                          {isFinalGrade && grade?.isFinal 
-                            ? gradePercent.toFixed(2)
-                            : `${gradePercent.toFixed(1)}%`}
+                          {isFinalGrade ? gradePercent.toFixed(2) : `${gradePercent.toFixed(2)}%`}
                         </td>
                         <td className="border border-gray-200 px-1 py-4 text-center font-semibold text-xs bg-blue-50">
-                          <span className={isFinalGrade ? (isPassing ? 'text-green-600' : 'text-red-600') : 'text-gray-700'}>
+                          <span className={isPassing ? 'text-green-600' : 'text-red-600'}>
                             {gradeEquiv}
                           </span>
                         </td>
                         <td className="border border-gray-200 px-1 py-4 text-center text-xs bg-blue-50">
-                          {isFinalGrade ? (
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              isPassing
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {remarks}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            isPassing
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {remarks}
+                          </span>
                         </td>
                       </>
                     );
@@ -384,13 +370,17 @@ export function CategoryTable({
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-xs text-gray-500">Average</div>
-                      <div className="text-sm sm:text-base font-bold text-gray-900">
-                        {avg ? `${avg.toFixed(1)}%` : "0%"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Grade: {category === 'laboratory' && weight === 0 ? '0.00' : eq}
-                      </div>
+                      {!showGrades && (
+                        <>
+                          <div className="text-xs text-gray-500">Average</div>
+                          <div className="text-sm sm:text-base font-bold text-gray-900">
+                            {avg ? `${avg.toFixed(1)}%` : "0%"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Grade: {category === 'laboratory' && weight === 0 ? '0.00' : eq}
+                          </div>
+                        </>
+                      )}
                       {showGrades && (() => {
                         const grade = calculateGrade(student);
                         const isFinalGrade = gradeType === 'final';
@@ -398,54 +388,36 @@ export function CategoryTable({
                         let gradePercent, gradeEquiv, isPassing, remarks;
                         
                         if (isFinalGrade && grade?.isFinal) {
-                          // For final grade, use the complete algorithm
-                          const { midtermPercent, finalTermPercent } = grade;
-                          
-                          // Convert term percentages to equivalent grades (Table 1)
-                          const midtermEquiv = getEquivalent(midtermPercent);
-                          const finalEquiv = getEquivalent(finalTermPercent);
-                          
-                          // Calculate weighted average of equivalents
-                          const midtermNumeric = parseFloat(midtermEquiv) || 5.00;
-                          const finalNumeric = parseFloat(finalEquiv) || 5.00;
-                          const finalGradeNumeric = (midtermNumeric * 0.40) + (finalNumeric * 0.60);
-                          
-                          // Convert to final grade using Table 2
-                          gradeEquiv = termEquivalentGrade(finalGradeNumeric);
-                          gradePercent = finalGradeNumeric;
-                          
-                          // Remarks based on grade value
+                          // For final grade, use the already calculated values
+                          gradePercent = grade.finalGradeNumeric;
+                          gradeEquiv = grade.equivalentGrade; // Final grade from Table 3
                           const gradeValue = parseFloat(gradeEquiv);
                           isPassing = gradeValue <= 3.00;
-                          remarks = isPassing ? 'PASSED' : 'FAILED';
+                          remarks = grade.remarks || (isPassing ? 'PASSED' : 'FAILED');
                         } else {
-                          // For term grades, just convert percentage to equivalent
+                          // For term grades (midterm/finalTerm), show percentage
                           gradePercent = grade || 0;
-                          gradeEquiv = getEquivalent(gradePercent);
-                          isPassing = gradePercent >= 75;
-                          remarks = '-';
+                          gradeEquiv = getEquivalentGrade(gradePercent); // Use Table 1
+                          const gradeValue = parseFloat(gradeEquiv);
+                          isPassing = gradeValue <= 3.00; // 3.00 and below is passing
+                          remarks = isPassing ? 'PASSED' : 'FAILED';
                         }
                         
                         return (
                           <div className="mt-2 p-2 bg-blue-50 rounded border">
                             <div className="text-xs text-blue-600 font-medium">{getGradeTitle()}</div>
                             <div className="text-sm font-bold text-blue-900">
-                              {isFinalGrade && grade?.isFinal 
-                                ? gradePercent.toFixed(2)
-                                : `${gradePercent.toFixed(1)}%`}
+                              {isFinalGrade ? gradePercent.toFixed(2) : `${gradePercent.toFixed(2)}%`}
                             </div>
-                            <div className="text-xs">
-                              <span className={isFinalGrade ? (isPassing ? 'text-green-600' : 'text-red-600') : 'text-gray-700'}>
+                            <div className="text-xs mt-1">
+                              <span className="text-gray-600">Equiv: </span>
+                              <span className={isPassing ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
                                 {gradeEquiv}
                               </span>
-                              {isFinalGrade && (
-                                <>
-                                  <span className="mx-1">•</span>
-                                  <span className={isPassing ? 'text-green-600' : 'text-red-600'}>
-                                    {remarks}
-                                  </span>
-                                </>
-                              )}
+                              <span className="mx-1">•</span>
+                              <span className={isPassing ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                                {remarks}
+                              </span>
                             </div>
                           </div>
                         );

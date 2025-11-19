@@ -10,9 +10,9 @@ const sectionSchema = new mongoose.Schema({
   term: { type: String, required: true, enum: ["1st", "2nd"] },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }], // optional
   gradingSchema: {
-    classStanding: { type: Number, default: 40 }, // percentages
-    laboratory: { type: Number, default: 30 },
-    majorOutput: { type: Number, default: 30 },
+    classStanding: { type: Number, default: 0 }, // percentages
+    laboratory: { type: Number, default: 0 },
+    majorOutput: { type: Number, default: 0 },
   },
   schedule: {
     day: { type: String, default: '' },
