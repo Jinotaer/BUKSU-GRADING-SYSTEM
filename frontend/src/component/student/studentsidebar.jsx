@@ -11,10 +11,12 @@ import {
   IconBook,
   IconAlertTriangle,
   IconArchive,
+  IconEyeOff,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import buksuLogo from "../../assets/logo1.png";
+import AIButton from "./AIButton";
 
 const menuData = [
   {
@@ -43,8 +45,14 @@ const menuData = [
   },
   {
     link: "/student/archive",
-    label: "Archived Management",
+    label: "Archived Subjects",
     icon: IconArchive,
+    type: "single",
+  },
+  {
+    link: "/student/hidden",
+    label: "Hidden Subjects",
+    icon: IconEyeOff,
     type: "single",
   },
 ];
@@ -285,7 +293,7 @@ export function NavbarSimple() {
             {/* Close button for overlay */}
             {opened ? (
               <button
-                className="absolute top-4 right-4 p-2 rounded-md hover:bg-white/20 transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer"
                 onClick={() => setOpened(false)}
                 aria-label="Close sidebar"
               >
@@ -345,13 +353,13 @@ export function NavbarSimple() {
                 </p>
                 <div className="flex gap-3">
                   <button
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
                     onClick={() => setShowLogoutModal(false)}
                   >
                     Cancel
                   </button>
                   <button
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
                     onClick={handleLogout}
                   >
                     Confirm
@@ -375,7 +383,7 @@ export function NavbarSimple() {
                   {notification.message}
                 </p>
                 <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                   onClick={() =>
                     setNotification({ show: false, message: "", type: "" })
                   }
@@ -395,6 +403,9 @@ export function NavbarSimple() {
           onClick={() => setOpened(false)}
         />
       )}
+
+      {/* Floating AI button available on all student pages */}
+      <AIButton />
     </>
   );
 }

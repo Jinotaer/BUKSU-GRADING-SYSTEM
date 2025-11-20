@@ -91,7 +91,7 @@ export function SchoolYearCombo({
           aria-label="Toggle suggestions"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setOpen((o) => !o)}
-          className="px-3 border border-l-0 border-gray-300 rounded-r-lg hover:bg-gray-50"
+          className="px-3 border border-l-0 border-gray-300 rounded-r-lg hover:bg-gray-50 cursor-pointer"
         >
           <IconChevronDown size={18} className="text-gray-600" />
         </button>
@@ -109,7 +109,7 @@ export function SchoolYearCombo({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => commit(opt)}
-                  className={`block w-full text-left px-3 py-2 hover:bg-blue-50 ${
+                  className={`block w-full text-left px-3 py-2 hover:bg-blue-50 cursor-pointer ${
                     idx === active ? "bg-blue-50" : ""
                   }`}
                 >

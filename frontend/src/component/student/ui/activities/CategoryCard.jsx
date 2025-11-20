@@ -28,15 +28,15 @@ export function CategoryCard({ name, weightLabel, percent, rows = [] }) {
   };
   
   return (
-    <section className={`rounded-2xl border-2 ${colors.border} bg-white shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl`}>
-      {/* Gradient Header */}
-      <div className={`bg-gradient-to-r ${colors.gradient} px-6 py-5`}>
+    <section className={`rounded-2xl border-2 ${colors.border} bg-white`}>
+      {/* Header */}
+      <div className={`${colors.badge} rounded-t-2xl px-6 py-5`}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-1">{name}</h3>
-            <p className="text-sm text-white/90">{weightLabel}</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">{name}</h3>
+            <p className="text-sm text-gray-600 w/90">{weightLabel}</p>
           </div>
-          <PercentBadge value={percent} color={colors.badge} />
+          <PercentBadge value={percent} color={colors.iconColor} />
         </div>
       </div>
 

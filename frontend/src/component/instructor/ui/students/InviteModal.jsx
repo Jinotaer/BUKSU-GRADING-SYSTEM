@@ -24,7 +24,7 @@ export function InviteModal({
         <div className="flex items-start sm:items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex-1 min-w-0 pr-2">
             <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 truncate">
-              Invite Students
+              Add Students
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 mt-1 truncate">
               {selectedSection?.sectionName || selectedSection?.section_name} ·{" "}
@@ -37,7 +37,7 @@ export function InviteModal({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1"
+            className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-1 cursor-pointer"
           >
             <IconX className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
@@ -108,26 +108,26 @@ export function InviteModal({
           )}
 
           <div className="bg-green-50 p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm text-green-700">
-            📧 Selected students will receive email invitations with section
-            details and login instructions.
+            📧 Selected students will be added and will receive an email with
+            section details and login instructions.
           </div>
 
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2 sm:pt-3 border-t border-gray-200">
             <button
               onClick={onClose}
-              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs sm:text-sm"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs sm:text-sm cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={onInvite}
               disabled={selectedStudents.length === 0 || submitting}
-              className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm"
+              className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm cursor-pointer disabled:cursor-not-allowed"
             >
               {submitting
-                ? "Inviting…"
-                : `Invite ${selectedStudents.length} student${
+                ? "Adding…"
+                : `Add ${selectedStudents.length} student${
                     selectedStudents.length !== 1 ? "s" : ""
                   }`}
             </button>

@@ -56,7 +56,7 @@ const menuData = [
     ],
   },
   {
-    label: "Schedule Management",
+    label: "Schedule & Semesters",
     icon: IconCalendar,
     type: "dropdown",
     children: [ 
@@ -67,7 +67,7 @@ const menuData = [
       },
       {
         link: "/instructor/schedule",
-        label: "Set Schedule",
+        label: "Activity Schedule",
         icon: IconCalendarWeek,
       },
     ],

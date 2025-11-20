@@ -47,6 +47,13 @@ export default {
         '.text-shadow-lg': {
           textShadow: '0 6px 18px rgba(0,0,0,0.35)',
         },
+        '.scrollbar-hide': {
+          '-ms-overflow-style': 'none',
+          'scrollbar-width': 'none',
+          '&::-webkit-scrollbar': {
+            display: 'none',
+          },
+        },
       })
     }
   ],

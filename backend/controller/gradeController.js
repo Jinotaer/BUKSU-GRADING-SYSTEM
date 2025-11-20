@@ -37,10 +37,10 @@ export const addOrUpdateGrade = async (req, res) => {
         (majorOutput * (moWeight / 100))
       );
       
-      // Determine remarks based on final grade (50% passing rate)
-      if (grade.finalGrade >= 50) {
+      // Determine remarks based on final grade (75% passing rate - BukSU standard)
+      if (grade.finalGrade >= 75) {
         grade.remarks = "Passed";
-      } else if (grade.finalGrade < 50) {
+      } else if (grade.finalGrade < 75) {
         grade.remarks = "Failed";
       }
       

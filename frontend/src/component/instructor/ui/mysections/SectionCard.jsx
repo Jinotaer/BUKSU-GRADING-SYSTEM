@@ -55,7 +55,7 @@ export function SectionCard({ section, onClick, onArchive }) {
           </div>
           <button
             onClick={(e) => onArchive(section, e)}
-            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
             title="Archive Section"
           >
             <IconArchive size={18} />

@@ -1,5 +1,4 @@
 import React from "react";
-import { IconPlus } from "@tabler/icons-react";
 
 export function PageHeader({ onCreateClick }) {
   return (
@@ -9,16 +8,10 @@ export function PageHeader({ onCreateClick }) {
           Schedule Management
         </h1>
         <p className="text-gray-600 mt-2">
-          Create and manage your Activity schedules
+          View and edit your activity schedules. Create schedules by creating activities.
         </p>
       </div>
-      <button
-        onClick={onCreateClick}
-        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <IconPlus className="w-5 h-5" />
-        Create Schedule
-      </button>
+      {/* Create button removed - schedules are now created automatically when creating activities */}
     </div>
   );
 }

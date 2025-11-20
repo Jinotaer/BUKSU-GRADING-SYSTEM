@@ -41,7 +41,7 @@ export const ArchiveFilters = ({
             onYearChange(e.target.value);
             onPageReset();
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
         >
           {academicYears.map((year) => (
             <option key={year.value} value={year.value}>
@@ -57,7 +57,7 @@ export const ArchiveFilters = ({
             onSemesterChange(e.target.value);
             onPageReset();
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
         >
           {semesters.map((sem) => (
             <option key={sem.value} value={sem.value}>

@@ -3,6 +3,11 @@ import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
+import { 
+  getEquivalentGrade, 
+  calculateCategoryAverage,
+  calculateStudentFinalSummary,
+} from "../../utils/gradeUtils";
 import {
   PageHeader,
   MobileHeader,
@@ -38,8 +43,14 @@ export default function GradeManagement() {
     laboratory: [],
     majorOutput: [],
   });
+  const [allActivitiesUnfiltered, setAllActivitiesUnfiltered] = useState({
+    classStanding: [],
+    laboratory: [],
+    majorOutput: [],
+  });
   const [loading, setLoading] = useState(true);
   const [filterTerm, setFilterTerm] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
   const [activeTab, setActiveTab] = useState("classStanding");
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
@@ -59,6 +70,17 @@ export default function GradeManagement() {
     while (a.length < len) a.push(0);
     return a;
   };
+
+  // Helper to determine if section has laboratory component
+  const hasLaboratory = useCallback(() => {
+    if (!selectedSection) return false;
+    const schema = selectedSection.gradingSchema;
+    if (schema && typeof schema === 'object') {
+      return Boolean(schema.laboratory && Number(schema.laboratory) > 0);
+    }
+    // Fallback to legacy hasLab property
+    return Boolean(selectedSection.hasLab);
+  }, [selectedSection]);
 
   const fetchInstructorSections = useCallback(async () => {
     try {
@@ -87,7 +109,7 @@ export default function GradeManagement() {
     }
   }, [showErrorRef]);
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (termFilter = null) => {
     if (!selectedSection?._id) return null;
     try {
       const res = await authenticatedFetch(
@@ -95,16 +117,33 @@ export default function GradeManagement() {
       );
       if (!res.ok) return null;
       const data = await res.json();
+      const allActivities = data.activities || [];
+      
+      // Store unfiltered activities organized by category (for grade calculations)
+      const unfilteredOrganized = {
+        classStanding:
+          allActivities.filter((a) => a.category === "classStanding") || [],
+        laboratory:
+          allActivities.filter((a) => a.category === "laboratory") || [],
+        majorOutput:
+          allActivities.filter((a) => a.category === "majorOutput") || [],
+      };
+      
+      // Filter by term if specified (for display tabs)
+      const filteredByTerm = termFilter 
+        ? allActivities.filter((a) => a.term === termFilter)
+        : allActivities;
+      
       const organized = {
         classStanding:
-          data.activities?.filter((a) => a.category === "classStanding") || [],
+          filteredByTerm.filter((a) => a.category === "classStanding") || [],
         laboratory:
-          data.activities?.filter((a) => a.category === "laboratory") || [],
+          filteredByTerm.filter((a) => a.category === "laboratory") || [],
         majorOutput:
-          data.activities?.filter((a) => a.category === "majorOutput") || [],
+          filteredByTerm.filter((a) => a.category === "majorOutput") || [],
       };
-      setActivities(organized);
-      return organized;
+      
+      return { organized, unfilteredOrganized };
     } catch (err) {
       console.error("Error fetching activities:", err);
       return null;
@@ -112,7 +151,7 @@ export default function GradeManagement() {
   }, [selectedSection?._id]);
 
   const fetchStudentsAndGrades = useCallback(
-    async (currentActivities) => {
+    async (currentActivities, unfilteredActivities) => {
       if (!selectedSection?._id) return;
 
       try {
@@ -200,21 +239,47 @@ export default function GradeManagement() {
           })
         );
 
-        // 4) attach activityScores per student
+        // 4) attach activityScores per student and compute final summaries
         const studentsWithScores = roster.map((student) => {
           const activityScores = allActivities.map((a) => {
             const rows = activityRowsMap.get(String(a._id)) || [];
             const hit = rows.find((row) => row.studentId === student._id);
             return {
               activity_id: a._id,
-              score: Number(hit?.score || 0),
-              maxScore: Number(hit?.maxScore || a.maxScore || 100),
+              // If there's no hit (no score row), treat it as blank (null)
+              score: hit ? (hit.score === null || hit.score === undefined || hit.score === "" ? null : Number(hit.score)) : null,
+              maxScore: Number(hit?.maxScore ?? a.maxScore ?? 100),
             };
           });
           return { ...student, activityScores };
         });
 
-        setStudents(studentsWithScores);
+        // Attach computed grade summaries using centralized utils.
+        const studentsWithSummaries = studentsWithScores.map((stu) => {
+          // helper to read a student's score for an activity (returns null for blank)
+          const getScoreForActivity = (studentObj, activity) => {
+            const hit = (studentObj.activityScores || []).find(
+              (r) => String(r.activity_id) === String(activity._id)
+            );
+            if (!hit || hit.score === null || hit.score === undefined || hit.score === "") return null;
+            return Number(hit.score);
+          };
+
+          // grading schema or legacy hasLab flag
+          const gradingSchemaOrHasLab = selectedSection?.gradingSchema ?? selectedSection?.hasLab ?? false;
+
+          // Compute final summary (includes midterm/final percents and final equivalent)
+          const summary = calculateStudentFinalSummary(
+            stu,
+            unfilteredActivities,
+            gradingSchemaOrHasLab,
+            getScoreForActivity
+          );
+
+          return { ...stu, grade: { ...(stu.grade || {}), ...summary } };
+        });
+
+        setStudents(studentsWithSummaries);
 
         // 5) prepare export shells (unchanged)
         const initial = {};
@@ -249,7 +314,7 @@ export default function GradeManagement() {
         setLoading(false);
       }
     },
-    [selectedSection?._id, showErrorRef]
+    [selectedSection, showErrorRef]
   );
 
   /* ---------- effects ---------- */
@@ -261,17 +326,32 @@ export default function GradeManagement() {
     const loadSectionData = async () => {
       if (!selectedSection?._id) return;
       
-      // First fetch activities
-      const fetchedActivities = await fetchActivities();
-      
-      // Then fetch students and grades with the fetched activities
-      if (fetchedActivities) {
-        await fetchStudentsAndGrades(fetchedActivities);
+      try {
+        setLoading(true);
+        
+        // Fetch activities with current term filter
+        const result = await fetchActivities(selectedTerm);
+        
+        if (result) {
+          const { organized, unfilteredOrganized } = result;
+          
+          // Update state
+          setActivities(organized);
+          setAllActivitiesUnfiltered(unfilteredOrganized);
+          
+          // Fetch students and grades with the fetched activities
+          await fetchStudentsAndGrades(organized, unfilteredOrganized);
+        }
+      } catch (error) {
+        console.error('Error loading section data:', error);
+        showErrorRef.current('Failed to load section data');
+      } finally {
+        setLoading(false);
       }
     };
     
     loadSectionData();
-  }, [selectedSection?._id, fetchActivities, fetchStudentsAndGrades]);
+  }, [selectedSection?._id, selectedTerm, fetchActivities, fetchStudentsAndGrades, showErrorRef]);
 
   useEffect(() => {
     if (!students.length) return;
@@ -298,28 +378,98 @@ export default function GradeManagement() {
     activities.majorOutput.length,
   ]);
 
-  // refresh every 30s
+  // Effect to handle tab switching when laboratory becomes unavailable
+  useEffect(() => {
+    if (selectedSection && activeTab === "laboratory" && !hasLaboratory()) {
+      // Switch to classStanding tab if laboratory tab is no longer available
+      setActiveTab("classStanding");
+    }
+  }, [selectedSection, activeTab, hasLaboratory]);
+
+  // refresh every 5 minutes
   const refreshRef = useRef(null);
+  const selectedSectionIdRef = useRef(selectedSection?._id);
+  const selectedTermRef = useRef(selectedTerm);
+  const fetchStudentsAndGradesRef = useRef(fetchStudentsAndGrades);
+  
+  useEffect(() => {
+    selectedSectionIdRef.current = selectedSection?._id;
+  }, [selectedSection?._id]);
+  
+  useEffect(() => {
+    selectedTermRef.current = selectedTerm;
+  }, [selectedTerm]);
+  
+  useEffect(() => {
+    fetchStudentsAndGradesRef.current = fetchStudentsAndGrades;
+  }, [fetchStudentsAndGrades]);
+  
   useEffect(() => {
     if (refreshRef.current) {
       clearInterval(refreshRef.current);
       refreshRef.current = null;
     }
+    
     if (selectedSection?._id) {
       refreshRef.current = setInterval(async () => {
-        const current = await fetchActivities();
-        if (current) await fetchStudentsAndGrades(current);
-      }, 30000);
+        if (!selectedSectionIdRef.current) return;
+        
+        try {
+          const res = await authenticatedFetch(
+            `http://localhost:5000/api/instructor/sections/${selectedSectionIdRef.current}/activities`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          const allActivities = data.activities || [];
+          
+          const unfilteredOrganized = {
+            classStanding: allActivities.filter((a) => a.category === "classStanding") || [],
+            laboratory: allActivities.filter((a) => a.category === "laboratory") || [],
+            majorOutput: allActivities.filter((a) => a.category === "majorOutput") || [],
+          };
+          
+          const filteredByTerm = selectedTermRef.current 
+            ? allActivities.filter((a) => a.term === selectedTermRef.current)
+            : allActivities;
+          
+          const organized = {
+            classStanding: filteredByTerm.filter((a) => a.category === "classStanding") || [],
+            laboratory: filteredByTerm.filter((a) => a.category === "laboratory") || [],
+            majorOutput: filteredByTerm.filter((a) => a.category === "majorOutput") || [],
+          };
+          
+          setAllActivitiesUnfiltered(unfilteredOrganized);
+          setActivities(organized);
+          
+          // Refresh students with latest activities
+          await fetchStudentsAndGradesRef.current(organized, unfilteredOrganized);
+        } catch (error) {
+          console.error('Auto-refresh error:', error);
+        }
+      }, 300000);
     }
-    return () => refreshRef.current && clearInterval(refreshRef.current);
-  }, [selectedSection?._id, fetchActivities, fetchStudentsAndGrades]);
+    
+    return () => {
+      if (refreshRef.current) {
+        clearInterval(refreshRef.current);
+        refreshRef.current = null;
+      }
+    };
+  }, [selectedSection?._id]); // Only depend on section ID change
 
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
       await fetchInstructorSections();
-      const current = await fetchActivities();
-      if (current) await fetchStudentsAndGrades(current);
+      
+      const result = await fetchActivities(selectedTerm);
+      if (result) {
+        const { organized, unfilteredOrganized } = result;
+        setActivities(organized);
+        setAllActivitiesUnfiltered(unfilteredOrganized);
+        await fetchStudentsAndGrades(organized, unfilteredOrganized);
+      }
+      
       showSuccessRef.current("Data refreshed successfully!");
     } catch {
       showErrorRef.current("Failed to refresh data");
@@ -330,8 +480,9 @@ export default function GradeManagement() {
     fetchInstructorSections,
     fetchActivities,
     fetchStudentsAndGrades,
-    showErrorRef,
+    selectedTerm,
     showSuccessRef,
+    showErrorRef
   ]);
 
   const openScheduleModal = () => {
@@ -427,6 +578,7 @@ export default function GradeManagement() {
             dean: scheduleForm.dean,
             parentFolderId: PARENT_FOLDER_ID,
             sheetName: getSheetName(selectedSection),
+            term: selectedTerm || undefined, // Include term filter if selected
           }),
         }
       );
@@ -435,7 +587,7 @@ export default function GradeManagement() {
         const error = await res.json();
         throw new Error(error.message || "Failed to export to Google Sheets");
       }
-
+      
       const data = await res.json();
 
       showSuccessRef.current("Successfully exported to Google Sheets!");
@@ -454,19 +606,106 @@ export default function GradeManagement() {
     }
   };
 
-  /* ---------- rendering helpers ---------- */
-  const eqFromPercent = (avg) => {
-    if (avg >= 97) return 1.0;
-    if (avg >= 94) return 1.25;
-    if (avg >= 91) return 1.5;
-    if (avg >= 88) return 1.75;
-    if (avg >= 85) return 2.0;
-    if (avg >= 82) return 2.25;
-    if (avg >= 79) return 2.5;
-    if (avg >= 76) return 2.75;
-    if (avg >= 50) return 3.0;
-    return 5.0;
+  const exportFinalGradeToGoogleSheets = async () => {
+    if (!selectedSection) return;
+
+    // Parent Drive folder where per-section folders will be created
+    const PARENT_FOLDER_ID = "1kzlYesJutCqHSMa3WEf8sq7CrUoMixXi";
+
+    const getSheetName = (section) => {
+      if (!section) return `FinalGrade_${Date.now()}`;
+
+      const extract = (val, keys = []) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val.trim();
+        if (typeof val === 'number') return String(val);
+        if (typeof val === 'object') {
+          for (const k of keys) {
+            if (val[k]) return String(val[k]);
+          }
+        }
+        return '';
+      };
+
+      const subjectCode =
+        extract(section.subject, ['code', 'subjectCode', 'subjectName', 'name']) ||
+        extract(section, ['subjectCode', 'subject']) ||
+        '';
+      const sectionCode =
+        extract(section, ['sectionCode', 'code', 'sectionName', 'section']) ||
+        extract(section, ['code', 'section']) ||
+        '';
+      const term =
+        extract(section.semester, ['term', 'name']) || extract(section, ['term', 'semester']) || '';
+
+      const parts = [subjectCode, sectionCode, 'FinalGrade', term].map((p) => p && String(p).replace(/\s+/g, '')).filter(Boolean);
+      return parts.length ? parts.join('_') : `FinalGrade_${section._id}`;
+    };
+
+    // Use default schedule values for final grade export
+    const defaultSchedule = {
+      day: selectedSection.schedule?.day || 'TBA',
+      time: selectedSection.schedule?.time || 'TBA', 
+      room: selectedSection.schedule?.room || 'TBA'
+    };
+    const defaultChairperson = selectedSection.chairperson || 'TBA';
+    const defaultDean = selectedSection.dean || 'TBA';
+
+    try {
+      console.log('[gradeManagement] final grade export payload preview:', {
+        schedule: defaultSchedule,
+        chairperson: defaultChairperson,
+        dean: defaultDean,
+        parentFolderId: PARENT_FOLDER_ID,
+        sheetName: getSheetName(selectedSection),
+        term: 'Final Grade'
+      });
+      
+      setLoading(true);
+      showSuccessRef.current("Exporting Final Grade to Google Sheets...");
+
+      const res = await authenticatedFetch(
+        `http://localhost:5000/api/export/final-grade/${selectedSection._id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            schedule: defaultSchedule,
+            chairperson: defaultChairperson,
+            dean: defaultDean,
+            parentFolderId: PARENT_FOLDER_ID,
+            sheetName: getSheetName(selectedSection),
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to export final grade to Google Sheets");
+      }
+
+      const data = await res.json();
+
+      showSuccessRef.current("Final Grade successfully exported to Google Sheets!");
+
+      // Open the spreadsheet in a new tab
+      if (data.spreadsheetUrl) {
+        window.open(data.spreadsheetUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Final grade export error:", error);
+      showErrorRef.current(
+        error.message || "Failed to export final grade to Google Sheets"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  /* ---------- rendering helpers ---------- */
+  // Use shared grade utility functions from utils/gradeUtils.js (imported at top)
 
   const getWeight = (cat) => {
     const gs = selectedSection?.gradingSchema || {};
@@ -477,24 +716,12 @@ export default function GradeManagement() {
       : gs.majorOutput ?? 0;
   };
 
-  const percentFor = (student, activity) => {
-    const hit =
-      student.activityScores?.find(
-        (s) => String(s.activity_id) === String(activity._id)
-      ) ||
-      student.grades?.find(
-        (g) => String(g.activity_id) === String(activity._id)
-      );
-    const score = Number(hit?.score ?? 0);
-    const max = Number(hit?.maxScore ?? activity?.maxScore ?? 100);
-    return max > 0 ? (score / max) * 100 : 0;
-  };
-
   const categoryAverage = (student, cat) => {
     const acts = activities?.[cat] ?? [];
     if (!acts.length) return 0;
-    const vals = acts.map((a) => percentFor(student, a));
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
+
+    // Delegate calculation to shared utility. It expects (activities, student, getActivityScore)
+    return calculateCategoryAverage(acts, student, getActivityScore);
   };
 
   const filteredStudents = students.filter(
@@ -511,7 +738,11 @@ export default function GradeManagement() {
       student.grades?.find(
         (g) => String(g.activity_id) === String(activity._id)
       );
-    return Number(hit?.score ?? 0);
+    // Only display a number if score is not blank (null, undefined, empty string)
+    if (hit?.score === null || hit?.score === undefined || hit?.score === "") {
+      return "";
+    }
+    return Number(hit.score);
   };
 
   /* ---------- early load ---------- */
@@ -544,6 +775,7 @@ export default function GradeManagement() {
                 <PageHeader
                   onRefresh={refreshData}
                   onExport={openScheduleModal}
+                  onExportFinalGrade={exportFinalGradeToGoogleSheets}
                   loading={loading}
                   disabled={!selectedSection || !students.length}
                 />
@@ -564,6 +796,8 @@ export default function GradeManagement() {
                   }}
                   filterTerm={filterTerm}
                   onFilterChange={setFilterTerm}
+                  selectedTerm={selectedTerm}
+                  onTermChange={setSelectedTerm}
                 />
 
                 {selectedSection && (
@@ -572,7 +806,12 @@ export default function GradeManagement() {
 
                 {selectedSection && (
                   <>
-                    <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+                    <TabNavigation 
+                      activeTab={activeTab} 
+                      onTabChange={setActiveTab} 
+                      selectedTerm={selectedTerm}
+                      hasLaboratory={hasLaboratory()}
+                    />
 
                     {loading ? (
                       <LoadingSpinner />
@@ -586,11 +825,11 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("classStanding")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
                           />
                         )}
-                        {activeTab === "laboratory" && (
+                        {activeTab === "laboratory" && hasLaboratory() && (
                           <CategoryTable
                             category="laboratory"
                             title="Laboratory Activity"
@@ -598,7 +837,7 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("laboratory")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
                           />
                         )}
@@ -610,8 +849,58 @@ export default function GradeManagement() {
                             students={filteredStudents}
                             weight={getWeight("majorOutput")}
                             getCategoryAverage={categoryAverage}
-                            getEquivalent={eqFromPercent}
+                            getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
+                          />
+                        )}
+                        {activeTab === "midtermGrade" && (
+                          <CategoryTable
+                            category="classStanding"
+                            title="Midterm Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="midterm"
+                            getWeight={getWeight}
+                            allActivities={allActivitiesUnfiltered}
+                          />
+                        )}
+                        {activeTab === "finalTermGrade" && (
+                          <CategoryTable
+                            category="laboratory"
+                            title="Final Term Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="finalTerm"
+                            getWeight={getWeight}
+                            allActivities={allActivitiesUnfiltered}
+                          />
+                        )}
+                        {activeTab === "finalGrade" && (
+                          <CategoryTable
+                            category="majorOutput"
+                            title="Final Grade Summary"
+                            activities={[]}
+                            students={filteredStudents}
+                            weight={100}
+                            getCategoryAverage={categoryAverage}
+                            getEquivalent={getEquivalentGrade}
+                            getActivityScore={getActivityScore}
+                            showGrades={true}
+                            gradeType="final"
+                            getWeight={getWeight}
+                            allActivities={allActivitiesUnfiltered}
+                            onExportFinalGrade={exportFinalGradeToGoogleSheets}
+                            selectedTerm={selectedTerm}
                           />
                         )}
                       </>

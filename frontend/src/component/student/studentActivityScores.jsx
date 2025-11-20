@@ -14,17 +14,38 @@ import {
 export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", onBack, categories = [] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedPeriod, setSelectedPeriod] = useState("all");
+
+  // Define grading periods
+  const gradingPeriods = [
+    { value: "all", label: "All Terms" },
+    { value: "midterm", label: "Midterm" },
+    { value: "finalterm", label: "Finalterm" },
+  ];
+
+  // Filter categories based on selected grading period
+  const filteredCategories = React.useMemo(() => {
+    if (selectedPeriod === "all") return categories;
+    
+    return categories.map(category => ({
+      ...category,
+      rows: category.rows.filter(row => {
+        // Filter by the term field from the activity
+        return row.term?.toLowerCase() === selectedPeriod.toLowerCase();
+      })
+    })).filter(category => category.rows.length > 0); // Only show categories with activities
+  }, [categories, selectedPeriod]);
 
   // Flatten all rows from all categories for pagination
   const allRows = React.useMemo(() => {
-    return categories.flatMap(category => 
+    return filteredCategories.flatMap(category => 
       category.rows.map(row => ({
         ...row,
         categoryName: category.name,
         categoryWeight: category.weightLabel
       }))
     );
-  }, [categories]);
+  }, [filteredCategories]);
 
   
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -55,8 +76,16 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     return Object.values(categoryMap);
   }, [paginatedRows, categories]);
 
+  const totalPages = Math.ceil(allRows.length / itemsPerPage);
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+    <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       
       <div className="flex-1 ml-0 max-[880px]:ml-0 min-[881px]:ml-65">
@@ -68,9 +97,44 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
               subtitle={subtitle}
             />
 
-            <SummaryCardsGrid categories={categories} />
+            {/* Grading Period Filter */}
+            <div className="mb-6 flex items-center p-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700">
+                  Filter by Term:
+                </label>
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => {
+                    setSelectedPeriod(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+                >
+                  {gradingPeriods.map((period) => (
+                    <option key={period.value} value={period.value}>
+                      {period.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <SummaryCardsGrid categories={filteredCategories} />
 
             <CategoryCardsList categories={paginatedCategories} />
+
+            {allRows.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={allRows.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                rowsPerPageOptions={[10, 20, 30, 50]}
+              />
+            )}
 
           </div>
         </div>
@@ -109,9 +173,9 @@ export default function StudentActivityScores() {
 
     // Get grading schema weights
     const gradingSchema = section?.gradingSchema || {};
-    categoryMap.classStanding.weight = gradingSchema.classStanding || 30;
-    categoryMap.laboratory.weight = gradingSchema.laboratory || 30;
-    categoryMap.majorOutput.weight = gradingSchema.majorOutput || 40;
+    categoryMap.classStanding.weight = gradingSchema.classStanding;
+    categoryMap.laboratory.weight = gradingSchema.laboratory ;
+    categoryMap.majorOutput.weight = gradingSchema.majorOutput;
 
     const currentStudentId = getCurrentStudentId();
     console.log('Current student ID:', currentStudentId);
@@ -147,7 +211,8 @@ export default function StudentActivityScores() {
           item: activity.title,
           score: `${score}/${maxScore}`,
           percentage: `${percentage.toFixed(1)}%`,
-          date: new Date(activity.createdAt).toLocaleDateString()
+          date: new Date(activity.createdAt).toLocaleDateString(),
+          term: activity.term // Add term to the row data
         };
       });
 

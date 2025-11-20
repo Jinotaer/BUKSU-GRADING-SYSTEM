@@ -7,7 +7,7 @@ export const SubjectGrid = ({
   sections,
   loading,
   onSubjectClick,
-  onArchiveClick,
+  onHideClick,
   onRefresh,
 }) => {
   if (filteredClasses.length === 0 && !loading) {
@@ -26,7 +26,7 @@ export const SubjectGrid = ({
           key={section._id}
           section={section}
           onSubjectClick={onSubjectClick}
-          onArchiveClick={onArchiveClick}
+          onHideClick={onHideClick}
         />
       ))}
     </div>

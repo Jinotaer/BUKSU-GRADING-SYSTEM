@@ -319,6 +319,304 @@ export const moveFileToFolder = async (drive, spreadsheetId, targetFolderId) => 
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/* RESTORED HELPERS                                                           */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Delete a range of columns (COLUMNS dimension) on a sheet.
+ * startIndex and endIndexExclusive use zero-based indexes and follow Sheets API semantics.
+ * Example: to remove columns A+B, call deleteColumnsRange(sheets, ssId, sheetId, 0, 2)
+ */
+export const deleteColumnsRange = async (sheets, spreadsheetId, sheetId, startIndex, endIndexExclusive) => {
+  try {
+    if (startIndex == null || endIndexExclusive == null || endIndexExclusive <= startIndex) {
+      return { ok: false, message: 'Invalid start/end indexes' };
+    }
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: 'COLUMNS',
+                startIndex,
+                endIndex: endIndexExclusive
+              }
+            }
+          }
+        ]
+      }
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('[googleSheetsService] deleteColumnsRange error:', err);
+    return { ok: false, message: err?.response?.data?.error?.message || err?.message || 'Failed deleting columns' };
+  }
+};
+
+/*
+ * Convenience wrapper to remove the first `numColumns` columns (left-most).
+ * Example: removeLeadingColumns(sheets, ssId, sheetId, 2) removes columns A and B.
+ */
+export const removeLeadingColumns = async (sheets, spreadsheetId, sheetId, numColumns = 1) => {
+  if (!Number.isInteger(numColumns) || numColumns <= 0) {
+    return { ok: false, message: 'numColumns must be a positive integer' };
+  }
+  return await deleteColumnsRange(sheets, spreadsheetId, sheetId, 0, numColumns);
+};
+
+/*
+ * Check the left-most column (A) for data across the first `checkRows` rows.
+ * If all cells are blank, remove the left-most column (index 0).
+ */
+export const removeLeftmostColumnIfBlank = async (sheets, spreadsheetId, sheetId, checkRows = 40) => {
+  try {
+    // 1) Resolve sheet title from sheetId
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets(properties(sheetId,title))',
+    });
+    const sheetsList = meta?.data?.sheets || [];
+    const target = sheetsList.find((s) => s?.properties?.sheetId === sheetId);
+    if (!target) return { ok: false, message: 'Sheet not found by sheetId' };
+    const title = target.properties.title || 'Sheet1';
+
+    // 2) Read first column values up to checkRows
+    const range = `${title}!A1:A${Math.max(1, Math.floor(checkRows))}`;
+    const valuesResp = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      majorDimension: 'COLUMNS',
+    });
+    const col = valuesResp?.data?.values?.[0] || [];
+
+    // 3) If any non-empty cell exists, don't delete
+    const hasData = col.some((v) => v != null && String(v).trim() !== '');
+    if (hasData) return { ok: true, message: 'Left column contains data; not removed' };
+
+    // 4) Delete the left-most column (A)
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: 'COLUMNS',
+                startIndex: 0,
+                endIndex: 1,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return { ok: true, deleted: true, message: 'Left-most column removed' };
+  } catch (err) {
+    console.error('[googleSheetsService] removeLeftmostColumnIfBlank error:', err);
+    return { ok: false, message: err?.response?.data?.error?.message || err?.message || 'Failed checking/removing left column' };
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* KEEP existing robust helper that removes any leading empty columns         */
+/* -------------------------------------------------------------------------- */
+
+export const removeLeadingEmptyColumns = async (sheets, spreadsheetId, sheetId, checkRows = 40) => {
+  try {
+    // 1) Resolve sheet title from sheetId
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets(properties(sheetId,title))',
+    });
+    const sheetsList = meta?.data?.sheets || [];
+    const target = sheetsList.find((s) => s?.properties?.sheetId === sheetId);
+    if (!target) return { ok: false, message: 'Sheet not found by sheetId' };
+    const title = target.properties.title || 'Sheet1';
+
+    // 2) Read a wide range of top rows to detect first non-empty column
+    const range = `${title}!A1:ZZ${Math.max(1, Math.floor(checkRows))}`;
+    const resp = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      majorDimension: 'ROWS',
+    });
+    const rows = resp?.data?.values || [];
+    if (!rows.length) return { ok: true, deleted: false, message: 'No data found in top rows' };
+
+    // Determine number of columns present in returned rows
+    const maxCols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    if (maxCols === 0) {
+      // Nothing present in range; delete entire A..ZZ? but safer: delete first column only
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ deleteDimension: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 } } }],
+        },
+      });
+      return { ok: true, deleted: true, message: 'Deleted one leading column (no data detected)' };
+    }
+
+    // 3) Find first column index with any non-empty value in the sampled rows
+    let firstNonEmptyCol = -1;
+    for (let c = 0; c < maxCols; c++) {
+      for (let r = 0; r < rows.length; r++) {
+        const cell = (rows[r] && rows[r][c]) ?? '';
+        if (cell != null && String(cell).trim() !== '') {
+          firstNonEmptyCol = c;
+          break;
+        }
+      }
+      if (firstNonEmptyCol !== -1) break;
+    }
+
+    // If first non-empty column is at index 0, nothing to remove
+    if (firstNonEmptyCol <= 0) {
+      return { ok: true, deleted: false, message: 'No leading empty columns to remove' };
+    }
+
+    // 4) Delete all columns before firstNonEmptyCol
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: 'COLUMNS',
+                startIndex: 0,
+                endIndex: firstNonEmptyCol,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return { ok: true, deleted: true, removedCount: firstNonEmptyCol, message: `Removed ${firstNonEmptyCol} leading empty column(s)` };
+  } catch (err) {
+    console.error('[googleSheetsService] removeLeadingEmptyColumns error:', err);
+    return { ok: false, message: err?.response?.data?.error?.message || err?.message || 'Failed checking/removing leading columns' };
+  }
+};
+
+export const formatClassRecordLayout = async (sheets, spreadsheetId, sheetId, options = {}) => {
+  const {
+    // remove first N left-most columns to eliminate extra blank area (A, B, ...)
+    // default 0 to avoid removing column A automatically; controller will call
+    // removeLeadingColumnIfBlank when appropriate.
+    removeLeadingColumns = 0,
+    // column widths in pixels for columns starting at A (indexes 0,1,2,...).
+    // Adjust array to match number of columns you want to size. Any missing columns will remain unchanged.
+    columnWidths = [40, 120, 320, 60, 60, 60, 60, 60, 60, 80, 80, 80],
+    // freeze top N rows (header/title area)
+    freezeRows = 8,
+    // optional merges to apply. Each merge is { startRowIndex, endRowIndex, startColumnIndex, endColumnIndex }
+    // indexes are zero-based and end indexes are exclusive (Sheets API semantics).
+    merges = [
+      // example: merge title row across many columns (adjust as needed)
+      { startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 12 },
+      // example: merge main "CLASS RECORD" header
+      { startRowIndex: 3, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 12 }
+    ],
+  } = options;
+
+  try {
+    const requests = [];
+
+    // 1) Optionally delete leading columns (A..)
+    if (Number.isInteger(removeLeadingColumns) && removeLeadingColumns > 0) {
+      requests.push({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'COLUMNS',
+            startIndex: 0,
+            endIndex: removeLeadingColumns
+          }
+        }
+      });
+      // After deleting columns, subsequent columnIndex based requests should still work (they reference current sheet state)
+    }
+
+    // 2) Set column widths
+    for (let i = 0; i < columnWidths.length; i++) {
+      const width = columnWidths[i];
+      if (!Number.isFinite(width) || width <= 0) continue;
+      requests.push({
+        updateDimensionProperties: {
+          range: {
+            sheetId,
+            dimension: 'COLUMNS',
+            startIndex: i,
+            endIndex: i + 1
+          },
+          properties: {
+            pixelSize: Math.round(width)
+          },
+          fields: 'pixelSize'
+        }
+      });
+    }
+
+    // 3) Freeze header rows
+    if (Number.isInteger(freezeRows) && freezeRows >= 0) {
+      requests.push({
+        updateSheetProperties: {
+          properties: {
+            sheetId,
+            gridProperties: { frozenRowCount: freezeRows }
+          },
+          fields: 'gridProperties.frozenRowCount'
+        }
+      });
+    }
+
+    // 4) Apply merges
+    if (Array.isArray(merges) && merges.length) {
+      for (const m of merges) {
+        if (
+          m == null ||
+          m.startRowIndex == null ||
+          m.endRowIndex == null ||
+          m.startColumnIndex == null ||
+          m.endColumnIndex == null
+        ) continue;
+        requests.push({
+          mergeCells: {
+            range: {
+              sheetId,
+              startRowIndex: m.startRowIndex,
+              endRowIndex: m.endRowIndex,
+              startColumnIndex: m.startColumnIndex,
+              endColumnIndex: m.endColumnIndex
+            },
+            mergeType: 'MERGE_ALL'
+          }
+        });
+      }
+    }
+
+    if (!requests.length) return { ok: true, message: 'No layout changes requested' };
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests }
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error('[googleSheetsService] formatClassRecordLayout error:', err);
+    return { ok: false, message: err?.response?.data?.error?.message || err?.message || 'Failed applying layout' };
+  }
+};
+
 export const createDriveFolder = async (drive, folderName, parentFolderId) => {
   if (!folderName) return { ok: false, message: 'Folder name required' };
   try {
@@ -434,44 +732,7 @@ export const trySetPublicAccess = async (drive, spreadsheetId) => {
   }
 };
 
-export const insertLogo = async (sheets, spreadsheetId, sheetId, logoUrl) => {
-  try {
-    if (!logoUrl) return { ok: false, message: 'No logo URL provided' };
-    
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          {
-            updateCells: {
-              rows: [
-                {
-                  values: [
-                    {
-                      userEnteredValue: {
-                        formulaValue: `=IMAGE("${logoUrl}", 1)`,
-                      },
-                    },
-                  ],
-                },
-              ],
-              fields: 'userEnteredValue',
-              range: {
-                sheetId,
-                startRowIndex: 0,
-                endRowIndex: 1,
-                startColumnIndex: 0,
-                endColumnIndex: 1,
-              },
-            },
-          },
-        ],
-      },
-    });
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, message: err?.message || 'Failed to insert logo' };
-  }
-};
 
+// Export only the constants here (functions are exported where declared)
 export { EXPORT_HUB_SPREADSHEET_ID, GOOGLE_DRIVE_FOLDER_ID };
+

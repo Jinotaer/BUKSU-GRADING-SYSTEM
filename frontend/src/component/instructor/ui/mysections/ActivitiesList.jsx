@@ -55,7 +55,7 @@ export function ActivitiesList({
             <button
               key={tab.key}
               onClick={() => onFilterChange(tab.key)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors cursor-pointer ${
                 activityFilter === tab.key
                   ? "bg-white shadow text-gray-900"
                   : "text-gray-600 hover:text-gray-900"
@@ -67,7 +67,7 @@ export function ActivitiesList({
         </div>
         <button
           onClick={onAddActivity}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 cursor-pointer"
         >
           <IconPlus size={16} />
           Add Activity
@@ -167,7 +167,7 @@ export function ActivitiesList({
           </p>
           <button
             onClick={onAddActivity}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 mx-auto"
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 mx-auto cursor-pointer"
           >
             <IconPlus size={16} />
             Create First Activity
@@ -178,7 +178,7 @@ export function ActivitiesList({
       <div className="flex gap-3 pt-4 border-t border-gray-200">
         <button
           onClick={() => {}}
-          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Close
         </button>

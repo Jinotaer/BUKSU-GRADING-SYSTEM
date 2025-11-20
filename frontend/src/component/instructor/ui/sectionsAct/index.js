@@ -4,3 +4,4 @@ export { CategoryTabs } from "./CategoryTabs";
 export { ActivityCard } from "./ActivityCard";
 export { ActivityList } from "./ActivityList";
 export { ActivityFormModal } from "./ActivityFormModal";
+export { GradingSchemaModal } from "./GradingSchemaModal";

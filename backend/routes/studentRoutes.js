@@ -9,8 +9,9 @@ import {
   getStudentGrades,
   getAvailableSubjects,
   searchStudents,
-  archiveStudentSection,
-  unarchiveStudentSection
+  hideStudentSection,
+  unhideStudentSection,
+  getHiddenSections
 } from "../controller/studentController.js";
 import { 
   instructorAuth,
@@ -18,6 +19,7 @@ import {
   studentAuth,
   auth
 } from "../middleware/auth.js";
+import { universalAuditLogger } from "../middleware/universalAuditLogger.js";
 
 const router = express.Router();
 
@@ -26,21 +28,21 @@ const router = express.Router();
  * @desc    Register a new student
  * @access  Public
  */
-router.post("/register", registerStudent);
+router.post("/register", universalAuditLogger('STUDENT_REGISTERED', 'STUDENT_ACTIVITY'), registerStudent);
 
 /**
  * @route   GET /api/student/profile
  * @desc    Get current student's profile
  * @access  Private (Student only)
  */
-router.get("/profile", studentAuth, getStudentProfile);
+router.get("/profile", studentAuth, universalAuditLogger('PROFILE_VIEWED', 'PROFILE_MANAGEMENT'), getStudentProfile);
 
 /**
  * @route   PUT /api/student/profile
  * @desc    Update current student's profile
  * @access  Private (Student only)
  */
-router.put("/profile", studentAuth, updateStudentProfile);
+router.put("/profile", studentAuth, universalAuditLogger('PROFILE_UPDATED', 'PROFILE_MANAGEMENT'), updateStudentProfile);
 
 /**
  * @route   GET /api/student/all
@@ -61,14 +63,14 @@ router.put("/:id/status", adminAuth, updateStudentStatus);
  * @desc    Get student's enrolled sections
  * @access  Private (Student only)
  */
-router.get("/sections", studentAuth, getStudentSections);
+router.get("/sections", studentAuth, universalAuditLogger('STUDENT_SUBJECT_ACCESSED', 'STUDENT_ACTIVITY'), getStudentSections);
 
 /**
  * @route   GET /api/student/grades
  * @desc    Get student's grades
  * @access  Private (Student only)
  */
-router.get("/grades", studentAuth, getStudentGrades);
+router.get("/grades", studentAuth, universalAuditLogger('STUDENT_GRADE_VIEWED', 'STUDENT_ACTIVITY'), getStudentGrades);
 
 /**
  * @route   GET /api/student/subjects/available
@@ -85,17 +87,24 @@ router.get("/subjects/available", studentAuth, getAvailableSubjects);
 router.get("/search", auth, searchStudents);
 
 /**
- * @route   PUT /api/student/sections/:id/archive
- * @desc    Archive a section (student perspective)
+ * @route   GET /api/student/sections/hidden
+ * @desc    Get student's hidden sections
  * @access  Private (Student only)
  */
-router.put("/sections/:id/archive", studentAuth, archiveStudentSection);
+router.get("/sections/hidden", studentAuth, getHiddenSections);
 
 /**
- * @route   PUT /api/student/sections/:id/unarchive
- * @desc    Unarchive a section (student perspective)
+ * @route   PUT /api/student/sections/:id/hide
+ * @desc    Hide a section (student perspective)
  * @access  Private (Student only)
  */
-router.put("/sections/:id/unarchive", studentAuth, unarchiveStudentSection);
+router.put("/sections/:id/hide", studentAuth, hideStudentSection);
+
+/**
+ * @route   PUT /api/student/sections/:id/unhide
+ * @desc    Unhide a section (student perspective)
+ * @access  Private (Student only)
+ */
+router.put("/sections/:id/unhide", studentAuth, unhideStudentSection);
 
 export default router;

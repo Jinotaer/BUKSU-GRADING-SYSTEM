@@ -147,7 +147,7 @@ export function InviteStudentsModal({
           className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <IconUsers size={16} />
-          Invite {selectedStudents.length} Student
+          Add {selectedStudents.length} Student
           {selectedStudents.length !== 1 ? "s" : ""}
         </button>
       </div>

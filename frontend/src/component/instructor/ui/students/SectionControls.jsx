@@ -17,7 +17,7 @@ export function SectionControls({
           Section
         </label>
         <select
-          className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm p-2 sm:p-2.5 border truncate focus:outline-none"
+          className="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm p-2 sm:p-2.5 border truncate focus:outline-none cursor-pointer disabled:cursor-not-allowed"
           value={selectedSection?._id || ""}
           onChange={(e) => {
             const sec = sections.find((s) => s._id === e.target.value);
@@ -41,7 +41,7 @@ export function SectionControls({
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm bg-white hover:bg-gray-50 border-gray-300 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial"
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm bg-white hover:bg-gray-50 border-gray-300 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial cursor-pointer disabled:cursor-not-allowed"
         >
           <IconRefresh
             className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loading ? "animate-spin" : ""}`}
@@ -51,7 +51,7 @@ export function SectionControls({
         <button
           onClick={onAddStudents}
           disabled={!selectedSection}
-          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial"
+          className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap flex-1 sm:flex-initial cursor-pointer disabled:cursor-not-allowed"
         >
           <IconUserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           <span>Add Students</span>

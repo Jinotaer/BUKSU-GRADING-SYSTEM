@@ -34,7 +34,7 @@ export function Filters({
         <select
           value={selectedYear}
           onChange={(e) => onYearChange(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
         >
           {academicYears.map((year) => (
             <option key={year.value} value={year.value}>
@@ -47,7 +47,7 @@ export function Filters({
         <select
           value={selectedSemester}
           onChange={(e) => onSemesterChange(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
         >
           {semesters.map((sem) => (
             <option key={sem.value} value={sem.value}>

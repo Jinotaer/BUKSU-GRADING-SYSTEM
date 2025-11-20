@@ -1,7 +1,7 @@
 import React from "react";
-import { IconArchive } from "@tabler/icons-react";
+import { IconEyeOff } from "@tabler/icons-react";
 
-export const SubjectCard = ({ section, onSubjectClick, onArchiveClick }) => {
+export const SubjectCard = ({ section, onSubjectClick, onHideClick }) => {
   return (
     <div
       className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
@@ -47,11 +47,11 @@ export const SubjectCard = ({ section, onSubjectClick, onArchiveClick }) => {
             {section.subject.college}
           </span>
           <button
-            onClick={(e) => onArchiveClick(section, e)}
-            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-            title="Archive Subject"
+            onClick={(e) => onHideClick(section, e)}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            title="Hide Subject"
           >
-            <IconArchive className="w-5 h-5" />
+            <IconEyeOff className="w-5 h-5" />
           </button>
         </div>
       </div>

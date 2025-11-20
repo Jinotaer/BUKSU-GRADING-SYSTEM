@@ -14,6 +14,20 @@ export function SectionForm({
   onCancel,
   submitting, // <-- Add this line
 }) {
+  // Debug current form state when editing
+  React.useEffect(() => {
+    if (isEdit) {
+      console.log('🔧 SectionForm Edit Mode:', {
+        semesterId: formData.semesterId,
+        subjectId: formData.subjectId,
+        availableSemesters: semesters?.length || 0,
+        filteredSubjects: filteredSubjects?.length || 0,
+        selectedSemester: semesters?.find(s => s._id === formData.semesterId),
+        selectedSubject: filteredSubjects?.find(s => s._id === formData.subjectId)
+      });
+    }
+  }, [isEdit, formData.semesterId, formData.subjectId, semesters, filteredSubjects]);
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
@@ -24,16 +38,25 @@ export function SectionForm({
           name="semesterId"
           value={formData.semesterId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
         >
           <option value="">Select Semester</option>
-          {semesters.map((semester) => (
-            <option key={semester._id} value={semester._id}>
-              {semester.schoolYear} - {semester.term} Semester
-            </option>
-          ))}
+          {semesters && semesters.length > 0 ? (
+            semesters.map((semester) => (
+              <option key={semester._id} value={semester._id}>
+                {semester.schoolYear} - {semester.term} Semester
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>No semesters available</option>
+          )}
         </select>
+        {(!semesters || semesters.length === 0) && (
+          <p className="text-xs text-red-500 mt-1">
+            No semesters found. Please add semesters first.
+          </p>
+        )}
       </div>
 
       <div>
@@ -44,23 +67,33 @@ export function SectionForm({
           name="subjectId"
           value={formData.subjectId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
           disabled={!formData.semesterId}
         >
           <option value="">Select Subject</option>
-          {filteredSubjects.map((subject) => (
-            <option key={subject._id} value={subject._id}>
-              {subject.subjectCode} - {subject.subjectName} ({subject.units}{" "}
-              units)
-            </option>
-          ))}
+          {formData.semesterId && filteredSubjects && filteredSubjects.length > 0 ? (
+            filteredSubjects.map((subject) => (
+              <option key={subject._id} value={subject._id}>
+                {subject.subjectCode} - {subject.subjectName} ({subject.units}{" "}
+                units)
+              </option>
+            ))
+          ) : formData.semesterId ? (
+            <option value="" disabled>No subjects available for this semester</option>
+          ) : (
+            <option value="" disabled>Select a semester first</option>
+          )}
         </select>
-        {!formData.semesterId && (
+        {!formData.semesterId ? (
           <p className="text-xs text-gray-500 mt-1">
             Please select a semester first
           </p>
-        )}
+        ) : formData.semesterId && (!filteredSubjects || filteredSubjects.length === 0) ? (
+          <p className="text-xs text-orange-600 mt-1">
+            No subjects found for the selected semester. Please add subjects for this semester first.
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -71,7 +104,7 @@ export function SectionForm({
           name="instructorId"
           value={formData.instructorId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
           required
         >
           <option value="">Select Instructor</option>

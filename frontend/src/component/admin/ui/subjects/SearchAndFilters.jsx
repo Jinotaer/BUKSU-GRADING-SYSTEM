@@ -32,7 +32,7 @@ export function SearchAndFilters({
         <select
           value={filterSemester}
           onChange={(e) => onFilterSemesterChange(e.target.value)}
-          className="px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base order-2 transition-shadow hover:border-gray-400 bg-white"
+          className="px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base order-2 transition-shadow hover:border-gray-400 bg-white cursor-pointer"
         >
           <option value="">All Semesters</option>
           {semesters.map((semester) => (
@@ -45,7 +45,7 @@ export function SearchAndFilters({
         <select
           value={filterCollege}
           onChange={(e) => onFilterCollegeChange(e.target.value)}
-          className="px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base order-3 sm:col-span-2 lg:col-span-1 transition-shadow hover:border-gray-400 bg-white"
+          className="px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base order-3 sm:col-span-2 lg:col-span-1 transition-shadow hover:border-gray-400 bg-white cursor-pointer"
         >
           <option value="">All Colleges</option>
           {collegeOptions.map((college) => (

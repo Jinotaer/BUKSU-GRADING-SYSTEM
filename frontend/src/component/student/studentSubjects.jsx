@@ -7,7 +7,7 @@ import {
   SubjectHeader,
   SubjectFilters,
   SubjectGrid,
-  ArchiveModal,
+  HideModal,
   LoadingState,
   ErrorState,
 } from './ui/subjects';
@@ -32,10 +32,10 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Archive modal state
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [sectionToArchive, setSectionToArchive] = useState(null);
-  const [archiving, setArchiving] = useState(false);
+  // Hide modal state
+  const [showHideModal, setShowHideModal] = useState(false);
+  const [sectionToHide, setSectionToHide] = useState(null);
+  const [hiding, setHiding] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState({
@@ -134,19 +134,19 @@ const StudentDashboard = () => {
     });
   };
 
-  const handleArchiveClick = (section, e) => {
-    e.stopPropagation(); // Prevent card click
-    setSectionToArchive(section);
-    setShowArchiveModal(true);
+  const handleHideClick = (section, e) => {
+    e.stopPropagation();
+    setSectionToHide(section);
+    setShowHideModal(true);
   };
 
-  const confirmArchive = async () => {
-    if (!sectionToArchive) return;
+  const confirmHide = async () => {
+    if (!sectionToHide) return;
 
     try {
-      setArchiving(true);
+      setHiding(true);
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/student/sections/${sectionToArchive._id}/archive`,
+        `http://localhost:5000/api/student/sections/${sectionToHide._id}/hide`,
         { method: 'PUT' }
       );
 
@@ -154,29 +154,28 @@ const StudentDashboard = () => {
         setNotification({
           show: true,
           type: 'success',
-          message: 'Subject archived successfully!'
+          message: 'Subject hidden successfully!'
         });
-        setShowArchiveModal(false);
-        setSectionToArchive(null);
-        // Refresh the sections list
+        setShowHideModal(false);
+        setSectionToHide(null);
         await fetchStudentSections();
       } else {
         const errorData = await res.json();
         setNotification({
           show: true,
           type: 'error',
-          message: errorData.message || 'Failed to archive subject'
+          message: errorData.message || 'Failed to hide subject'
         });
       }
     } catch (error) {
-      console.error('Error archiving subject:', error);
+      console.error('Error hiding subject:', error);
       setNotification({
         show: true,
         type: 'error',
-        message: 'Error archiving subject'
+        message: 'Error hiding subject'
       });
     } finally {
-      setArchiving(false);
+      setHiding(false);
     }
   };
 
@@ -220,16 +219,16 @@ const StudentDashboard = () => {
         sections={sections}
         loading={loading}
         onSubjectClick={handleSubjectClick}
-        onArchiveClick={handleArchiveClick}
+        onHideClick={handleHideClick}
         onRefresh={fetchStudentSections}
       />
 
-      <ArchiveModal
-        isOpen={showArchiveModal}
-        section={sectionToArchive}
-        archiving={archiving}
-        onConfirm={confirmArchive}
-        onClose={() => setShowArchiveModal(false)}
+      <HideModal
+        isOpen={showHideModal}
+        section={sectionToHide}
+        hiding={hiding}
+        onConfirm={confirmHide}
+        onClose={() => setShowHideModal(false)}
       />
 
       <NotificationModal

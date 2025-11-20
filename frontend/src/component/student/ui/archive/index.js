@@ -5,5 +5,4 @@ export { ArchiveGrid } from "./ArchiveGrid";
 export { ArchivedSectionCard } from "./ArchivedSectionCard";
 export { EmptyArchiveState } from "./EmptyArchiveState";
 export { ArchivePagination } from "./ArchivePagination";
-export { UnarchiveModal } from "./UnarchiveModal";
 export { ErrorMessage } from "./ErrorMessage";

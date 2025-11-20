@@ -47,13 +47,16 @@ export function SectionDetails({ section, studentCount }) {
             </span>
             <div className="flex flex-wrap gap-1 sm:gap-2 text-xs sm:text-sm text-gray-700">
               <span className="px-2 py-1 bg-white rounded border">
-                CS: {section.gradingSchema?.classStanding}%
+                CS: {section.gradingSchema?.classStanding || 0}%
               </span>
+              {/* Only show laboratory if it has a weight > 0 */}
+              {section.gradingSchema?.laboratory && Number(section.gradingSchema.laboratory) > 0 ? (
+                <span className="px-2 py-1 bg-white rounded border">
+                  Lab: {section.gradingSchema.laboratory}%
+                </span>
+              ) : null}
               <span className="px-2 py-1 bg-white rounded border">
-                Lab: {section.gradingSchema?.laboratory}%
-              </span>
-              <span className="px-2 py-1 bg-white rounded border">
-                MO: {section.gradingSchema?.majorOutput}%
+                MO: {section.gradingSchema?.majorOutput || 0}%
               </span>
             </div>
           </div>

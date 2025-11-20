@@ -38,6 +38,11 @@ const scheduleSchema = new mongoose.Schema({
     ref: 'Instructor',
     required: true
   },
+  activity: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Activity',
+    default: null
+  },
   googleEventId: {
     type: String,
     default: null

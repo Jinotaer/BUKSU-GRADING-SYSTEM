@@ -5,13 +5,40 @@ const gradeSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
   section: { type: mongoose.Schema.Types.ObjectId, ref: "Section", required: true },
   
-  // Scores for grading components
+  // Term grades (Midterm 40%, Final Term 60%)
+  midtermGrade: { type: Number, default: 0 },
+  finalTermGrade: { type: Number, default: 0 },
+  
+  // Term equivalent grades (from Table 1)
+  midtermEquivalentGrade: { type: String, default: "" },
+  finalTermEquivalentGrade: { type: String, default: "" },
+  
+  // Midterm component averages
+  midtermClassStanding: { type: Number, default: 0 },
+  midtermLaboratory: { type: Number, default: 0 },
+  midtermMajorOutput: { type: Number, default: 0 },
+  
+  // Final term component averages
+  finalClassStanding: { type: Number, default: 0 },
+  finalLaboratory: { type: Number, default: 0 },
+  finalMajorOutput: { type: Number, default: 0 },
+  
+  // Overall component averages (for compatibility)
   classStanding: { type: Number, default: 0 },
   laboratory: { type: Number, default: 0 },
   majorOutput: { type: Number, default: 0 },
 
   // Final computed grade
   finalGrade: { type: Number, default: 0 },
+  
+  // Final grade numeric (weighted average of term equivalents)
+  finalGradeNumeric: { type: Number, default: 0 },
+  
+  // Equivalent grade (from Table 3)
+  equivalentGrade: { type: String, default: "" },
+  
+  // Subject characteristics
+  hasLaboratory: { type: Boolean, default: false },
 
   // Remarks based on grading rules
   remarks: { 

@@ -28,7 +28,7 @@ export function FilterSection({
           <select
             value={selectedYear}
             onChange={(e) => onYearChange(e.target.value)}
-            className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+            className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer"
           >
             {academicYears.map((year) => (
               <option key={year.value} value={year.value}>
@@ -43,7 +43,7 @@ export function FilterSection({
           <select
             value={selectedSemester}
             onChange={(e) => onSemesterChange(e.target.value)}
-            className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+            className="min-w-[150px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer"
           >
             {semesters.map((semester) => (
               <option key={semester.value} value={semester.value}>

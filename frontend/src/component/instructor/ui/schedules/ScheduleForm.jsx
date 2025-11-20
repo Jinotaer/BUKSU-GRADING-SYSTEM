@@ -23,7 +23,7 @@ export function ScheduleForm({
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-500 hover:text-gray-700 cursor-pointer"
             >
               <IconX className="w-6 h-6" />
             </button>
@@ -54,7 +54,7 @@ export function ScheduleForm({
                   value={formData.sectionId}
                   onChange={onChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">Select Section</option>
                   {sections.map((section) => (
@@ -74,7 +74,7 @@ export function ScheduleForm({
                   value={formData.subjectId}
                   onChange={onChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">Select Subject</option>
                   {subjects.map((subject) => (
@@ -95,7 +95,7 @@ export function ScheduleForm({
                 value={formData.eventType}
                 onChange={onChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               >
                 <option value="quiz">Quiz</option>
                 <option value="laboratory">Laboratory</option>

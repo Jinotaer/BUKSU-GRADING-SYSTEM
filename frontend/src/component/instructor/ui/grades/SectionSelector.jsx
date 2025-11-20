@@ -7,6 +7,8 @@ export function SectionSelector({
   onSectionChange,
   filterTerm,
   onFilterChange,
+  selectedTerm,
+  onTermChange,
 }) {
   const handleSectionChange = (e) => {
     const sectionId = e.target.value;
@@ -25,17 +27,35 @@ export function SectionSelector({
           <select
             value={selectedSection?._id || ""}
             onChange={handleSectionChange}
-            className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none bg-white cursor-pointer"
           >
             <option value="">Select a section</option>
             {sections.map((s) => (
               <option key={s._id} value={s._id}>
-                {s.subject?.subjectCode} - {s.sectionName} ({s.schoolYear}{" "}
+                {s.subject?.subjectCode} - {s.subject?.subjectName} - {s.sectionName} ({s.schoolYear}{" "}
                 {s.term} Semester)
               </option>
             ))}
           </select>
         </div>
+
+        {/* Term Filter - Only show when section is selected */}
+        {selectedSection && (
+          <div className="w-full">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+              Filter by Term
+            </label>
+            <select
+              value={selectedTerm || ""}
+              onChange={(e) => onTermChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none bg-white cursor-pointer"
+            >
+              <option value="">All Terms</option>
+              <option value="Midterm">Mid Term</option>
+              <option value="Finalterm">Final Term</option>
+            </select>
+          </div>
+        )}
 
         {/* Search Students - Only show when section is selected */}
         {selectedSection && (

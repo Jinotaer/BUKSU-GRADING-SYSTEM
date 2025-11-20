@@ -30,7 +30,7 @@ export function ActivityCard({ activity, onEdit, onDelete, onClick }) {
         {/* Make the left block clickable to open scores */}
         <button
           onClick={() => onClick(activity)}
-          className="flex-1 text-left"
+          className="flex-1 text-left cursor-pointer"
           title="Open scores"
         >
           <h3 className="font-semibold text-gray-900 underline-offset-2 hover:underline">
@@ -44,6 +44,11 @@ export function ActivityCard({ activity, onEdit, onDelete, onClick }) {
             >
               {getCategoryLabel(activity.category)}
             </span>
+            {activity.term && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                {activity.term}
+              </span>
+            )}
             <span className="text-xs text-gray-500">
               Max: {activity.maxScore}
             </span>
@@ -67,7 +72,7 @@ export function ActivityCard({ activity, onEdit, onDelete, onClick }) {
               e.stopPropagation();
               onEdit(activity);
             }}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 cursor-pointer"
           >
             <IconPencil size={14} /> Edit
           </button>
@@ -76,7 +81,7 @@ export function ActivityCard({ activity, onEdit, onDelete, onClick }) {
               e.stopPropagation();
               onDelete(activity._id);
             }}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-700 cursor-pointer"
           >
             <IconTrash size={14} /> Delete
           </button>

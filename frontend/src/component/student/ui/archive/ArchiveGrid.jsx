@@ -11,7 +11,6 @@ export const ArchiveGrid = ({
   currentPage,
   totalPages,
   onViewDetails,
-  onUnarchiveClick,
   onClearFilters,
   onPageChange,
   formatDate,
@@ -26,7 +25,6 @@ export const ArchiveGrid = ({
                 key={section._id}
                 section={section}
                 onViewDetails={onViewDetails}
-                onUnarchiveClick={onUnarchiveClick}
                 formatDate={formatDate}
               />
             ))}

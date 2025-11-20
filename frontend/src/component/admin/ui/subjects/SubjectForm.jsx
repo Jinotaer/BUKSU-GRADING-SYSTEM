@@ -23,6 +23,8 @@ export function SubjectForm({
       setDepartmentOptions([]);
     }
   }, [formData.college]);
+
+
   return (
     <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -83,7 +85,7 @@ export function SubjectForm({
           name="college"
           value={formData.college}
           onChange={onChange}
-          className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white"
+          className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white cursor-pointer"
           required
         >
           <option value="">Select College</option>
@@ -104,7 +106,7 @@ export function SubjectForm({
             name="department"
             value={formData.department}
             onChange={onChange}
-            className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white"
+            className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white cursor-pointer"
             required
           >
             <option value="">Select Department</option>
@@ -141,30 +143,39 @@ export function SubjectForm({
           name="semester"
           value={formData.semester}
           onChange={onChange}
-          className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white"
+          className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400 bg-white cursor-pointer"
           required
         >
           <option value="">Select Semester</option>
-          {semesters.map((semester) => (
-            <option key={semester._id} value={semester._id}>
-              {semester.schoolYear} - {semester.term} Semester
-            </option>
-          ))}
+          {semesters && semesters.length > 0 ? (
+            semesters.map((semester) => (
+              <option key={semester._id} value={semester._id}>
+                {semester.schoolYear} - {semester.term} Semester
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>No semesters available</option>
+          )}
         </select>
+        {(!semesters || semesters.length === 0) && (
+          <p className="text-xs text-red-500 mt-1">
+            No semesters found. Please add semesters in Semester Management first.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 mt-4 sm:mt-5">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm sm:text-base font-medium touch-manipulation"
+          className="flex-1 px-4 py-2 sm:py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm sm:text-base font-medium touch-manipulation cursor-pointer"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 bg-blue-600 text-white px-4 py-2 sm:py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm hover:shadow-md touch-manipulation"
+          className="flex-1 bg-blue-600 text-white px-4 py-2 sm:py-2.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base font-medium shadow-sm hover:shadow-md touch-manipulation cursor-pointer"
         >
           {submitting ? (
             <>

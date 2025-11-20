@@ -38,7 +38,7 @@ export const ErrorState = ({ message, onRetry }) => {
       {onRetry && (
         <button 
           onClick={onRetry}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors cursor-pointer"
         >
           Try Again
         </button>
@@ -67,7 +67,7 @@ export const BackButton = ({ onClick, label = 'Back' }) => {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200 font-medium"
+      className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200 font-medium cursor-pointer"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -117,7 +117,7 @@ export const FilterDropdown = ({ label, value, onChange, options }) => {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -206,7 +206,7 @@ export const Button = ({
         rounded-lg font-medium transition-colors duration-200
         ${variants[variant]} 
         ${sizes[size]}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         ${className}
       `}
     >

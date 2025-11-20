@@ -35,14 +35,14 @@ export function ActivityCard({
         <div className="flex gap-2">
           <button
             onClick={() => onEdit(activity)}
-            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
             title="Edit Activity"
           >
             <IconEdit size={16} />
           </button>
           <button
             onClick={() => onDelete(activity)}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
             title="Delete Activity"
           >
             <IconTrash size={16} />

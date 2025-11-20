@@ -29,7 +29,7 @@ const Pagination = ({
         <button
           key={1}
           onClick={() => onPageChange(1)}
-          className={`px-3 py-2 text-sm font-medium rounded-md ${
+          className={`px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
             currentPage === 1
               ? 'bg-blue-500 text-white'
               : 'text-gray-700 hover:bg-gray-100'
@@ -54,7 +54,7 @@ const Pagination = ({
         <button
           key={i}
           onClick={() => onPageChange(i)}
-          className={`px-3 py-2 text-sm font-medium rounded-md ${
+          className={`px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
             currentPage === i
               ? 'bg-blue-500 text-white'
               : 'text-gray-700 hover:bg-gray-100'
@@ -79,7 +79,7 @@ const Pagination = ({
         <button
           key={totalPages}
           onClick={() => onPageChange(totalPages)}
-          className={`px-3 py-2 text-sm font-medium rounded-md ${
+          className={`px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
             currentPage === totalPages
               ? 'bg-blue-500 text-white'
               : 'text-gray-700 hover:bg-gray-100'
@@ -103,7 +103,7 @@ const Pagination = ({
         <select
           value={itemsPerPage}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
         >
           {rowsPerPageOptions.map(option => (
             <option key={option} value={option}>
@@ -124,7 +124,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
-          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hidden sm:block"
+          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hidden sm:block"
           title="First page"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -136,7 +136,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           title="Previous page"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -153,7 +153,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           title="Next page"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -165,7 +165,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
-          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hidden sm:block"
+          className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hidden sm:block"
           title="Last page"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

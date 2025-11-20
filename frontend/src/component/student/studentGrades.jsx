@@ -40,9 +40,15 @@ const StudentGrades = () => {
 
       if (res.ok) {
         const data = await res.json();
+        console.log('Received grades data:', data);
+        console.log('Number of grades:', data.grades?.length);
+        if (data.grades?.length > 0) {
+          console.log('Sample grade:', data.grades[0]);
+        }
         setGradesData(data.grades || []);
       } else {
         const errorData = await res.json();
+        console.error('Error response:', errorData);
         setError(errorData.message || "Failed to fetch grades");
         setGradesData([]);
       }
@@ -66,12 +72,26 @@ const StudentGrades = () => {
       subjectName: item.section?.subject?.subjectName || "Unknown Subject",
       instructor: item.section?.instructor?.fullName || "N/A",
       units: item.section?.subject?.units || 0,
-      finalGrade: item.grade?.finalGrade || 0,
+      
+      // Term grades
+      midtermGrade: item.grade?.midtermGrade,
+      finalTermGrade: item.grade?.finalTermGrade,
+      midtermEquivalentGrade: item.grade?.midtermEquivalentGrade,
+      finalTermEquivalentGrade: item.grade?.finalTermEquivalentGrade,
+      
+      // Final grade
+      finalGradeNumeric: item.grade?.finalGradeNumeric,
+      equivalentGrade: item.grade?.equivalentGrade || item.grade?.finalGrade,
+      finalGrade: item.grade?.equivalentGrade || item.grade?.finalGrade || 0,
       remarks: item.grade?.remarks || "No Grade",
-      sectionName: item.section?.sectionName || "N/A",
+      
+      // Component averages (for reference)
       classStanding: item.grade?.classStanding || 0,
       laboratory: item.grade?.laboratory || 0,
-      majorOutput: item.grade?.majorOutput || 0
+      majorOutput: item.grade?.majorOutput || 0,
+      
+      sectionName: item.section?.sectionName || "N/A",
+      hasLaboratory: item.grade?.hasLaboratory
     }));
   }, [gradesData]);
 

@@ -39,7 +39,7 @@ export function SummaryCardsGrid({ categories = [] }) {
             title={cat.name}
             percentage={percent.toFixed(1)}
             weightLabel={weightLabel.replace('Weight: ', '').replace(' of final grade', '')}
-            bgColor={colors.badge}
+            bgColor={colors.iconColor}
             icon={IconComponent}
           />
         );

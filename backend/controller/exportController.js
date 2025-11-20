@@ -10,11 +10,11 @@ import {
   resolveExistingSheet,
   setSheetTitle,
   moveFileToFolder,
-  createDriveFolder,
   findOrCreateSectionFolder,
   tryShareWithInstructor,
   trySetPublicAccess,
-  insertLogo,
+  formatClassRecordLayout,
+  removeLeadingEmptyColumns, // <-- replaced to remove any number of leading empty columns
   GOOGLE_DRIVE_FOLDER_ID,
 } from '../services/googleSheetsService.js';
 import { applyFormatting, addStudentDataBorders } from '../services/sheetFormattingService.js';
@@ -24,6 +24,7 @@ import {
   loadActivities,
   loadActivityScores,
   buildSheetData,
+  buildFinalGradeSheetData,
   persistGrades,
   updateSectionMetadata,
 } from '../services/sheetDataService.js';
@@ -47,9 +48,9 @@ export const exportToGoogleSheets = async (req, res) => {
   // 1) Extract and validate request data
   const { sectionId } = req.params;
   const instructorId = req?.instructor?.id;
-  const { schedule, chairperson, dean } = req.body || {};
+  const { schedule, chairperson, dean, term } = req.body || {};
   
-  console.log('[exportController] SectionId:', sectionId, 'InstructorId:', instructorId);
+  console.log('[exportController] SectionId:', sectionId, 'InstructorId:', instructorId, 'Term filter:', term);
   
   if (!sectionId) {
     return res.status(400).json({ message: 'Missing sectionId' });
@@ -77,7 +78,7 @@ export const exportToGoogleSheets = async (req, res) => {
   let scoresByStudent = {};
   
   try {
-    activities = await loadActivities(section);
+    activities = await loadActivities(section, term);
     const allActivityIds = activities.map((a) => a._id);
     activityScores = await loadActivityScores(allActivityIds);
     scoresByStudent = computeScoresByStudent(activityScores);
@@ -102,15 +103,23 @@ export const exportToGoogleSheets = async (req, res) => {
   // 5) Prepare spreadsheet titles
   const subjectCode = section.subject?.subjectCode || 'SUBJ';
   const sectionCodeForTitle = section.sectionCode || section.sectionName || '';
-  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}`;
+  const termSuffix = term ? `-${term.toLowerCase().replace(/\s+/g, '')}` : '-allterms';
+  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}${termSuffix}`;
   // Prefer a sheetName provided by the client (frontend) if available
   const requestedSheetNameFromBody = req.body?.sheetName || null;
   const desiredSheetTitleBase =
-    requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
+    requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}${termSuffix}`;
   const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
+  
+  // IMPORTANT: Create section folder name WITHOUT term suffix
+  // This ensures ALL exports (regular + final grade) for this section use the SAME folder
+  const sectionFolderBaseName = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
 
   // 6) Handle spreadsheet creation or reuse
-  const existingExport = section.exportMetadata || {};
+  // Store term-specific metadata using a dynamic key
+  const termKey = term ? term.toLowerCase().replace(/\s+/g, '') : 'allterms';
+  const metadataKey = `exportMetadata_${termKey}`;
+  const existingExport = section[metadataKey] || {};
   const expectedSpreadsheetId = existingExport?.spreadsheetId || null;
   const expectedSheetId = existingExport?.sheetId ?? null;
   const expectedSheetTitle = existingExport?.sheetTitle || null;
@@ -120,7 +129,7 @@ export const exportToGoogleSheets = async (req, res) => {
   let sheetTitle;
   let reusedExisting = false;
 
-  // Try to reuse existing spreadsheet
+  // Try to reuse existing spreadsheet only if it's for the same term
   if (expectedSpreadsheetId) {
     try {
       ({ sheetId, sheetTitle } = await resolveExistingSheet(sheets, expectedSpreadsheetId, expectedSheetId, expectedSheetTitle));
@@ -201,8 +210,9 @@ export const exportToGoogleSheets = async (req, res) => {
   if (!reusedExisting) {
     let createdFolderId = null;
     
-    // Generate section folder name following the pattern: "IT101_T101_1st"
-    const sectionFolderName = requestedSheetName || desiredSheetTitleBase;
+    // CRITICAL: Use sectionFolderBaseName (without term suffix) to share folder with final grade export
+    // This ensures all exports for the same section go to ONE folder
+    const sectionFolderName = sectionFolderBaseName; // e.g., "IT101_T101_1st" (no -allterms, no -midterm)
     
     // Determine the parent folder (requested folder or default from env)
     const parentFolder = requestedParentFolderId || GOOGLE_DRIVE_FOLDER_ID;
@@ -256,15 +266,18 @@ export const exportToGoogleSheets = async (req, res) => {
 
   // Each section now gets its own dedicated spreadsheet - no fallback hub used
 
-  // 8) Build sheet data
+  // 8) Build sheet data (CLASS RECORD only - not Final Grade)
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room, chairperson, dean };
+  
+  const sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
+  
   const {
     allData,
     tableHeaderRows,
     headerColorRanges,
     baseColumns,
     totalColumns,
-  } = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
+  } = sheetDataResult;
 
   // 9) Write values to sheet
   try {
@@ -305,10 +318,39 @@ export const exportToGoogleSheets = async (req, res) => {
     warnings.push(`Failed adding borders to student data: ${err.message}`);
   }
 
-  // 12) Insert logo
-  const logoUrl = 'https://drive.google.com/uc?export=view&id=1xstqF1mB98ZjOCt4nmeLJQBFb9g1u0be';
-  const logoRes = await insertLogo(sheets, spreadsheetId, sheetId, logoUrl);
-  if (!logoRes.ok) warnings.push(`Could not insert logo: ${logoRes.message}`);
+  // 12) Apply final sheet layout (replaces previous logo insertion)
+  try {
+    // First, remove stray left-most blank column(s) if present — detect across top rows and remove all leading empties
+    const leftColRes = await removeLeadingEmptyColumns(sheets, spreadsheetId, sheetId, 40);
+    let adjustedTotalColumns = totalColumns;
+    if (!leftColRes.ok) {
+      warnings.push(`Left-column check/remove warning: ${leftColRes.message}`);
+    } else if (leftColRes.deleted) {
+      console.log('[exportController] Removed left-most blank column(s) to align layout', leftColRes);
+      // Adjust totalColumns based on removed columns
+      adjustedTotalColumns = totalColumns - (leftColRes.removedCount || 0);
+    }
+
+    // Now apply formatting with the correct column count after removal
+    // freezeRows: freeze only the university header and "CLASS RECORD" title (rows 1-5)
+    // This allows section info and table headers to scroll together with the data
+    const freezeRows = 1; // Only freeze the top header (university name + CLASS RECORD title)
+    const columnWidths = [40, 120, 320, 60, 60, 60, 60, 60, 60, 80, 80, 80]; // adjust if needed
+    const merges = [
+      { startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: adjustedTotalColumns },
+      { startRowIndex: 3, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: adjustedTotalColumns }
+    ];
+
+    const layoutRes = await formatClassRecordLayout(sheets, spreadsheetId, sheetId, {
+      // do not force removal here; instead detect and remove only if blank
+      freezeRows,
+      columnWidths,
+      merges,
+    });
+    if (!layoutRes.ok) warnings.push(`Layout formatting warning: ${layoutRes.message || 'unknown'}`);
+  } catch (err) {
+    warnings.push(`Failed applying final layout: ${err.message}`);
+  }
 
   // 13) Share with instructor and set public access
   const instructorEmail = section?.instructor?.email || null;
@@ -335,7 +377,7 @@ export const exportToGoogleSheets = async (req, res) => {
     warnings.push(`Grade persistence failed: ${err?.message || err}`);
   }
 
-  // 16) Update section metadata
+  // 16) Update section metadata with term-specific key
   try {
     await updateSectionMetadata(sectionId, scheduleInfo, {
       spreadsheetId,
@@ -345,7 +387,7 @@ export const exportToGoogleSheets = async (req, res) => {
       spreadsheetUrl,
       folderId: res.locals?.createdFolderId || null,
       sectionFolderName: res.locals?.sectionFolderName || null,
-    });
+    }, termKey);
   } catch (err) {
     warnings.push(`Failed to record export metadata: ${err?.message || err}`);
   }

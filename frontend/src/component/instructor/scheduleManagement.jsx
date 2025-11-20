@@ -18,13 +18,15 @@ export default function ScheduleManagement() {
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [notification, setNotification] = useState({ show: false, title: '', message: '', type: '' });
   const [confirmDialog, setConfirmDialog] = useState({ show: false, title: '', message: '', onConfirm: null, onCancel: null });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month');
+  
+  // Edit modal state (separate from detail modal)
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -115,6 +117,13 @@ export default function ScheduleManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Only allow editing existing schedules, not creating new ones
+    if (!selectedSchedule) {
+      showNotification('Schedules can only be created through activities', 'error');
+      return;
+    }
+    
     // Client-side validation: normalize datetime-local strings and ensure end > start
     const normalizeDateTimeString = (s) => {
       if (!s) return s;
@@ -144,11 +153,8 @@ export default function ScheduleManagement() {
     }
 
     try {
-      const url = selectedSchedule
-        ? `http://localhost:5000/api/schedule/${selectedSchedule._id}`
-        : 'http://localhost:5000/api/schedule/create';
-      
-      const method = selectedSchedule ? 'PUT' : 'POST';
+      const url = `http://localhost:5000/api/schedule/${selectedSchedule._id}`;
+      const method = 'PUT';
 
       const response = await authenticatedFetch(url, {
         method,
@@ -157,20 +163,17 @@ export default function ScheduleManagement() {
       });
 
       if (response.ok) {
-        showNotification(
-          selectedSchedule ? 'Schedule updated successfully' : 'Schedule created successfully',
-          'success'
-        );
-        setShowModal(false);
+        showNotification('Schedule updated successfully', 'success');
+        setShowEditModal(false);
         resetForm();
         loadSchedules();
       } else {
         const data = await response.json();
-        showNotification(data.message || 'Error saving schedule', 'error');
+        showNotification(data.message || 'Error updating schedule', 'error');
       }
     } catch (error) {
-      console.error('Error saving schedule:', error);
-      showNotification('Error saving schedule', 'error');
+      console.error('Error updating schedule:', error);
+      showNotification('Error updating schedule', 'error');
     }
   };
 
@@ -235,12 +238,7 @@ export default function ScheduleManagement() {
       notes: schedule.notes || '',
       syncToGoogleCalendar: schedule.isGoogleCalendarSynced,
     });
-    setShowModal(true);
-  };
-
-  const openCreateModal = () => {
-    resetForm();
-    setShowModal(true);
+    setShowEditModal(true);
   };
 
   const previousMonth = () => {
@@ -319,7 +317,7 @@ export default function ScheduleManagement() {
     <div className="flex min-h-screen bg-gray-50">
       <InstructorSidebar />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        <PageHeader onCreateClick={openCreateModal} />
+        <PageHeader onCreateClick={null} /> {/* No create button - schedules are created via activities */}
 
         {/* legacy <Notification /> removed to avoid global name collision with window.Notification */}
 
@@ -355,13 +353,13 @@ export default function ScheduleManagement() {
         <EventTypeLegend />
 
         <ScheduleForm
-          isOpen={showModal}
-          isEdit={!!selectedSchedule}
+          isOpen={showEditModal}
+          isEdit={true}
           formData={formData}
           sections={sections}
           subjects={subjects}
           onClose={() => {
-            setShowModal(false);
+            setShowEditModal(false);
             resetForm();
           }}
           onSubmit={handleSubmit}

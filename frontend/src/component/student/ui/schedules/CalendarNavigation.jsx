@@ -15,7 +15,7 @@ export const CalendarNavigation = ({
         <div className="flex items-center gap-4">
           <button
             onClick={onPreviousMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             <IconChevronLeft className="w-5 h-5" />
           </button>
@@ -27,7 +27,7 @@ export const CalendarNavigation = ({
           </h2>
           <button
             onClick={onNextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             <IconChevronRight className="w-5 h-5" />
           </button>
@@ -35,14 +35,14 @@ export const CalendarNavigation = ({
         <div className="flex gap-2">
           <button
             onClick={onToday}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
           >
             Today
           </button>
           <select
             value={view}
             onChange={(e) => onViewChange(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             <option value="month">Month</option>
             <option value="list">List</option>

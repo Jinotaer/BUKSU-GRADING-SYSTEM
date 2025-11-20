@@ -338,33 +338,60 @@ export const getStudentSections = async (req, res) => {
     const query = { students: studentId };
     if (schoolYear) query.schoolYear = schoolYear;
     if (term) query.term = term;
-    
-    // Don't filter by instructor's isArchived - students should see sections regardless of instructor archive status
-    // Instead, we'll filter by student-specific archive status after fetching
 
-    const sections = await Section.find(query)
+    const enrolledSections = await Section.find(query)
       .populate("subject", "subjectCode subjectName units college department")
       .populate("instructor", "fullName email college department")
       .sort({ schoolYear: -1, term: 1, sectionName: 1 });
 
-    // Filter sections based on student's archive status
-    let filteredSections = sections;
+    // Filter sections based on instructor's archive status and student's hidden status
+    let filteredSections;
     
     if (includeArchived === 'true') {
-      // Only return sections archived by this student
-      filteredSections = sections.filter(section => 
-        section.archivedByStudents.some(item => item.studentId.toString() === studentId.toString())
-      );
+      // Only return sections archived by instructor
+      filteredSections = enrolledSections.filter(section => section.isArchived === true);
     } else {
-      // Only return sections NOT archived by this student
-      filteredSections = sections.filter(section => 
-        !section.archivedByStudents.some(item => item.studentId.toString() === studentId.toString())
-      );
+      // Only return sections NOT archived by instructor AND NOT hidden by this student
+      filteredSections = enrolledSections.filter(section => {
+        const isNotArchived = section.isArchived !== true;
+        const isNotHidden = !section.hiddenByStudents.some(
+          item => item.studentId.toString() === studentId.toString()
+        );
+        return isNotArchived && isNotHidden;
+      });
     }
 
     res.json({ success: true, sections: filteredSections });
   } catch (err) {
     console.error("getStudentSections:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * Get student's hidden sections
+ * @route GET /api/student/sections/hidden
+ * @access Private (Student only)
+ */
+export const getHiddenSections = async (req, res) => {
+  try {
+    const studentId = req.student.id;
+
+    const sections = await Section.find({ students: studentId })
+      .populate("subject", "subjectCode subjectName units college department")
+      .populate("instructor", "fullName email college department")
+      .sort({ schoolYear: -1, term: 1, sectionName: 1 });
+
+    // Filter to only return sections hidden by this student
+    const hiddenSections = sections.filter(section =>
+      section.hiddenByStudents.some(
+        item => item.studentId.toString() === studentId.toString()
+      )
+    );
+
+    res.json({ success: true, sections: hiddenSections });
+  } catch (err) {
+    console.error("getHiddenSections:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -389,9 +416,22 @@ export const getStudentGrades = async (req, res) => {
     if (term) sectionQuery.term = term;
     if (sectionId) sectionQuery._id = sectionId;
 
+    console.log('Student grades query:', { studentId, sectionQuery });
+
     const sections = await Section.find(sectionQuery)
       .populate("subject", "subjectCode subjectName units")
       .populate("instructor", "fullName");
+
+    console.log(`Found ${sections.length} sections for student`);
+    if (sections.length > 0) {
+      console.log('Sample section:', {
+        id: sections[0]._id,
+        name: sections[0].sectionName,
+        schoolYear: sections[0].schoolYear,
+        term: sections[0].term,
+        studentCount: sections[0].students?.length
+      });
+    }
 
     // Get grades for ALL sections (including archived)
     const sectionIds = sections.map(section => section._id);
@@ -414,6 +454,17 @@ export const getStudentGrades = async (req, res) => {
         }
       });
 
+    console.log(`Found ${grades.length} grade records`);
+    if (grades.length > 0) {
+      console.log('Sample grade:', {
+        section: grades[0].section?.sectionName,
+        midtermEquivalentGrade: grades[0].midtermEquivalentGrade,
+        finalTermEquivalentGrade: grades[0].finalTermEquivalentGrade,
+        equivalentGrade: grades[0].equivalentGrade,
+        remarks: grades[0].remarks
+      });
+    }
+
     // Combine section info with grades
     const gradesWithSections = sections.map(section => {
       const grade = grades.find(g => g.section._id.toString() === section._id.toString());
@@ -428,13 +479,54 @@ export const getStudentGrades = async (req, res) => {
           gradingSchema: section.gradingSchema
         },
         grade: grade ? {
+          // Component averages
           classStanding: grade.classStanding,
           laboratory: grade.laboratory,
           majorOutput: grade.majorOutput,
-          finalGrade: grade.finalGrade,
-          remarks: grade.remarks,
+          
+          // Term grades and equivalents
+          midtermGrade: grade.midtermGrade,
+          finalTermGrade: grade.finalTermGrade,
+          midtermEquivalentGrade: grade.midtermEquivalentGrade || "",
+          finalTermEquivalentGrade: grade.finalTermEquivalentGrade || "",
+          
+          // Term component breakdowns
+          midtermClassStanding: grade.midtermClassStanding,
+          midtermLaboratory: grade.midtermLaboratory,
+          midtermMajorOutput: grade.midtermMajorOutput,
+          finalClassStanding: grade.finalClassStanding,
+          finalLaboratory: grade.finalLaboratory,
+          finalMajorOutput: grade.finalMajorOutput,
+          
+          // Final grade
+          finalGradeNumeric: grade.finalGradeNumeric,
+          finalGrade: grade.finalGrade || grade.equivalentGrade || 0,
+          equivalentGrade: grade.equivalentGrade || "",
+          remarks: grade.remarks || "INC",
+          hasLaboratory: grade.hasLaboratory,
           updatedAt: grade.updatedAt
-        } : null
+        } : {
+          // Default values when no grade exists yet
+          classStanding: 0,
+          laboratory: 0,
+          majorOutput: 0,
+          midtermGrade: 0,
+          finalTermGrade: 0,
+          midtermEquivalentGrade: "",
+          finalTermEquivalentGrade: "",
+          midtermClassStanding: 0,
+          midtermLaboratory: 0,
+          midtermMajorOutput: 0,
+          finalClassStanding: 0,
+          finalLaboratory: 0,
+          finalMajorOutput: 0,
+          finalGradeNumeric: 0,
+          finalGrade: 0,
+          equivalentGrade: "",
+          remarks: "INC",
+          hasLaboratory: false,
+          updatedAt: null
+        }
       };
     });
 
@@ -542,11 +634,11 @@ export const searchStudents = async (req, res) => {
 };
 
 /**
- * Archive a section (student perspective - hides it from their active list)
- * @route PUT /api/student/sections/:id/archive
+ * Hide a section (student perspective - hides it from their active list)
+ * @route PUT /api/student/sections/:id/hide
  * @access Private (Student only)
  */
-export const archiveStudentSection = async (req, res) => {
+export const hideStudentSection = async (req, res) => {
   try {
     const { id } = req.params;
     const studentId = req.student.id;
@@ -567,32 +659,32 @@ export const archiveStudentSection = async (req, res) => {
       });
     }
 
-    // Check if student has already archived this section
-    const alreadyArchived = section.archivedByStudents.some(
+    // Check if student has already hidden this section
+    const alreadyHidden = section.hiddenByStudents.some(
       (item) => item.studentId.toString() === studentId.toString()
     );
 
-    if (alreadyArchived) {
+    if (alreadyHidden) {
       return res.status(400).json({
         success: false,
-        message: "Section is already archived",
+        message: "Section is already hidden",
       });
     }
 
-    // Add student to archivedByStudents array
-    section.archivedByStudents.push({
+    // Add student to hiddenByStudents array
+    section.hiddenByStudents.push({
       studentId: studentId,
-      archivedAt: new Date()
+      hiddenAt: new Date()
     });
     
     await section.save();
 
     res.status(200).json({
       success: true,
-      message: "Section archived successfully",
+      message: "Section hidden successfully",
     });
   } catch (error) {
-    console.error("Archive student section error:", error);
+    console.error("Hide student section error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -601,11 +693,11 @@ export const archiveStudentSection = async (req, res) => {
 };
 
 /**
- * Unarchive a section (student perspective)
- * @route PUT /api/student/sections/:id/unarchive
+ * Unhide a section (student perspective)
+ * @route PUT /api/student/sections/:id/unhide
  * @access Private (Student only)
  */
-export const unarchiveStudentSection = async (req, res) => {
+export const unhideStudentSection = async (req, res) => {
   try {
     const { id } = req.params;
     const studentId = req.student.id;
@@ -626,28 +718,28 @@ export const unarchiveStudentSection = async (req, res) => {
       });
     }
 
-    // Check if student has archived this section
-    const archivedIndex = section.archivedByStudents.findIndex(
+    // Check if student has hidden this section
+    const hiddenIndex = section.hiddenByStudents.findIndex(
       (item) => item.studentId.toString() === studentId.toString()
     );
 
-    if (archivedIndex === -1) {
+    if (hiddenIndex === -1) {
       return res.status(400).json({
         success: false,
-        message: "Section is not archived",
+        message: "Section is not hidden",
       });
     }
 
-    // Remove student from archivedByStudents array
-    section.archivedByStudents.splice(archivedIndex, 1);
+    // Remove student from hiddenByStudents array
+    section.hiddenByStudents.splice(hiddenIndex, 1);
     await section.save();
 
     res.status(200).json({
       success: true,
-      message: "Section unarchived successfully",
+      message: "Section unhidden successfully",
     });
   } catch (error) {
-    console.error("Unarchive student section error:", error);
+    console.error("Unhide student section error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

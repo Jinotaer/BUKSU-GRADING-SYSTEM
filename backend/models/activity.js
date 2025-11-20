@@ -12,6 +12,10 @@ const activitySchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    notes: {
+      type: String,
+      trim: true
+    },
     category: {
       type: String,
       required: true,
@@ -44,7 +48,35 @@ const activitySchema = new mongoose.Schema(
     term: {
       type: String,
       required: true,
-      enum: ["First", "Second", "Summer"]
+      enum: ["Midterm", "Finalterm", "Summer"]
+    },
+    // Schedule integration fields
+    schedule: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Schedule",
+      required: true
+    },
+    eventType: {
+      type: String,
+      enum: ['quiz', 'laboratory', 'exam', 'assignment', 'project', 'other'],
+      required: true,
+      default: 'quiz'
+    },
+    location: {
+      type: String,
+      trim: true
+    },
+    startDateTime: {
+      type: Date,
+      required: true
+    },
+    endDateTime: {
+      type: Date,
+      required: true
+    },
+    syncToGoogleCalendar: {
+      type: Boolean,
+      default: false
     },
     isActive: {
       type: Boolean,

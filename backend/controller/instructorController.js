@@ -7,6 +7,84 @@ import Subject from "../models/subjects.js";
 import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
 
+// Update grading schema for instructor's section
+export const updateSectionGradingSchema = async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+    const { gradingSchema } = req.body;
+    const instructorId = req.instructor.id;
+
+    // Validate grading schema
+    if (!gradingSchema || typeof gradingSchema !== 'object') {
+      return res.status(400).json({ message: "Invalid grading schema" });
+    }
+
+    const { classStanding, laboratory, majorOutput } = gradingSchema;
+    const total = (classStanding || 0) + (laboratory || 0) + (majorOutput || 0);
+    
+    if (total !== 100) {
+      return res.status(400).json({ 
+        message: "Grading schema percentages must total 100%" 
+      });
+    }
+
+    // Find section and verify instructor ownership
+    const section = await Section.findOne({ 
+      _id: sectionId, 
+      instructor: instructorId,
+      isArchived: { $ne: true }
+    });
+    
+    if (!section) {
+      return res.status(404).json({ 
+        message: "Section not found or you don't have permission to edit it" 
+      });
+    }
+
+    // Check if grading schema is actually changing
+    const gradingSchemaChanged = JSON.stringify(gradingSchema) !== JSON.stringify(section.gradingSchema);
+
+    // Update the section
+    const updatedSection = await Section.findByIdAndUpdate(
+      sectionId,
+      { gradingSchema },
+      { new: true, runValidators: true }
+    ).populate("instructor", "fullName email college department")
+     .populate("subject", "subjectCode subjectName units college department");
+
+    // If grading schema was changed, recalculate all grades in the section
+    if (gradingSchemaChanged && updatedSection.students.length > 0) {
+      // Import the function from gradeUtils if available
+      try {
+        const { calculateAndUpdateAllGradesInSection } = await import('../utils/gradeUtils.js');
+        calculateAndUpdateAllGradesInSection(sectionId, instructorId)
+          .then(results => {
+            console.log(`[instructorController] Grades recalculated for ${results.successful.length} students after grading schema change`);
+            if (results.failed.length > 0) {
+              console.error(`[instructorController] Failed to recalculate grades for ${results.failed.length} students:`, results.failed);
+            }
+          })
+          .catch(err => {
+            console.error('[instructorController] Error recalculating grades after schema change:', err);
+          });
+      } catch (importErr) {
+        console.log('[instructorController] Grade recalculation utility not available, skipping automatic recalculation');
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      section: updatedSection,
+      message: "Grading schema updated successfully" + 
+        (gradingSchemaChanged && updatedSection.students.length > 0 ? 
+         " and grades are being recalculated" : "")
+    });
+  } catch (err) {
+    console.error("updateSectionGradingSchema:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const getInstructorDashboardStats = async (req, res) => {
   try {
     const instructorId = req.instructor.id;
