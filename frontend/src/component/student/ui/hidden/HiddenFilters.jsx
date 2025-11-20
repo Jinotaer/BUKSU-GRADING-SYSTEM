@@ -42,7 +42,7 @@ export const HiddenFilters = ({
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search by subject name or code..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none "
             />
           </div>
         </div>
@@ -55,7 +55,7 @@ export const HiddenFilters = ({
           <select
             value={selectedYear}
             onChange={(e) => handleYearChange(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
           >
             {academicYears.map((year) => (
               <option key={year.value} value={year.value}>
@@ -73,7 +73,7 @@ export const HiddenFilters = ({
           <select
             value={selectedSemester}
             onChange={(e) => handleSemesterChange(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
           >
             {semesters.map((sem) => (
               <option key={sem.value} value={sem.value}>

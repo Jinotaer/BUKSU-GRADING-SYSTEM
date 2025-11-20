@@ -114,7 +114,6 @@ export function CategoryTable({
                 Export HyFlex-LGS
               </button>
             )}
-          {/* <WeightBadge weight={weight} /> */}
         </div>
       </div>
 

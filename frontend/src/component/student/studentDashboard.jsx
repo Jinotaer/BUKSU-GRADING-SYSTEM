@@ -85,9 +85,12 @@ const StudentDashboard = () => {
   return (
     <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
       <NavbarSimple />
-      <h3 className="pt-10 text-2xl sm:text-3xl font-bold text-[#1E3A5F] mb-6 sm:mb-8 font-outfit max-[880px]:mt-10">
+      <h3 className="pt-10 text-2xl sm:text-3xl font-bold text-[#1E3A5F] mb-6 sm:mb-2 font-outfit max-[880px]:mt-10">
         Student Dashboard
       </h3>
+      <p className="text-gray-600 mt-1  text-xs sm:text-sm md:text-base mb-8">
+        Welcome! View your schedule, active subjects, and archived subjects here.
+      </p>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 mb-8">

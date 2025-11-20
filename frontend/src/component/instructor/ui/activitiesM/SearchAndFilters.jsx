@@ -51,7 +51,6 @@ export function SearchAndFilters({
           <option value="">All Terms</option>
           <option value="Midterm">Mid Term</option>
           <option value="Finalterm">Final Term</option>
-          <option value="Summer">Summer</option>
         </select>
 
         <div className="order-4 lg:col-span-1 text-sm text-gray-600 hidden lg:block self-center">

@@ -33,7 +33,11 @@ export default function HiddenSubjectsManagement() {
     type: "",
     message: "",
   });
-
+const semesters = [
+  { value: '1st Semester', label: '1st Semester' },
+  { value: '2nd Semester', label: '2nd Semester' },
+  { value: 'Summer', label: 'Summer' },
+];
   useEffect(() => {
     fetchHiddenSections();
   }, []);
@@ -105,13 +109,13 @@ export default function HiddenSubjectsManagement() {
     );
   }, [hiddenSections]);
 
-  const semesters = useMemo(() => {
-    const set = new Set(hiddenSections.map((s) => s.term).filter(Boolean));
-    const arr = Array.from(set);
-    return [{ value: "all", label: "All Semesters" }].concat(
-      arr.map((t) => ({ value: t, label: `${t} Semester` }))
-    );
-  }, [hiddenSections]);
+  // const semesters = useMemo(() => {
+  //   const set = new Set(hiddenSections.map((s) => s.term).filter(Boolean));
+  //   const arr = Array.from(set);
+  //   return [{ value: "all", label: "All Semesters" }].concat(
+  //     arr.map((t) => ({ value: t, label: `${t} Semester` }))
+  //   );
+  // }, [hiddenSections]);
 
   // Apply filters
   const filteredSections = useMemo(() => {
@@ -203,12 +207,12 @@ export default function HiddenSubjectsManagement() {
           onPageReset={() => setCurrentPage(1)}
         />
 
-        <HiddenStats
+        {/* <HiddenStats
           totalHidden={hiddenSections.length}
           filteredCount={filteredSections.length}
           currentPage={currentPage}
           totalPages={totalPages}
-        />
+        /> */}
 
         <HiddenGrid
           paginatedSections={paginatedSections}

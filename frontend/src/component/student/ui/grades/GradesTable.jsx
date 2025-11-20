@@ -1,5 +1,5 @@
 import React from "react";
-import { getGradeColorClasses, getGradeDescription } from "../../../../utils/gradeUtils";
+import { getGradeColorClasses } from "../../../../utils/gradeUtils";
 
 export const GradesTable = ({ displayGrades, semesters, selectedSemester, selectedYear }) => {
   return (
@@ -67,7 +67,7 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                     </td>
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasMidterm ? (
-                        <span className="font-semibold text-blue-600">
+                        <span className="text-sm text-gray-700">
                           {grade.midtermEquivalentGrade}
                         </span>
                       ) : (
@@ -76,7 +76,7 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                     </td>
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasFinalTerm ? (
-                        <span className="font-semibold text-blue-600">
+                        <span className="text-sm text-gray-700">
                           {grade.finalTermEquivalentGrade}
                         </span>
                       ) : (
@@ -86,11 +86,8 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasFinalGrade ? (
                         <div className="flex flex-col items-center">
-                          <span className={`font-bold text-lg ${getGradeColorClasses(grade.equivalentGrade, grade.remarks).text}`}>
+                          <span className="text-sm text-gray-700 ">
                             {grade.equivalentGrade}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {getGradeDescription(grade.equivalentGrade)}
                           </span>
                         </div>
                       ) : (

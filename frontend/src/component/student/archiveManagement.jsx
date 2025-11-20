@@ -12,6 +12,7 @@ import {
   ErrorMessage,
 } from "./ui/archive";
 
+
 export default function StudentArchiveManagement() {
   const navigate = useNavigate();
   const [archivedSections, setArchivedSections] = useState([]);
@@ -73,13 +74,19 @@ export default function StudentArchiveManagement() {
     );
   }, [archivedSections]);
 
-  const semesters = useMemo(() => {
-    const set = new Set(archivedSections.map((s) => s.term).filter(Boolean));
-    const arr = Array.from(set);
-    return [{ value: "all", label: "All Semesters" }].concat(
-      arr.map((t) => ({ value: t, label: `${t} Semester` }))
-    );
-  }, [archivedSections]);
+  // const semesters = useMemo(() => {
+  //   const set = new Set(archivedSections.map((s) => s.term).filter(Boolean));
+  //   const arr = Array.from(set);
+  //   return [{ value: "all", label: "All Semesters" }].concat(
+  //     arr.map((t) => ({ value: t, label: `${t} Semester` }))
+  //   );
+  // }, [archivedSections]);
+  const semesters = [
+  { value: '1st Semester', label: '1st Semester' },
+  { value: '2nd Semester', label: '2nd Semester' },
+  { value: 'Summer', label: 'Summer' },
+];
+
 
   // Apply filters
   const filteredSections = useMemo(() => {

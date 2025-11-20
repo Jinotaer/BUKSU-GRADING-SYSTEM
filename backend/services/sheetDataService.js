@@ -171,7 +171,7 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
     // Calculate final grade
     const finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
     const finalGrade = percentToGrade(finalPercent);
-    const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+    const remarks = finalPercent >= 75 ? 'PASSED' : 'FAILED';
     
     // Convert all components and term grades to grade equivalents
     const midtermCSGrade = percentToGrade(midtermCS);
@@ -245,7 +245,7 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule) =
     ['', '', 'Section Code:', '', section.sectionCode || section.sectionName || 'N/A', '', '', '', 'Day:', schedule.day],
     ['', '', 'Subject Code:', '', section.subject?.subjectCode || 'N/A', '', '', '', 'Time:', schedule.time],
     ['', '', 'Descriptive Title:', '', section.subject?.subjectName || 'N/A', '', '', '', 'Rm:', schedule.room],
-    ['', '', 'Semester:', '', (section.term || '') + ' Sem', '', '', '', 'Units:', section.subject?.units ?? 3],
+    ['', '', 'Semester:', '', (section.term || '') + ' Sem', '', '', '', 'Units:', section.subject?.units || 'N/A'],
     ['', '', 'School Year:', '', section.schoolYear || 'N/A', '', '', '', 'Chair:', schedule.chairperson],
     ['', '', 'Instructor:', '', section.instructor?.fullName || 'N/A', '', '', '', 'Dean:', schedule.dean],
     [],

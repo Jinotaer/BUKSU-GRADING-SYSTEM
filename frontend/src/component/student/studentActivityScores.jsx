@@ -21,7 +21,6 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     { value: "all", label: "All Terms" },
     { value: "midterm", label: "Midterm" },
     { value: "finalterm", label: "Finalterm" },
-    { value: "summer", label: "Summer" },
   ];
 
   // Filter categories based on selected grading period
@@ -86,7 +85,7 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+    <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       
       <div className="flex-1 ml-0 max-[880px]:ml-0 min-[881px]:ml-65">
@@ -99,9 +98,9 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
             />
 
             {/* Grading Period Filter */}
-            <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-gray-700">
+            <div className="mb-6 flex items-center p-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700">
                   Filter by Term:
                 </label>
                 <select
@@ -110,7 +109,7 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
                     setSelectedPeriod(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
                 >
                   {gradingPeriods.map((period) => (
                     <option key={period.value} value={period.value}>
