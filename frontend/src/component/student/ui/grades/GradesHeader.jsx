@@ -13,7 +13,7 @@ export const GradesHeader = () => {
         </h1>
         <button
           onClick={() => setShowGradeInfo(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+          className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors mb-6 sm:mb-8 ml-3"
           title="View grading system information"
         >
           <IconInfoCircle className="h-4 w-4" />

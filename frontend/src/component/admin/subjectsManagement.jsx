@@ -201,11 +201,9 @@ export default function SubjectManagement() {
         if (!data.subjects) {
           console.warn("⚠️ No subjects array in response");
           setSubjects([]);
-          showError("No subjects data received from server");
         } else if (data.subjects.length === 0) {
           console.log("📭 No subjects found in database");
           setSubjects([]);
-          showError("No subjects found in the database. Please add some subjects first.");
         } else {
           console.log("✅ Setting subjects state with:", data.subjects.length, "items");
           setSubjects(data.subjects);

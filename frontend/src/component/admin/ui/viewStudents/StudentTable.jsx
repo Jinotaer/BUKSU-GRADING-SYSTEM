@@ -49,7 +49,7 @@ export function StudentTable({ students, submitting, onRemoveStudent }) {
               </td>
               <td className="px-3 sm:px-5 py-3">
                 <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-semibold shadow-sm">
-                  Invited
+                  Added
                 </span>
               </td>
               <td className="px-4 py-3">

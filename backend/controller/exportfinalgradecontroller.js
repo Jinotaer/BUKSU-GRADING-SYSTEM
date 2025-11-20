@@ -15,7 +15,7 @@ import {
   trySetPublicAccess,
   GOOGLE_DRIVE_FOLDER_ID,
 } from '../services/googleSheetsService.js';
-import { applyFinalGradeFormatting, addStudentDataBorders } from '../services/sheetFormattingService.js';
+import { applyFinalGradeFormatting, addFinalGradeStudentDataBorders } from '../services/sheetFormattingService.js';
 import {
   loadSection,
   authorizeInstructor,
@@ -285,7 +285,7 @@ export const exportFinalGrade = async (req, res) => {
   // 11) Add borders to student data
   const studentRowCount = section.students.length;
   try {
-    await addStudentDataBorders(sheets, spreadsheetId, sheetId, tableHeaderStartRow, headerRowCount, studentRowCount, totalColumns);
+    await addFinalGradeStudentDataBorders(sheets, spreadsheetId, sheetId, tableHeaderStartRow, headerRowCount, studentRowCount, totalColumns);
   } catch (err) {
     warnings.push(`Failed adding borders to student data: ${err.message}`);
   }

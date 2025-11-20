@@ -67,28 +67,18 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                     </td>
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasMidterm ? (
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs text-gray-500">
-                            {grade.midtermGrade ? `${grade.midtermGrade.toFixed(2)}%` : '-'}
-                          </span>
-                          <span className="font-semibold text-blue-600">
-                            {grade.midtermEquivalentGrade}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-blue-600">
+                          {grade.midtermEquivalentGrade}
+                        </span>
                       ) : (
                         <span className="text-gray-400 text-xs">No Grade</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasFinalTerm ? (
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs text-gray-500">
-                            {grade.finalTermGrade ? `${grade.finalTermGrade.toFixed(2)}%` : '-'}
-                          </span>
-                          <span className="font-semibold text-blue-600">
-                            {grade.finalTermEquivalentGrade}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-blue-600">
+                          {grade.finalTermEquivalentGrade}
+                        </span>
                       ) : (
                         <span className="text-gray-400 text-xs">No Grade</span>
                       )}

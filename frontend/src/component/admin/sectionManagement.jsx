@@ -47,9 +47,9 @@ export default function SectionManagement() {
     instructorId: "",
     sectionName: "",
     gradingSchema: {
-      classStanding: "40",
+      classStanding: "30",
       laboratory: "30",
-      majorOutput: "30",
+      majorOutput: "40",
     },
   });
 
@@ -253,9 +253,9 @@ export default function SectionManagement() {
       instructorId: "",
       sectionName: "",
       gradingSchema: {
-        classStanding: "40",
+        classStanding: "30",
         laboratory: "30",
-        majorOutput: "30",
+        majorOutput: "40",
       },
     });
     setFilteredSubjects([]);
@@ -700,7 +700,7 @@ export default function SectionManagement() {
           <Modal
             isOpen={showInviteModal}
             onClose={() => setShowInviteModal(false)}
-            title="Invite Students to Section"
+            title="Add Students to Section"
           >
             <InviteStudentsModal
               selectedSection={selectedSection}

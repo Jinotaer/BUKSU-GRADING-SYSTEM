@@ -174,9 +174,9 @@ export default function StudentActivityScores() {
 
     // Get grading schema weights
     const gradingSchema = section?.gradingSchema || {};
-    categoryMap.classStanding.weight = gradingSchema.classStanding || 30;
-    categoryMap.laboratory.weight = gradingSchema.laboratory || 30;
-    categoryMap.majorOutput.weight = gradingSchema.majorOutput || 40;
+    categoryMap.classStanding.weight = gradingSchema.classStanding;
+    categoryMap.laboratory.weight = gradingSchema.laboratory ;
+    categoryMap.majorOutput.weight = gradingSchema.majorOutput;
 
     const currentStudentId = getCurrentStudentId();
     console.log('Current student ID:', currentStudentId);

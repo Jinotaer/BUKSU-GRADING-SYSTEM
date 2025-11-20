@@ -506,8 +506,13 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
       
       // Calculate final grade: Midterm=40%, FinalTerm=60%
       const finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
-      const finalGrade = percentToGrade(finalPercent);
+      const finalGradeNumeric = percentToGrade(finalPercent);
       const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+      
+      // Convert term grades to equivalent grades for student display
+      const midtermEquivalentGrade = percentToGrade(midtermGrade);
+      const finalTermEquivalentGrade = percentToGrade(finalTermGrade);
+      const equivalentGrade = finalGradeNumeric; // Already converted
       
       // Calculate overall averages for compatibility
       const classStandingAvg = (midtermClassStanding * 0.40) + (finalClassStanding * 0.60);
@@ -517,9 +522,14 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
       return Grade.findOneAndUpdate(
         { student: student._id, section: section._id },
         {
-          // Term grades
+          // Term grades (percentages)
           midtermGrade,
           finalTermGrade,
+          
+          // Equivalent grades for student display
+          midtermEquivalentGrade,
+          finalTermEquivalentGrade,
+          equivalentGrade,
           
           // Term component averages
           midtermClassStanding,
@@ -535,7 +545,7 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
           majorOutput: majorOutputAvg,
           
           // Final results
-          finalGrade,
+          finalGrade: finalGradeNumeric,
           remarks,
           hasLaboratory: subjectHasLab,
           encodedBy: instructorId,
@@ -572,10 +582,22 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
 
   // Get grading schema weights
   const gradingSchema = section.gradingSchema || {};
-  const csWeight = gradingSchema.classStanding || 30;
-  const labWeight = gradingSchema.laboratory || 30;
+  const csWeight = gradingSchema.classStanding || 60;
+  const labWeight = gradingSchema.laboratory || 0;  // Default to 0, not 30
   const moWeight = gradingSchema.majorOutput || 40;
-  const subjectHasLab = labWeight > 0;
+  
+  // Properly detect if subject has laboratory
+  const subjectHasLab = Boolean(gradingSchema.laboratory && Number(gradingSchema.laboratory) > 0);
+  
+  // Debug logging
+  console.log('[buildFinalGradeSheetDataScreenshotDesign] Debug info:');
+  console.log('- Section ID:', section._id);
+  console.log('- Subject Code:', section.subject?.subjectCode);
+  console.log('- Grading Schema:', JSON.stringify(gradingSchema));
+  console.log('- CS Weight:', csWeight);
+  console.log('- Lab Weight:', labWeight);
+  console.log('- MO Weight:', moWeight);
+  console.log('- Subject Has Lab:', subjectHasLab);
 
   // Group activities by term
   const midtermActivities = activities.filter(a => a.term === 'Midterm');
@@ -588,15 +610,11 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
   // Base student info columns  
   const baseHeaders = ['No.', 'Student No.', 'Name of Students'];
   
-  // Midterm section headers
-  const midtermHeaders = subjectHasLab 
-    ? [`CS (${csWeight}%)`, `LAB (${labWeight}%)`, `MO (${moWeight}%)`, 'MTG']
-    : [`CS (${csWeight}%)`, `MO (${moWeight}%)`, 'MTG'];
+  // Midterm section headers - always include LAB column
+  const midtermHeaders = [`CS (${csWeight}%)`, `LAB (${labWeight}%)`, `MO (${moWeight}%)`, 'MTG'];
 
-  // Finalterm section headers  
-  const finaltermHeaders = subjectHasLab
-    ? [`CS (${csWeight}%)`, `LAB (${labWeight}%)`, `MO (${moWeight}%)`, 'FTG'] 
-    : [`CS (${csWeight}%)`, `MO (${moWeight}%)`, 'FTG'];
+  // Finalterm section headers - always include LAB column  
+  const finaltermHeaders = [`CS (${csWeight}%)`, `LAB (${labWeight}%)`, `MO (${moWeight}%)`, 'FTG'];
 
   // Final Grade section headers
   const finalGradeHeaders = ['MTG(1/3)', 'FTG(2/3)', 'FG', 'Remarks'];
@@ -679,37 +697,21 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
     // Build row data exactly as shown in screenshot
     const row = [String(idx + 1), student.studid || '', student.fullName || ''];
     
-    // Add midterm data
-    if (subjectHasLab) {
-      row.push(
-        midtermCSGrade.toFixed(2), 
-        midtermLabGrade.toFixed(2), 
-        midtermMOGrade.toFixed(2), 
-        midtermGradeEquiv.toFixed(2)
-      );
-    } else {
-      row.push(
-        midtermCSGrade.toFixed(2), 
-        midtermMOGrade.toFixed(2), 
-        midtermGradeEquiv.toFixed(2)
-      );
-    }
+    // Add midterm data - always include LAB column
+    row.push(
+      midtermCSGrade.toFixed(2), 
+      subjectHasLab ? midtermLabGrade.toFixed(2) : '', // Blank if no lab
+      midtermMOGrade.toFixed(2), 
+      midtermGradeEquiv.toFixed(2)
+    );
     
-    // Add finalterm data
-    if (subjectHasLab) {
-      row.push(
-        finaltermCSGrade.toFixed(2), 
-        finaltermLabGrade.toFixed(2), 
-        finaltermMOGrade.toFixed(2), 
-        finaltermGradeEquiv.toFixed(2)
-      );
-    } else {
-      row.push(
-        finaltermCSGrade.toFixed(2), 
-        finaltermMOGrade.toFixed(2), 
-        finaltermGradeEquiv.toFixed(2)
-      );
-    }
+    // Add finalterm data - always include LAB column
+    row.push(
+      finaltermCSGrade.toFixed(2), 
+      subjectHasLab ? finaltermLabGrade.toFixed(2) : '', // Blank if no lab
+      finaltermMOGrade.toFixed(2), 
+      finaltermGradeEquiv.toFixed(2)
+    );
     
     // Add final grade data: MTG(1/3), FTG(2/3), FG, Remarks
     row.push(

@@ -39,8 +39,8 @@ const gradeTabs = [
   },
 ];
 
-export function TabNavigation({ activeTab, onTabChange, selectedTerm }) {
-  // Determine which tabs to show based on selected term
+export function TabNavigation({ activeTab, onTabChange, selectedTerm, hasLaboratory = true }) {
+  // Determine which tabs to show based on selected term and laboratory availability
   const getAvailableTabs = () => {
     let availableGradeTabs = [];
     
@@ -54,8 +54,13 @@ export function TabNavigation({ activeTab, onTabChange, selectedTerm }) {
       availableGradeTabs = gradeTabs.filter(tab => tab.key === "finalGrade");
     }
     
-    // Always show activity tabs, plus relevant grade tabs
-    return [...activityTabs, ...availableGradeTabs];
+    // Filter activity tabs based on laboratory availability
+    const availableActivityTabs = hasLaboratory 
+      ? activityTabs 
+      : activityTabs.filter(tab => tab.key !== "laboratory");
+    
+    // Always show filtered activity tabs, plus relevant grade tabs
+    return [...availableActivityTabs, ...availableGradeTabs];
   };
 
   const availableTabs = getAvailableTabs();

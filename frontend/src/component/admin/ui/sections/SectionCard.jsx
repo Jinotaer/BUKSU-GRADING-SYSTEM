@@ -116,7 +116,7 @@ export function SectionCard({
               className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm"
             >
               <IconUsers size={16} />
-              Invite Students
+              Add Students
             </button>
             <button
               onClick={() => onViewStudents(section._id)}

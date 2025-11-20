@@ -102,8 +102,8 @@ export const applyFormatting = async (
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 6, endRowIndex: 12, startColumnIndex: 4, endColumnIndex: 5 },
-        cell: { userEnteredFormat: { textFormat: { fontFamily: 'Arial' } } },
-        fields: 'userEnteredFormat.textFormat',
+        cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { fontFamily: 'Arial' } } },
+        fields: 'userEnteredFormat',
       },
     },
     // Right side labels - Day, Time, Rm, Units, Chair, Dean (column I, rows 6-11)
@@ -118,8 +118,8 @@ export const applyFormatting = async (
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 6, endRowIndex: 12, startColumnIndex: 9, endColumnIndex: 10 },
-        cell: { userEnteredFormat: { textFormat: { fontFamily: 'Arial' } } },
-        fields: 'userEnteredFormat.textFormat',
+        cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { fontFamily: 'Arial' } } },
+        fields: 'userEnteredFormat',
       },
     },
     // Header block styles
@@ -356,6 +356,75 @@ export const addStudentDataBorders = async (sheets, spreadsheetId, sheetId, tabl
               fields: 'userEnteredFormat.borders',
             },
           },
+          // Center align No. and Student No. columns only (not student names)
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 2,
+                endColumnIndex: 4,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+            },
+          },
+          // Ensure Name of Students column (column 4) is left-aligned  
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 4,
+                endColumnIndex: 5,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'LEFT',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+            },
+          },
+          // Center align all grade/score columns (from column 5 onwards - skip Name of Students)
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 5,
+                endColumnIndex: totalColumns,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+            },
+          },
         ],
       },
     });
@@ -480,14 +549,14 @@ export const applyFinalGradeFormatting = async (
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 6, endRowIndex: 9, startColumnIndex: 1, endColumnIndex: 6 },
-        cell: { userEnteredFormat: { textFormat: { fontFamily: 'Arial', fontSize: 10 }, borders: { top: { style: 'SOLID' }, bottom: { style: 'SOLID' }, left: { style: 'SOLID' }, right: { style: 'SOLID' } } } },
+        cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { fontFamily: 'Arial', fontSize: 10 }, borders: { top: { style: 'SOLID' }, bottom: { style: 'SOLID' }, left: { style: 'SOLID' }, right: { style: 'SOLID' } } } },
         fields: 'userEnteredFormat',
       },
     },
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 6, endRowIndex: 9, startColumnIndex: 7, endColumnIndex: columnCount },
-        cell: { userEnteredFormat: { textFormat: { fontFamily: 'Arial', fontSize: 10 }, borders: { top: { style: 'SOLID' }, bottom: { style: 'SOLID' }, left: { style: 'SOLID' }, right: { style: 'SOLID' } } } },
+        cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { fontFamily: 'Arial', fontSize: 10 }, borders: { top: { style: 'SOLID' }, bottom: { style: 'SOLID' }, left: { style: 'SOLID' }, right: { style: 'SOLID' } } } },
         fields: 'userEnteredFormat',
       },
     },
@@ -589,7 +658,7 @@ export const applyFinalGradeFormatting = async (
     }
   );
 
-  // Center-align and border all headers
+  // Center-align and border all headers (including Name of Students header)
   requests.push({
     repeatCell: {
       range: {
@@ -687,7 +756,7 @@ export const addFinalGradeStudentDataBorders = async (sheets, spreadsheetId, she
               fields: 'userEnteredFormat.borders',
             },
           },
-          // Center align No. and Student No. columns
+          // Center align No. and Student No. columns only (not student names)
           {
             repeatCell: {
               range: {
@@ -701,9 +770,59 @@ export const addFinalGradeStudentDataBorders = async (sheets, spreadsheetId, she
                 userEnteredFormat: {
                   horizontalAlignment: 'CENTER',
                   verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
                 },
               },
-              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+            },
+          },
+          // Ensure Name of Students column (column 2) is left-aligned
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 2,
+                endColumnIndex: 3,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'LEFT',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
+            },
+          },
+          // Center align all grade columns (from column 3 onwards - skip Name of Students)
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 3,
+                endColumnIndex: totalColumns,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    fontFamily: 'Arial',
+                    fontSize: 10
+                  }
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,textFormat)',
             },
           },
         ],

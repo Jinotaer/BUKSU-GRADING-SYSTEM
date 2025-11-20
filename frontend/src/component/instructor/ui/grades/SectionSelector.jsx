@@ -32,7 +32,7 @@ export function SectionSelector({
             <option value="">Select a section</option>
             {sections.map((s) => (
               <option key={s._id} value={s._id}>
-                {s.subject?.subjectCode} - {s.sectionName} ({s.schoolYear}{" "}
+                {s.subject?.subjectCode} - {s.subject?.subjectName} - {s.sectionName} ({s.schoolYear}{" "}
                 {s.term} Semester)
               </option>
             ))}

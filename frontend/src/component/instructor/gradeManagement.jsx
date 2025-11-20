@@ -5,8 +5,8 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { 
   getEquivalentGrade, 
-  getTermEquivalentGrade, 
-  getFinalEquivalentGrade 
+  calculateCategoryAverage,
+  calculateStudentFinalSummary,
 } from "../../utils/gradeUtils";
 import {
   PageHeader,
@@ -71,6 +71,17 @@ export default function GradeManagement() {
     return a;
   };
 
+  // Helper to determine if section has laboratory component
+  const hasLaboratory = useCallback(() => {
+    if (!selectedSection) return false;
+    const schema = selectedSection.gradingSchema;
+    if (schema && typeof schema === 'object') {
+      return Boolean(schema.laboratory && Number(schema.laboratory) > 0);
+    }
+    // Fallback to legacy hasLab property
+    return Boolean(selectedSection.hasLab);
+  }, [selectedSection]);
+
   const fetchInstructorSections = useCallback(async () => {
     try {
       setLoading(true);
@@ -98,7 +109,7 @@ export default function GradeManagement() {
     }
   }, [showErrorRef]);
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (termFilter = null) => {
     if (!selectedSection?._id) return null;
     try {
       const res = await authenticatedFetch(
@@ -117,11 +128,10 @@ export default function GradeManagement() {
         majorOutput:
           allActivities.filter((a) => a.category === "majorOutput") || [],
       };
-      setAllActivitiesUnfiltered(unfilteredOrganized);
       
-      // Filter by term if selected (for display tabs)
-      const filteredByTerm = selectedTerm 
-        ? allActivities.filter((a) => a.term === selectedTerm)
+      // Filter by term if specified (for display tabs)
+      const filteredByTerm = termFilter 
+        ? allActivities.filter((a) => a.term === termFilter)
         : allActivities;
       
       const organized = {
@@ -132,16 +142,16 @@ export default function GradeManagement() {
         majorOutput:
           filteredByTerm.filter((a) => a.category === "majorOutput") || [],
       };
-      setActivities(organized);
-      return organized;
+      
+      return { organized, unfilteredOrganized };
     } catch (err) {
       console.error("Error fetching activities:", err);
       return null;
     }
-  }, [selectedSection?._id, selectedTerm]);
+  }, [selectedSection?._id]);
 
   const fetchStudentsAndGrades = useCallback(
-    async (currentActivities) => {
+    async (currentActivities, unfilteredActivities) => {
       if (!selectedSection?._id) return;
 
       try {
@@ -229,21 +239,47 @@ export default function GradeManagement() {
           })
         );
 
-        // 4) attach activityScores per student
+        // 4) attach activityScores per student and compute final summaries
         const studentsWithScores = roster.map((student) => {
           const activityScores = allActivities.map((a) => {
             const rows = activityRowsMap.get(String(a._id)) || [];
             const hit = rows.find((row) => row.studentId === student._id);
             return {
               activity_id: a._id,
-              score: Number(hit?.score || 0),
-              maxScore: Number(hit?.maxScore || a.maxScore || 100),
+              // If there's no hit (no score row), treat it as blank (null)
+              score: hit ? (hit.score === null || hit.score === undefined || hit.score === "" ? null : Number(hit.score)) : null,
+              maxScore: Number(hit?.maxScore ?? a.maxScore ?? 100),
             };
           });
           return { ...student, activityScores };
         });
 
-        setStudents(studentsWithScores);
+        // Attach computed grade summaries using centralized utils.
+        const studentsWithSummaries = studentsWithScores.map((stu) => {
+          // helper to read a student's score for an activity (returns null for blank)
+          const getScoreForActivity = (studentObj, activity) => {
+            const hit = (studentObj.activityScores || []).find(
+              (r) => String(r.activity_id) === String(activity._id)
+            );
+            if (!hit || hit.score === null || hit.score === undefined || hit.score === "") return null;
+            return Number(hit.score);
+          };
+
+          // grading schema or legacy hasLab flag
+          const gradingSchemaOrHasLab = selectedSection?.gradingSchema ?? selectedSection?.hasLab ?? false;
+
+          // Compute final summary (includes midterm/final percents and final equivalent)
+          const summary = calculateStudentFinalSummary(
+            stu,
+            unfilteredActivities,
+            gradingSchemaOrHasLab,
+            getScoreForActivity
+          );
+
+          return { ...stu, grade: { ...(stu.grade || {}), ...summary } };
+        });
+
+        setStudents(studentsWithSummaries);
 
         // 5) prepare export shells (unchanged)
         const initial = {};
@@ -278,7 +314,7 @@ export default function GradeManagement() {
         setLoading(false);
       }
     },
-    [selectedSection?._id, showErrorRef]
+    [selectedSection, showErrorRef]
   );
 
   /* ---------- effects ---------- */
@@ -290,17 +326,32 @@ export default function GradeManagement() {
     const loadSectionData = async () => {
       if (!selectedSection?._id) return;
       
-      // First fetch activities
-      const fetchedActivities = await fetchActivities();
-      
-      // Then fetch students and grades with the fetched activities
-      if (fetchedActivities) {
-        await fetchStudentsAndGrades(fetchedActivities);
+      try {
+        setLoading(true);
+        
+        // Fetch activities with current term filter
+        const result = await fetchActivities(selectedTerm);
+        
+        if (result) {
+          const { organized, unfilteredOrganized } = result;
+          
+          // Update state
+          setActivities(organized);
+          setAllActivitiesUnfiltered(unfilteredOrganized);
+          
+          // Fetch students and grades with the fetched activities
+          await fetchStudentsAndGrades(organized, unfilteredOrganized);
+        }
+      } catch (error) {
+        console.error('Error loading section data:', error);
+        showErrorRef.current('Failed to load section data');
+      } finally {
+        setLoading(false);
       }
     };
     
     loadSectionData();
-  }, [selectedSection?._id, selectedTerm, fetchActivities, fetchStudentsAndGrades]);
+  }, [selectedSection?._id, selectedTerm, fetchActivities, fetchStudentsAndGrades, showErrorRef]);
 
   useEffect(() => {
     if (!students.length) return;
@@ -327,28 +378,98 @@ export default function GradeManagement() {
     activities.majorOutput.length,
   ]);
 
-  // refresh every 30s
+  // Effect to handle tab switching when laboratory becomes unavailable
+  useEffect(() => {
+    if (selectedSection && activeTab === "laboratory" && !hasLaboratory()) {
+      // Switch to classStanding tab if laboratory tab is no longer available
+      setActiveTab("classStanding");
+    }
+  }, [selectedSection, activeTab, hasLaboratory]);
+
+  // refresh every 5 minutes
   const refreshRef = useRef(null);
+  const selectedSectionIdRef = useRef(selectedSection?._id);
+  const selectedTermRef = useRef(selectedTerm);
+  const fetchStudentsAndGradesRef = useRef(fetchStudentsAndGrades);
+  
+  useEffect(() => {
+    selectedSectionIdRef.current = selectedSection?._id;
+  }, [selectedSection?._id]);
+  
+  useEffect(() => {
+    selectedTermRef.current = selectedTerm;
+  }, [selectedTerm]);
+  
+  useEffect(() => {
+    fetchStudentsAndGradesRef.current = fetchStudentsAndGrades;
+  }, [fetchStudentsAndGrades]);
+  
   useEffect(() => {
     if (refreshRef.current) {
       clearInterval(refreshRef.current);
       refreshRef.current = null;
     }
+    
     if (selectedSection?._id) {
       refreshRef.current = setInterval(async () => {
-        const current = await fetchActivities();
-        if (current) await fetchStudentsAndGrades(current);
-      }, 30000);
+        if (!selectedSectionIdRef.current) return;
+        
+        try {
+          const res = await authenticatedFetch(
+            `http://localhost:5000/api/instructor/sections/${selectedSectionIdRef.current}/activities`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          const allActivities = data.activities || [];
+          
+          const unfilteredOrganized = {
+            classStanding: allActivities.filter((a) => a.category === "classStanding") || [],
+            laboratory: allActivities.filter((a) => a.category === "laboratory") || [],
+            majorOutput: allActivities.filter((a) => a.category === "majorOutput") || [],
+          };
+          
+          const filteredByTerm = selectedTermRef.current 
+            ? allActivities.filter((a) => a.term === selectedTermRef.current)
+            : allActivities;
+          
+          const organized = {
+            classStanding: filteredByTerm.filter((a) => a.category === "classStanding") || [],
+            laboratory: filteredByTerm.filter((a) => a.category === "laboratory") || [],
+            majorOutput: filteredByTerm.filter((a) => a.category === "majorOutput") || [],
+          };
+          
+          setAllActivitiesUnfiltered(unfilteredOrganized);
+          setActivities(organized);
+          
+          // Refresh students with latest activities
+          await fetchStudentsAndGradesRef.current(organized, unfilteredOrganized);
+        } catch (error) {
+          console.error('Auto-refresh error:', error);
+        }
+      }, 300000);
     }
-    return () => refreshRef.current && clearInterval(refreshRef.current);
-  }, [selectedSection?._id, fetchActivities, fetchStudentsAndGrades]);
+    
+    return () => {
+      if (refreshRef.current) {
+        clearInterval(refreshRef.current);
+        refreshRef.current = null;
+      }
+    };
+  }, [selectedSection?._id]); // Only depend on section ID change
 
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
       await fetchInstructorSections();
-      const current = await fetchActivities();
-      if (current) await fetchStudentsAndGrades(current);
+      
+      const result = await fetchActivities(selectedTerm);
+      if (result) {
+        const { organized, unfilteredOrganized } = result;
+        setActivities(organized);
+        setAllActivitiesUnfiltered(unfilteredOrganized);
+        await fetchStudentsAndGrades(organized, unfilteredOrganized);
+      }
+      
       showSuccessRef.current("Data refreshed successfully!");
     } catch {
       showErrorRef.current("Failed to refresh data");
@@ -359,8 +480,9 @@ export default function GradeManagement() {
     fetchInstructorSections,
     fetchActivities,
     fetchStudentsAndGrades,
-    showErrorRef,
+    selectedTerm,
     showSuccessRef,
+    showErrorRef
   ]);
 
   const openScheduleModal = () => {
@@ -465,7 +587,7 @@ export default function GradeManagement() {
         const error = await res.json();
         throw new Error(error.message || "Failed to export to Google Sheets");
       }
-
+      
       const data = await res.json();
 
       showSuccessRef.current("Successfully exported to Google Sheets!");
@@ -583,54 +705,7 @@ export default function GradeManagement() {
   };
 
   /* ---------- rendering helpers ---------- */
-  // Table 1: Grade Category Equivalency - converts percentage to equivalent grade
-  const eqFromPercent = (avg) => {
-    if (avg === "" || avg === null || avg === undefined || isNaN(Number(avg))) {
-      return "5.00";
-    }
-
-    const score = Number(avg);
-    
-    // Table 1: BukSU Grading Scale (Percentage to Grade)
-    if (score >= 97) return "1.00";  // 97-100 = Excellent
-    if (score >= 94) return "1.25";  // 94-96 = Very Good
-    if (score >= 91) return "1.50";  // 91-93 = Good
-    if (score >= 88) return "1.75";  // 88-90 = Satisfactory
-    if (score >= 85) return "2.00";  // 85-87 = Passing
-    if (score >= 82) return "2.25";  // 82-84 = Fair
-    if (score >= 79) return "2.50";  // 79-81 = Fair
-    if (score >= 76) return "2.75";  // 76-78 = Fair
-    if (score >= 75) return "3.00";  // 75 = Conditional/Passing
-    
-    // Below 75 is failing
-    return "5.00";  // Failed
-  };
-
-  // Table 2: Term Grade Equivalency - converts numeric grade to equivalent grade
-  const getTermEquivalentGrade = (numericGrade) => {
-    if (numericGrade === "" || numericGrade === null || numericGrade === undefined || isNaN(Number(numericGrade))) {
-      return "5.00";
-    }
-
-    const grade = Number(numericGrade);
-    
-    // Table 2: Term Grade Equivalency Table
-    if (grade >= 0 && grade <= 1.1250) return "1.00";
-    if (grade >= 1.1251 && grade <= 1.3750) return "1.25";
-    if (grade >= 1.3751 && grade <= 1.6250) return "1.50";
-    if (grade >= 1.6251 && grade <= 1.8750) return "1.75";
-    if (grade >= 1.8751 && grade <= 2.1250) return "2.00";
-    if (grade >= 2.1251 && grade <= 2.3750) return "2.25";
-    if (grade >= 2.3751 && grade <= 2.6250) return "2.50";
-    if (grade >= 2.6251 && grade <= 2.8750) return "2.75";
-    if (grade >= 2.8751 && grade <= 3.1250) return "3.00";
-    if (grade >= 3.1251 && grade <= 3.3750) return "3.25";
-    if (grade >= 3.3751 && grade <= 3.6250) return "3.50";
-    if (grade >= 3.6251 && grade <= 9) return "5.00";
-    
-    // Above 9 or invalid
-    return "5.00";  // Failed
-  };
+  // Use shared grade utility functions from utils/gradeUtils.js (imported at top)
 
   const getWeight = (cat) => {
     const gs = selectedSection?.gradingSchema || {};
@@ -644,26 +719,9 @@ export default function GradeManagement() {
   const categoryAverage = (student, cat) => {
     const acts = activities?.[cat] ?? [];
     if (!acts.length) return 0;
-    
-    // Use weighted calculation (matches backend logic)
-    // This properly accounts for different activity point values
-    let totalEarned = 0;
-    let totalMax = 0;
-    
-    acts.forEach((activity) => {
-      const hit = student.activityScores?.find(
-        (s) => String(s.activity_id) === String(activity._id)
-      ) || student.grades?.find(
-        (g) => String(g.activity_id) === String(activity._id)
-      );
-      const earned = Number(hit?.score ?? 0);
-      const max = Number(hit?.maxScore ?? activity?.maxScore ?? 100);
-      
-      totalEarned += earned;
-      totalMax += max;
-    });
-    
-    return totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
+
+    // Delegate calculation to shared utility. It expects (activities, student, getActivityScore)
+    return calculateCategoryAverage(acts, student, getActivityScore);
   };
 
   const filteredStudents = students.filter(
@@ -680,7 +738,11 @@ export default function GradeManagement() {
       student.grades?.find(
         (g) => String(g.activity_id) === String(activity._id)
       );
-    return Number(hit?.score ?? 0);
+    // Only display a number if score is not blank (null, undefined, empty string)
+    if (hit?.score === null || hit?.score === undefined || hit?.score === "") {
+      return "";
+    }
+    return Number(hit.score);
   };
 
   /* ---------- early load ---------- */
@@ -744,7 +806,12 @@ export default function GradeManagement() {
 
                 {selectedSection && (
                   <>
-                    <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} selectedTerm={selectedTerm} />
+                    <TabNavigation 
+                      activeTab={activeTab} 
+                      onTabChange={setActiveTab} 
+                      selectedTerm={selectedTerm}
+                      hasLaboratory={hasLaboratory()}
+                    />
 
                     {loading ? (
                       <LoadingSpinner />
@@ -762,7 +829,7 @@ export default function GradeManagement() {
                             getActivityScore={getActivityScore}
                           />
                         )}
-                        {activeTab === "laboratory" && (
+                        {activeTab === "laboratory" && hasLaboratory() && (
                           <CategoryTable
                             category="laboratory"
                             title="Laboratory Activity"

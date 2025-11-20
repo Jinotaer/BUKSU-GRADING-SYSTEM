@@ -1,20 +1,19 @@
 // utils/gradeUtils.js
 export const percentToGrade = (percent) => {
   if (percent >= 96) return 1.0;     // 96-100
-  if (percent >= 93) return 1.25;    // 93-95
-  if (percent >= 89) return 1.5;     // 89-92
-  if (percent >= 86) return 1.75;    // 86-88
-  if (percent >= 83) return 2.0;     // 83-85
-  if (percent >= 80) return 2.25;    // 80-82
-  if (percent >= 77) return 2.5;     // 77-79
-  if (percent >= 74) return 2.75;    // 74-76
-  if (percent >= 71) return 3.0;     // 71-73
-  if (percent >= 68) return 3.25;    // 68-70
-  if (percent >= 65) return 3.5;     // 65-67
-  if (percent >= 60) return 3.75;    // 60-64
-  if (percent >= 56) return 4.0;     // 56-59
-  if (percent >= 50) return 4.5;     // 50-55
-  return 5.0;                        // Below 50
+  if (percent >= 91) return 1.25;    // 91-95
+  if (percent >= 86) return 1.5;     // 86-90
+  if (percent >= 80) return 1.75;    // 80-85
+  if (percent >= 74) return 2.0;     // 74-79
+  if (percent >= 68) return 2.25;    // 68-73
+  if (percent >= 62) return 2.5;     // 62-67
+  if (percent >= 56) return 2.75;    // 56-61
+  if (percent >= 50) return 3.0;     // 50-55
+  if (percent >= 44) return 3.25;    // 44-49
+  if (percent >= 38) return 3.5;     // 38-43
+  if (percent >= 32) return 3.75;    // 32-37
+  if (percent >= 26) return 4.0;     // 26-31
+  return 5.0;                        // 0-25
 };
 
 export const computeScoresByStudent = (activityScores) => {

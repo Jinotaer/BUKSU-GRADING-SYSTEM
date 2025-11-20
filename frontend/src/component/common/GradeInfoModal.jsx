@@ -5,7 +5,7 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/20 bg-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
@@ -25,7 +25,7 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
 
         <div className="p-6 space-y-6">
           {/* Algorithm Overview */}
-          <div className="bg-blue-50 rounded-lg p-4">
+          {/* <div className="bg-blue-50 rounded-lg p-4">
             <h3 className="font-semibold text-blue-900 mb-2">Grading Algorithm Steps</h3>
             <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
               <li>Calculate component scores (Class Standing, Laboratory, Major Output) as percentages</li>
@@ -34,7 +34,7 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
               <li>Calculate weighted average of term grades (Midterm 40% + Final Term 60%)</li>
               <li>Convert final numeric grade to equivalent grade using <strong>Table 3</strong></li>
             </ol>
-          </div>
+          </div> */}
 
           {/* Component Weights */}
           <div>
@@ -65,68 +65,64 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
             {/* Table 1 */}
             <div>
               <h4 className="font-medium text-gray-800 mb-2">
-                Table 1: Grade Category Equivalency (50% Passing Rate)
+                Table 1: Grade Category Equivalency
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
                 <div className="bg-green-100 p-2 rounded text-center">
                   <div className="font-semibold">96-100%</div>
-                  <div className="text-green-700">1.00 - Excellent</div>
+                  <div className="text-green-700">1.00</div>
                 </div>
                 <div className="bg-green-100 p-2 rounded text-center">
-                  <div className="font-semibold">93-95%</div>
-                  <div className="text-green-700">1.25 - Very Good</div>
+                  <div className="font-semibold">91-95%</div>
+                  <div className="text-green-700">1.25</div>
                 </div>
                 <div className="bg-blue-100 p-2 rounded text-center">
-                  <div className="font-semibold">89-92%</div>
-                  <div className="text-blue-700">1.50 - Good</div>
+                  <div className="font-semibold">86-90%</div>
+                  <div className="text-blue-700">1.50</div>
                 </div>
                 <div className="bg-blue-100 p-2 rounded text-center">
-                  <div className="font-semibold">86-88%</div>
-                  <div className="text-blue-700">1.75 - Satisfactory</div>
+                  <div className="font-semibold">80-85%</div>
+                  <div className="text-blue-700">1.75</div>
                 </div>
                 <div className="bg-yellow-100 p-2 rounded text-center">
-                  <div className="font-semibold">83-85%</div>
-                  <div className="text-yellow-700">2.00 - Fair</div>
+                  <div className="font-semibold">74-79%</div>
+                  <div className="text-yellow-700">2.00</div>
                 </div>
                 <div className="bg-yellow-100 p-2 rounded text-center">
-                  <div className="font-semibold">80-82%</div>
-                  <div className="text-yellow-700">2.25 - Fair</div>
+                  <div className="font-semibold">68-73%</div>
+                  <div className="text-yellow-700">2.25</div>
                 </div>
                 <div className="bg-orange-100 p-2 rounded text-center">
-                  <div className="font-semibold">77-79%</div>
-                  <div className="text-orange-700">2.50 - Fair</div>
+                  <div className="font-semibold">62-67%</div>
+                  <div className="text-orange-700">2.50</div>
                 </div>
                 <div className="bg-orange-100 p-2 rounded text-center">
-                  <div className="font-semibold">74-76%</div>
-                  <div className="text-orange-700">2.75 - Fair</div>
+                  <div className="font-semibold">56-61%</div>
+                  <div className="text-orange-700">2.75</div>
                 </div>
                 <div className="bg-orange-100 p-2 rounded text-center">
-                  <div className="font-semibold">71-73%</div>
-                  <div className="text-orange-700">3.00 - Passing</div>
-                </div>
-                <div className="bg-red-100 p-2 rounded text-center">
-                  <div className="font-semibold">68-70%</div>
-                  <div className="text-red-700">3.25 - Failing</div>
-                </div>
-                <div className="bg-red-100 p-2 rounded text-center">
-                  <div className="font-semibold">65-67%</div>
-                  <div className="text-red-700">3.50 - Failing</div>
-                </div>
-                <div className="bg-red-100 p-2 rounded text-center">
-                  <div className="font-semibold">60-64%</div>
-                  <div className="text-red-700">3.75 - Failing</div>
-                </div>
-                <div className="bg-red-100 p-2 rounded text-center">
-                  <div className="font-semibold">56-59%</div>
-                  <div className="text-red-700">4.00 - Failing</div>
-                </div>
-                <div className="bg-red-100 p-2 rounded text-center">
                   <div className="font-semibold">50-55%</div>
-                  <div className="text-red-700">4.50 - Failing</div>
+                  <div className="text-orange-700">3.00</div>
+                </div>
+                <div className="bg-red-100 p-2 rounded text-center">
+                  <div className="font-semibold">44-49%</div>
+                  <div className="text-red-700">3.25</div>
+                </div>
+                <div className="bg-red-100 p-2 rounded text-center">
+                  <div className="font-semibold">38-43%</div>
+                  <div className="text-red-700">3.50</div>
+                </div>
+                <div className="bg-red-100 p-2 rounded text-center">
+                  <div className="font-semibold">32-37%</div>
+                  <div className="text-red-700">3.75</div>
+                </div>
+                <div className="bg-red-100 p-2 rounded text-center">
+                  <div className="font-semibold">26-31%</div>
+                  <div className="text-red-700">4.00</div>
                 </div>
                 <div className="bg-gray-100 p-2 rounded text-center">
-                  <div className="font-semibold">&lt;50%</div>
-                  <div className="text-gray-700">5.00 - Failed</div>
+                  <div className="font-semibold">0-25%</div>
+                  <div className="text-gray-700">5.00</div>
                 </div>
               </div>
             </div>
@@ -182,7 +178,7 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Key Changes */}
-          <div className="bg-yellow-50 rounded-lg p-4">
+          {/* <div className="bg-yellow-50 rounded-lg p-4">
             <h3 className="font-semibold text-yellow-900 mb-2">Key Updates in This System</h3>
             <ul className="space-y-1 text-sm text-yellow-800">
               <li>• <strong>50% passing threshold</strong> instead of previous 75%</li>
@@ -190,7 +186,7 @@ const GradeInfoModal = ({ isOpen, onClose }) => {
               <li>• <strong>Three-table conversion system</strong> for more accurate grading</li>
               <li>• <strong>Separate final grade table</strong> for final assessments</li>
             </ul>
-          </div>
+          </div> */}
         </div>
 
         {/* Footer */}

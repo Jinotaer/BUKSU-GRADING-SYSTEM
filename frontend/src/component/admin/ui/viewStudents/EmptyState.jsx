@@ -6,10 +6,10 @@ export function EmptyState() {
     <div className="text-center py-12">
       <IconUsers className="mx-auto text-gray-300 mb-4" size={48} />
       <h3 className="text-lg font-medium text-gray-600 mb-2">
-        No students invited yet
+        No students in this section yet
       </h3>
       <p className="text-gray-500">
-        Use the "Invite Students" button to add students.
+        Use the "Added Students" button to add students.
       </p>
     </div>
   );

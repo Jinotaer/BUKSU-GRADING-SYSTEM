@@ -5,6 +5,17 @@ import Grade from "../models/grades.js";
 import Section from "../models/sections.js";
 
 /**
+ * Round number up if decimal is .5 or higher
+ * @param {number} num - Number to round
+ * @param {number} decimals - Number of decimal places (default: 2)
+ * @returns {number} Rounded number
+ */
+const roundUpAtHalf = (num, decimals = 2) => {
+  const factor = Math.pow(10, decimals);
+  return Math.round(num * factor) / factor;
+};
+
+/**
  * Convert activity term format from section term format
  * @param {string} sectionTerm - Section term ('1st', '2nd', 'Summer')
  * @returns {string} Activity term format ('First', 'Second', 'Summer')
@@ -19,7 +30,6 @@ const toActivityTerm = (sectionTerm) => {
 /**
  * Get equivalent grade based on BukSU grading scale (Table 1 - Grade Category Equivalency Tables)
  * Used for converting percentage scores to equivalent grades for category and term calculations
- * Based on the official BukSU algorithm with 50% passing rate tables
  * @param {number} percentage - Percentage score (0-100)
  * @returns {string} Equivalent grade ("1.00", "1.25", etc.)
  */
@@ -30,23 +40,22 @@ function getEquivalentGrade(percentage) {
 
   const score = Number(percentage);
   
-  // Table 1: Grade Category Equivalency Tables (50% passing rate)
+  // Table 1: Grade Category Equivalency Tables
   if (score >= 96) return "1.00";      // 96-100
-  if (score >= 93) return "1.25";      // 93-95
-  if (score >= 89) return "1.50";      // 89-92
-  if (score >= 86) return "1.75";      // 86-88
-  if (score >= 83) return "2.00";      // 83-85
-  if (score >= 80) return "2.25";      // 80-82
-  if (score >= 77) return "2.50";      // 77-79
-  if (score >= 74) return "2.75";      // 74-76
-  if (score >= 71) return "3.00";      // 71-73
-  if (score >= 68) return "3.25";      // 68-70
-  if (score >= 65) return "3.50";      // 65-67
-  if (score >= 60) return "3.75";      // 60-64
-  if (score >= 56) return "4.00";      // 56-59
-  if (score >= 50) return "4.50";      // 50-55
+  if (score >= 91) return "1.25";      // 91-95
+  if (score >= 86) return "1.50";      // 86-90
+  if (score >= 80) return "1.75";      // 80-85
+  if (score >= 74) return "2.00";      // 74-79
+  if (score >= 68) return "2.25";      // 68-73
+  if (score >= 62) return "2.50";      // 62-67
+  if (score >= 56) return "2.75";      // 56-61
+  if (score >= 50) return "3.00";      // 50-55
+  if (score >= 44) return "3.25";      // 44-49
+  if (score >= 38) return "3.50";      // 38-43
+  if (score >= 32) return "3.75";      // 32-37
+  if (score >= 26) return "4.00";      // 26-31
+  if (score >= 0) return "5.00";       // 0-25
   
-  // Below 50 is failing
   return "5.00";  // Failed
 }
 
@@ -118,21 +127,31 @@ function getFinalEquivalentGrade(numericGrade) {
  * @param {Object} scoresByStudent - Map of student scores
  * @returns {number} Component score as percentage (0-100)
  */
-const calculateComponentScore = (activities, studentId, scoresByStudent) => {
+export const calculateComponentScore = (activities, studentId, scoresByStudent) => {
   if (!activities.length) return 0;
   
   const studentScores = scoresByStudent[String(studentId)] || {};
-  let totalEarned = 0;
-  let totalMax = 0;
+  let totalPercentage = 0;
   
   activities.forEach((activity) => {
-    const earned = Number(studentScores[String(activity._id)] || 0);
-    const max = Number(activity.maxScore ?? 100) || 100;
-    totalEarned += earned;
-    totalMax += max;
+    const activityId = String(activity._id);
+    const maxScore = Number(activity.maxScore ?? 100);
+    
+    // Check if student has a score for this activity (blank vs 0)
+    if (activityId in studentScores) {
+      // Student has a score (could be 0 or any number)
+      const earned = Number(studentScores[activityId]);
+      const percentage = (earned / maxScore) * 100;
+      totalPercentage += percentage;
+    } else {
+      // Student has no score (blank) - give 5%
+      totalPercentage += 5;
+    }
   });
   
-  return totalMax > 0 ? (totalEarned / totalMax) * 100 : 0;
+  // Return average of all activity percentages, rounded to whole number
+  const average = totalPercentage / activities.length;
+  return roundUpAtHalf(average, 0);
 };
 
 /**
@@ -151,7 +170,8 @@ const calculateTermGradeFraction = (components, gradingSchema) => {
   const labWeight = weights.laboratory / 100;
   const moWeight = weights.majorOutput / 100;
   
-  return (classStanding * csWeight) + (laboratory * labWeight) + (majorOutput * moWeight);
+  const termGrade = (classStanding * csWeight) + (laboratory * labWeight) + (majorOutput * moWeight);
+  return roundUpAtHalf(termGrade, 0);
 };
 
 /**
@@ -236,7 +256,7 @@ const calculateGrades = (data, options = {}) => {
  * @returns {number} Average percentage (0-100)
  */
 const calculateTermCategoryAverage = (activities, studentId, scoresByStudent) => {
-  // Use the same logic as calculateComponentScore
+  // Use the same logic as calculateComponentScore with rounding
   return calculateComponentScore(activities, studentId, scoresByStudent);
 };
 
@@ -261,13 +281,16 @@ const hasLaboratory = (gradingSchema) => {
 const calculateTermGrade = (components, hasLab) => {
   const { classStanding = 0, laboratory = 0, majorOutput = 0 } = components;
   
+  let termGrade;
   if (hasLab) {
     // With Laboratory: CS=30%, Lab=30%, MO=40%
-    return (classStanding * 0.30) + (laboratory * 0.30) + (majorOutput * 0.40);
+    termGrade = (classStanding * 0.30) + (laboratory * 0.30) + (majorOutput * 0.40);
   } else {
     // No Laboratory: CS=60%, MO=40%
-    return (classStanding * 0.60) + (majorOutput * 0.40);
+    termGrade = (classStanding * 0.60) + (majorOutput * 0.40);
   }
+  
+  return roundUpAtHalf(termGrade, 0);
 };
 
 /**
