@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { IconRefresh, IconBrandGoogle, IconInfoCircle } from "@tabler/icons-react";
 import GradeInfoModal from "../../../common/GradeInfoModal";
 
-export function PageHeader({ onRefresh, onExport, onExportFinalGrade, loading, disabled }) {
+export function PageHeader({ onRefresh, onExport, loading, disabled }) {
   const [showGradeInfo, setShowGradeInfo] = useState(false);
 
   return (
@@ -41,14 +41,14 @@ export function PageHeader({ onRefresh, onExport, onExportFinalGrade, loading, d
             )}
             Refresh
           </button>
-          <button
+          {/* <button
             onClick={onExportFinalGrade}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium cursor-pointer disabled:cursor-not-allowed"
             disabled={disabled}
           >
             <IconBrandGoogle size={18} />
             Export Final Grade
-          </button>
+          </button> */}
           <button
             onClick={onExport}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm font-medium cursor-pointer disabled:cursor-not-allowed"

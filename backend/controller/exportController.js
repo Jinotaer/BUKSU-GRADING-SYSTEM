@@ -110,6 +110,10 @@ export const exportToGoogleSheets = async (req, res) => {
   const desiredSheetTitleBase =
     requestedSheetNameFromBody || `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}${termSuffix}`;
   const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
+  
+  // IMPORTANT: Create section folder name WITHOUT term suffix
+  // This ensures ALL exports (regular + final grade) for this section use the SAME folder
+  const sectionFolderBaseName = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
 
   // 6) Handle spreadsheet creation or reuse
   // Store term-specific metadata using a dynamic key
@@ -206,8 +210,9 @@ export const exportToGoogleSheets = async (req, res) => {
   if (!reusedExisting) {
     let createdFolderId = null;
     
-    // Generate section folder name following the pattern: "IT101_T101_1st"
-    const sectionFolderName = requestedSheetName || desiredSheetTitleBase;
+    // CRITICAL: Use sectionFolderBaseName (without term suffix) to share folder with final grade export
+    // This ensures all exports for the same section go to ONE folder
+    const sectionFolderName = sectionFolderBaseName; // e.g., "IT101_T101_1st" (no -allterms, no -midterm)
     
     // Determine the parent folder (requested folder or default from env)
     const parentFolder = requestedParentFolderId || GOOGLE_DRIVE_FOLDER_ID;

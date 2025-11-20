@@ -564,11 +564,10 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
 
   // Section information exactly as shown in screenshot with proper table layout and column positioning
   const sectionInfo = [
-    ['Section Code:', '', '', '', section.sectionCode || section.sectionName || 'T101', '', '', 'Unit(s):', (section.subject?.units ?? 3.00).toString(), '', '', '', '', '', '', '', '', ''],
-    ['Subject Code:', '', '', '', section.subject?.subjectCode || 'IT 101', '', '', 'Day/Time:', `${schedule.day || 'TF'}, ${schedule.time || '7:30AM - 10:00AM'}`, '', '', '', '', '', '', '', '', ''],
-    ['Course Description.:', '', '', '', section.subject?.subjectName || 'IPT-2', '', '', 'Room:', schedule.room || 'Lab 3', '', '', '', '', '', '', '', '', ''],
-    ['Semester/School Year:', '', '', '', `${section.term || '1st'} Sem/${section.schoolYear || '2024-2025'}`, '', '', '', '', '', '', '', '', '', '', '', '', ''],
-    [],
+    ['Section Code:', '', '', '', section.sectionCode || section.sectionName, '', 'Unit(s):', (section.subject?.units).toString()],
+    ['Subject Code:', '', '', '', section.subject?.subjectCode , '', 'Day/Time:', `${schedule.day}, ${schedule.time}`],
+    ['Course Description:', '', '', '', section.subject?.subjectName , '', 'Room:', schedule.room || 'Lab 3'],
+    ['Semester/School Year:', '', '', '', `${section.term} Semester/${section.schoolYear}`],
   ];
 
   // Get grading schema weights

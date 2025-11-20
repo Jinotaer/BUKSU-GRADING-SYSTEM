@@ -98,6 +98,10 @@ export const exportFinalGrade = async (req, res) => {
   const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}_FinalGrade`;
   const desiredSheetTitleBase = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}_FinalGrade`;
   const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
+  
+  // IMPORTANT: Create section folder name WITHOUT the "_FinalGrade" suffix
+  // This ensures both regular exports and final grade exports use the SAME folder
+  const sectionFolderBaseName = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
 
   // 6) Handle spreadsheet creation or reuse
   const metadataKey = 'exportMetadata_finalgrade';
@@ -175,24 +179,57 @@ export const exportFinalGrade = async (req, res) => {
     }
   }
 
-  // 7) Move spreadsheet to folder
+  // 7) Move spreadsheet to folder with section-specific organization
+  // Ensures final grade exports use the SAME folder as regular class record exports
   if (!reusedExisting) {
     let createdFolderId = null;
-    const sectionFolderName = desiredSheetTitleBase;
+    
+    // CRITICAL: Use sectionFolderBaseName (without _FinalGrade suffix) 
+    // to share the same folder with regular exports
+    const sectionFolderName = sectionFolderBaseName; // This matches the regular export folder name
     const parentFolder = GOOGLE_DRIVE_FOLDER_ID;
     
     if (parentFolder) {
+      console.log('[exportFinalGrade] 🔍 Checking for existing section folder...');
+      console.log('[exportFinalGrade] - Section folder name:', sectionFolderName);
+      console.log('[exportFinalGrade] - Parent folder ID:', parentFolder);
+      
+      // findOrCreateSectionFolder will reuse existing folder if found
       const existingFolderRes = await findOrCreateSectionFolder(drive, sectionFolderName, parentFolder);
+      console.log('[exportFinalGrade] 📁 Folder result:', existingFolderRes);
       
       if (existingFolderRes.ok && existingFolderRes.id) {
         createdFolderId = existingFolderRes.id;
+        
+        if (existingFolderRes.wasExisting) {
+          console.log(`[exportFinalGrade] ✅ Using existing section folder: ${sectionFolderName} (${createdFolderId})`);
+          console.log(`[exportFinalGrade] 📂 Both regular export and final grade will be in the same folder!`);
+        } else {
+          console.log(`[exportFinalGrade] 📁 Created new section folder: ${sectionFolderName} (${createdFolderId})`);
+        }
+        
+        // Move the final grade spreadsheet to the section folder
         const moveRes = await moveFileToFolder(drive, spreadsheetId, createdFolderId);
         if (!moveRes.ok) {
           warnings.push(`Could not move spreadsheet to section folder: ${moveRes.message}`);
+        } else {
+          console.log(`[exportFinalGrade] ✅ Final grade spreadsheet moved to section folder`);
         }
       } else {
-        warnings.push(`Could not create/find section folder: ${existingFolderRes.message}`);
+        warnings.push(`Could not create/find section folder "${sectionFolderName}": ${existingFolderRes.message}`);
+        
+        // Fallback: move directly to parent folder
+        const moveRes = await moveFileToFolder(drive, spreadsheetId, parentFolder);
+        if (!moveRes.ok) {
+          warnings.push(`Could not move spreadsheet to parent folder: ${moveRes.message}`);
+        } else {
+          createdFolderId = parentFolder;
+          warnings.push('Moved to parent folder as fallback since section folder creation failed.');
+        }
       }
+    } else {
+      console.warn('[exportFinalGrade] No parent folder configured; spreadsheet left in Drive root');
+      warnings.push('No target folder configured; spreadsheet remains in Drive root.');
     }
 
     if (createdFolderId) {

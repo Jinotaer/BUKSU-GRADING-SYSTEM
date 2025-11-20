@@ -620,21 +620,21 @@ export const applyFinalGradeFormatting = async (
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
-        properties: { pixelSize: 40 },
+        properties: { pixelSize: 150 },
         fields: 'pixelSize',
       },
     },
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
-        properties: { pixelSize: 120 },
+        properties: { pixelSize: 130 },
         fields: 'pixelSize',
       },
     },
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 },
-        properties: { pixelSize: 280 },
+        properties: { pixelSize: 250 },
         fields: 'pixelSize',
       },
     }
@@ -645,7 +645,7 @@ export const applyFinalGradeFormatting = async (
     requests.push({
       updateDimensionProperties: {
         range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: columnCount },
-        properties: { pixelSize: 75 },
+        properties: { pixelSize: 85 },
         fields: 'pixelSize',
       },
     });
@@ -655,6 +655,62 @@ export const applyFinalGradeFormatting = async (
     await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
   } catch (err) {
     throw new HttpError(500, 'Failed applying final grade formatting to sheet', { cause: err?.message });
+  }
+};
+
+export const addFinalGradeStudentDataBorders = async (sheets, spreadsheetId, sheetId, tableHeaderStartRow, headerRowCount, studentRowCount, totalColumns) => {
+  try {
+    const dataStartRow = tableHeaderStartRow + headerRowCount;
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 0,
+                endColumnIndex: totalColumns,
+              },
+              cell: {
+                userEnteredFormat: {
+                  borders: {
+                    top: { style: 'SOLID' },
+                    bottom: { style: 'SOLID' },
+                    left: { style: 'SOLID' },
+                    right: { style: 'SOLID' },
+                  },
+                },
+              },
+              fields: 'userEnteredFormat.borders',
+            },
+          },
+          // Center align No. and Student No. columns
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: dataStartRow,
+                endRowIndex: dataStartRow + studentRowCount,
+                startColumnIndex: 0,
+                endColumnIndex: 2,
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                },
+              },
+              fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+            },
+          },
+        ],
+      },
+    });
+  } catch (err) {
+    throw new HttpError(500, 'Failed adding borders to final grade student data', { cause: err?.message });
   }
 };
 

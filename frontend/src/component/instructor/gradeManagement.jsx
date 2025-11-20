@@ -832,6 +832,8 @@ export default function GradeManagement() {
                             gradeType="final"
                             getWeight={getWeight}
                             allActivities={allActivitiesUnfiltered}
+                            onExportFinalGrade={exportFinalGradeToGoogleSheets}
+                            selectedTerm={selectedTerm}
                           />
                         )}
                       </>
