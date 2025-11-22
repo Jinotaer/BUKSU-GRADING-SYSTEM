@@ -23,20 +23,37 @@ export const computeScoresByStudent = (activityScores) => {
     if (!sid) continue;
     const aid = String(s.activity);
     map[sid] ||= {};
-    map[sid][aid] = Number(s.score || 0);
+    
+    // Preserve original score value - don't convert undefined/null/empty to 0
+    if (s.score !== undefined && s.score !== null && s.score !== '') {
+      map[sid][aid] = Number(s.score);
+    }
+    // If score is missing/undefined/null/empty, don't add it to the map
   }
   return map;
 };
 
 export const avgFor = (acts, student, scoresByStudent) => {
-  if (!acts.length) return 0;
+  if (!acts.length) return '';
   const sMap = scoresByStudent[String(student._id)] || {};
-  const percents = acts.map((a) => {
-    const score = Number(sMap[String(a._id)] || 0);
+  
+  // Only calculate averages from activities that have actual scores
+  const validScores = [];
+  
+  for (const a of acts) {
+    const score = sMap[String(a._id)];
     const max = Number(a.maxScore ?? 100) || 0;
-    return max > 0 ? (score / max) * 100 : 0;
-  });
-  return percents.reduce((a, b) => a + b, 0) / percents.length;
+    
+    // Only include if score exists and is not zero (zero means no score recorded)
+    if (score !== undefined && score !== null && score !== '' && Number(score) > 0 && max > 0) {
+      validScores.push((Number(score) / max) * 100);
+    }
+  }
+  
+  // Return empty string if no valid scores, otherwise return average
+  return validScores.length > 0 ? 
+    validScores.reduce((a, b) => a + b, 0) / validScores.length : 
+    '';
 };
 
 /**

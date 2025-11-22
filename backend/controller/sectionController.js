@@ -11,6 +11,8 @@ export const createSection = async (req, res) => {
   try {
     const { subjectId, instructorId, sectionName, schoolYear, term, gradingSchema } = req.body;
     
+    console.log('Creating section with data:', { subjectId, instructorId, sectionName, schoolYear, term });
+    
     // For admin requests, instructorId is provided in the body
     // For instructor requests, use the authenticated user's ID
     const finalInstructorId = instructorId || req.user.user._id;
@@ -32,7 +34,7 @@ export const createSection = async (req, res) => {
     const instructor = await Instructor.findById(finalInstructorId);
     if (!instructor) return res.status(404).json({ message: "Instructor not found" });
 
-    // Check uniqueness: same subject+instructor in same sy/term
+    // Check uniqueness: same subject+instructor+sectionName in same sy/term
     const existing = await Section.findOne({ 
       subject: subjectId, 
       instructor: finalInstructorId, 
@@ -42,7 +44,7 @@ export const createSection = async (req, res) => {
     });
     if (existing) {
       return res.status(400).json({ 
-        message: "A section with this name already exists for this subject in this term" 
+        message: "A section with this name already exists for this subject and instructor in this term" 
       });
     }
 
@@ -58,6 +60,8 @@ export const createSection = async (req, res) => {
         majorOutput: 40
       },
     });
+
+    console.log('Section created successfully:', section._id);
 
     const populatedSection = await Section.findById(section._id)
       .populate("instructor", "fullName email college department")
@@ -94,8 +98,23 @@ export const createSection = async (req, res) => {
 
     res.status(201).json({ success: true, section: populatedSection });
   } catch (err) {
-    console.error("createSection:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("createSection Error Details:");
+    console.error("Error message:", err.message);
+    console.error("Error stack:", err.stack);
+    console.error("Error code:", err.code);
+    console.error("Full error:", err);
+    
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: "A section with these details already exists. Please use different section details." 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Server error", 
+      error: err.message,
+      details: err.code ? `Error code: ${err.code}` : undefined
+    });
   }
 };
 
@@ -260,7 +279,7 @@ export const updateSection = async (req, res) => {
       });
       if (existing) {
         return res.status(400).json({ 
-          message: "A section with this name already exists for this subject in this term" 
+          message: "A section with this name already exists for this subject and instructor in this term" 
         });
       }
     }

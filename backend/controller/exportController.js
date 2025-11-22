@@ -269,7 +269,7 @@ export const exportToGoogleSheets = async (req, res) => {
   // 8) Build sheet data (CLASS RECORD only - not Final Grade)
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room, chairperson, dean };
   
-  const sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo);
+  const sheetDataResult = buildSheetData(section, activities, scoresByStudent, scheduleInfo, term);
   
   const {
     allData,

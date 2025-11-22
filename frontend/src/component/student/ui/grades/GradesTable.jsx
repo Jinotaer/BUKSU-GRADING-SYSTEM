@@ -68,7 +68,7 @@ export const GradesTable = ({ displayGrades, semesters, selectedSemester, select
                     <td className="px-4 py-2 text-sm text-center whitespace-nowrap">
                       {hasMidterm ? (
                         <span className="text-sm text-gray-700">
-                          {grade.midtermEquivalentGrade}
+                          {grade.midtermEquivalentGrade }
                         </span>
                       ) : (
                         <span className="text-gray-400 text-xs">No Grade</span>

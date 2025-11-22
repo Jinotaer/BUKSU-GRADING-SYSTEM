@@ -11,6 +11,12 @@ import {
   ErrorState,
 } from "./ui/activities";
 
+// Utility function for formatting percentages
+const formatPercentage = (num) => {
+  // Always round to nearest whole number
+  return Math.round(num).toString();
+};
+
 export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", onBack, categories = [] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -27,13 +33,27 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
   const filteredCategories = React.useMemo(() => {
     if (selectedPeriod === "all") return categories;
     
-    return categories.map(category => ({
-      ...category,
-      rows: category.rows.filter(row => {
+    return categories.map(category => {
+      const filteredRows = category.rows.filter(row => {
         // Filter by the term field from the activity
         return row.term?.toLowerCase() === selectedPeriod.toLowerCase();
-      })
-    })).filter(category => category.rows.length > 0); // Only show categories with activities
+      });
+      
+      // Recalculate percentage based on filtered activities
+      const categoryAverage = filteredRows.length > 0 
+        ? filteredRows.reduce((sum, row) => {
+            // Remove the % sign and parse the number
+            const percentValue = parseFloat(row.percentage.replace('%', ''));
+            return sum + percentValue;
+          }, 0) / filteredRows.length
+        : 0;
+      
+      return {
+        ...category,
+        rows: filteredRows,
+        percent: categoryAverage // Update percentage based on filtered data
+      };
+    }).filter(category => category.rows.length > 0); // Only show categories with activities
   }, [categories, selectedPeriod]);
 
   // Flatten all rows from all categories for pagination
@@ -58,11 +78,11 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     
     paginatedRows.forEach(row => {
       if (!categoryMap[row.categoryName]) {
-        const originalCategory = categories.find(c => c.name === row.categoryName);
+        const filteredCategory = filteredCategories.find(c => c.name === row.categoryName);
         categoryMap[row.categoryName] = {
           name: row.categoryName,
           weightLabel: row.categoryWeight,
-          percent: originalCategory?.percent || 0,
+          percent: filteredCategory?.percent || 0, // Use filtered category percentage
           rows: []
         };
       }
@@ -74,7 +94,7 @@ export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", o
     });
     
     return Object.values(categoryMap);
-  }, [paginatedRows, categories]);
+  }, [paginatedRows, filteredCategories]);
 
   const totalPages = Math.ceil(allRows.length / itemsPerPage);
 
@@ -194,40 +214,42 @@ export default function StudentActivityScores() {
     });
 
     // Convert to display format
-    const processedCategories = Object.entries(categoryMap).map(([, data]) => {
-      const rows = data.activities.map(({ activity, scores }) => {
-        console.log(`Processing activity ${activity.title}, scores array:`, scores);
-        
-        // Since students only get their own score, scores array should have 1 item
-        // Backend returns rows: [{ studentId, score, maxScore, ... }]
-        const studentScore = scores.length > 0 ? scores[0] : null;
-        const score = studentScore?.score ?? 0;
-        const maxScore = studentScore?.maxScore ?? activity.maxScore ?? 100;
-        const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
-        
-        console.log(`Score for ${activity.title}:`, { studentScore, score, maxScore, percentage });
-        
+    const processedCategories = Object.entries(categoryMap)
+      .filter(([, data]) => data.activities.length > 0) // Only include categories with activities
+      .map(([, data]) => {
+        const rows = data.activities.map(({ activity, scores }) => {
+          console.log(`Processing activity ${activity.title}, scores array:`, scores);
+          
+          // Since students only get their own score, scores array should have 1 item
+          // Backend returns rows: [{ studentId, score, maxScore, ... }]
+          const studentScore = scores.length > 0 ? scores[0] : null;
+          const score = studentScore?.score ?? 0;
+          const maxScore = studentScore?.maxScore ?? activity.maxScore ?? 100;
+          const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+          
+          console.log(`Score for ${activity.title}:`, { studentScore, score, maxScore, percentage });
+          
+          return {
+            item: activity.title,
+            score: `${score}/${maxScore}`,
+            percentage: `${formatPercentage(percentage)}%`,
+            date: new Date(activity.createdAt).toLocaleDateString(),
+            term: activity.term // Add term to the row data
+          };
+        });
+
+        // Calculate category average
+        const categoryAverage = rows.length > 0 
+          ? rows.reduce((sum, row) => sum + parseFloat(row.percentage), 0) / rows.length
+          : 0;
+
         return {
-          item: activity.title,
-          score: `${score}/${maxScore}`,
-          percentage: `${percentage.toFixed(1)}%`,
-          date: new Date(activity.createdAt).toLocaleDateString(),
-          term: activity.term // Add term to the row data
+          name: data.name,
+          weightLabel: `Weight: ${data.weight}% of final grade`,
+          percent: categoryAverage,
+          rows
         };
       });
-
-      // Calculate category average
-      const categoryAverage = rows.length > 0 
-        ? rows.reduce((sum, row) => sum + parseFloat(row.percentage), 0) / rows.length
-        : 0;
-
-      return {
-        name: data.name,
-        weightLabel: `Weight: ${data.weight}% of final grade`,
-        percent: categoryAverage,
-        rows
-      };
-    });
 
     console.log('Processed categories:', processedCategories);
     setCategories(processedCategories);

@@ -2,11 +2,29 @@ import React from "react";
 import { SummaryCard } from "./SummaryCard";
 import { getCategoryColors } from "./activityConstants";
 
+// Utility function for formatting percentages
+const formatPercentage = (num) => {
+  // Always round to nearest whole number
+  return Math.round(num).toString();
+};
+
 export function SummaryCardsGrid({ categories = [] }) {
+  // Filter out categories that have no activities/rows
+  const categoriesWithActivities = categories.filter(cat => 
+    cat.rows && cat.rows.length > 0
+  );
+  
+  // Determine grid columns based on number of cards
+  const getGridCols = (count) => {
+    if (count === 1) return "grid-cols-1";
+    if (count === 2) return "grid-cols-1 sm:grid-cols-2";
+    return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  };
+  
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div className={`grid ${getGridCols(categoriesWithActivities.length)} gap-4 mb-8`}>
       {/* Category Cards */}
-      {categories.map((cat) => {
+      {categoriesWithActivities.map((cat) => {
         const colors = getCategoryColors(cat.name);
         let IconComponent;
         
@@ -37,7 +55,7 @@ export function SummaryCardsGrid({ categories = [] }) {
           <SummaryCard 
             key={cat.name}
             title={cat.name}
-            percentage={percent.toFixed(1)}
+            percentage={formatPercentage(percent)}
             weightLabel={weightLabel.replace('Weight: ', '').replace(' of final grade', '')}
             bgColor={colors.iconColor}
             icon={IconComponent}

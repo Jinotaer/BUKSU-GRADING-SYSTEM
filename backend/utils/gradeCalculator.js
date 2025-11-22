@@ -348,6 +348,15 @@ export const calculateAndUpdateGrade = async (studentId, sectionId, instructorId
       section: sectionId
     });
 
+    // Enhanced check for meaningful scores
+    const meaningfulScores = activityScores.filter(score => 
+      score.score !== undefined && 
+      score.score !== null && 
+      score.score !== '' && 
+      !isNaN(score.score) && 
+      Number(score.score) > 0
+    );
+
     // Create a map of scores by activity ID
     const scoresByStudent = {
       [String(studentId)]: {}

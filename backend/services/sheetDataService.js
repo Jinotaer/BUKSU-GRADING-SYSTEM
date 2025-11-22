@@ -40,17 +40,20 @@ export const loadActivities = async (section, termFilter) => {
       isActive: true,
     };
     
+    console.log('[loadActivities] Term filter received:', termFilter);
+    
     // If a specific term is requested, filter by it
-    // termFilter comes from frontend (Midterm, Finalterm, Summer, or empty for All Terms)
-    if (termFilter && termFilter !== '') {
+    if (termFilter && termFilter !== '' && termFilter !== 'All Terms') {
       query.term = termFilter;
+      console.log('[loadActivities] Filtering for specific term:', termFilter);
     } else {
-      // If no term filter or "All Terms", load activities from all terms (Midterm, Finalterm, Summer)
-      // Do not set query.term - this will get all activities regardless of term
-      // Optionally, you can explicitly specify: query.term = { $in: ['Midterm', 'Finalterm', 'Summer'] };
+      // For "All Terms" or empty filter, explicitly load all terms
+      query.term = { $in: ['Midterm', 'Finalterm'] };
+      console.log('[loadActivities] Loading all terms (Midterm, Finalterm)');
     }
     
     const activities = await Activity.find(query).sort({ createdAt: 1 });
+    console.log('[loadActivities] Found activities:', activities.length, 'Terms:', [...new Set(activities.map(a => a.term))]);
     return activities;
   } catch (err) {
     throw new HttpError(500, 'Failed loading activities', { cause: err?.message });
@@ -168,10 +171,17 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
       finalTermGrade = (finalCS * csWeight / 100) + (finalMO * moWeight / 100);
     }
     
-    // Calculate final grade
-    const finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
-    const finalGrade = percentToGrade(finalPercent);
-    const remarks = finalPercent >= 75 ? 'PASSED' : 'FAILED';
+    // Calculate final grade using proper BukSU algorithm
+    // Step 1: Convert term percentages to equivalent grades  
+    const midtermEquivalent = percentToGrade(midtermGrade);
+    const finalTermEquivalent = percentToGrade(finalTermGrade);
+    
+    // Step 2: Calculate weighted average of equivalent grades (40%/60%)
+    const finalGradeNumeric = (midtermEquivalent * 0.40) + (finalTermEquivalent * 0.60);
+    
+    // Step 3: Final grade result
+    const finalGrade = finalGradeNumeric;
+    const remarks = finalGrade <= 3.00 ? 'PASSED' : 'FAILED';
     
     // Convert all components and term grades to grade equivalents
     const midtermCSGrade = percentToGrade(midtermCS);
@@ -201,10 +211,10 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
       row.push(finalCSGrade.toFixed(2), finalMOGrade.toFixed(2), finalTermGradeEquiv.toFixed(2));
     }
     
-    // Add final grade data (MTG(1/3), FTG(2/3), FG, Remarks)
+    // Add final grade data (MTG(40%), FTG(60%), FG, Remarks)
     row.push(
-      midtermGradeEquiv.toFixed(2), // MTG(1/3) - show as grade equivalent
-      finalTermGradeEquiv.toFixed(2), // FTG(2/3) - show as grade equivalent
+      midtermGradeEquiv.toFixed(2), // MTG(40%) - show as grade equivalent
+      finalTermGradeEquiv.toFixed(2), // FTG(60%) - show as grade equivalent
       finalGrade.toFixed(2), // FG
       remarks // Remarks
     );
@@ -231,7 +241,7 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
 };
 
 
-export const buildSheetData = (section, activities, scoresByStudent, schedule) => {
+export const buildSheetData = (section, activities, scoresByStudent, schedule, requestedTerm) => {
   const headerData = [
     ['', '', 'BUKIDNON STATE UNIVERSITY'],
     ['', '', 'Malaybalay City, Bukidnon 8700'],
@@ -265,9 +275,33 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule) =
   
   // Determine what term we're exporting to add appropriate grade headers
   const terms = [...new Set(activities.map(a => a.term))];
-  const isMidtermOnly = terms.length === 1 && terms[0] === 'Midterm';
-  const isFinalTermOnly = terms.length === 1 && terms[0] === 'Finalterm';
-  const isAllTerms = terms.length > 1;
+  
+  // Use requested term to determine export type, not just available activities
+  let isMidtermOnly, isFinalTermOnly, isAllTerms;
+  
+  if (requestedTerm === 'Midterm') {
+    isMidtermOnly = true;
+    isFinalTermOnly = false;
+    isAllTerms = false;
+  } else if (requestedTerm === 'Finalterm') {
+    isMidtermOnly = false;
+    isFinalTermOnly = true;
+    isAllTerms = false;
+  } else if (!requestedTerm || requestedTerm === '' || requestedTerm === 'All Terms') {
+    // For "All Terms", always use all terms format regardless of available data
+    isMidtermOnly = false;
+    isFinalTermOnly = false;
+    isAllTerms = true;
+  } else {
+    // Fallback to activity-based detection
+    isMidtermOnly = terms.length === 1 && terms[0] === 'Midterm';
+    isFinalTermOnly = terms.length === 1 && terms[0] === 'Finalterm';
+    isAllTerms = terms.length > 1;
+  }
+  
+  console.log('[buildSheetData] Requested term:', requestedTerm);
+  console.log('[buildSheetData] Terms found in activities:', terms);
+  console.log('[buildSheetData] Export type - Midterm only:', isMidtermOnly, 'Final only:', isFinalTermOnly, 'All terms:', isAllTerms);
 
   // Get grading schema weights
   const gradingSchema = section.gradingSchema || {};
@@ -352,58 +386,122 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule) =
     // Add activity scores
     for (const a of allActs) {
       const sMap = scoresByStudent[String(student._id)] || {};
-      row.push(String(Number(sMap[String(a._id)] || 0)));
+      const score = sMap[String(a._id)];
+      // Show blank for missing/undefined/null scores, not zero
+      if (score === undefined || score === null || score === '' || score === 0) {
+        row.push('');
+      } else {
+        row.push(String(Number(score)));
+      }
     }
     
     // Add grade calculations based on term
     if (isMidtermOnly) {
       // Calculate midterm component averages (as percentages)
       const midtermCS = avgFor(classStandingActivities, student, scoresByStudent);
-      const midtermLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : 0;
+      const midtermLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : '';
       const midtermMO = avgFor(majorOutputActivities, student, scoresByStudent);
       
-      // Convert component percentages to grade equivalents
-      const csGrade = percentToGrade(midtermCS);
-      const labGrade = percentToGrade(midtermLab);
-      const moGrade = percentToGrade(midtermMO);
+      // Calculate grades if we have at least CS and MO (required components)
+      const hasMinimumComponents = midtermCS !== '' && midtermMO !== '';
       
-      // Calculate final midterm grade using custom grading schema
-      let midtermGrade;
-      if (subjectHasLab) {
-        midtermGrade = (midtermCS * csWeight / 100) + (midtermLab * labWeight / 100) + (midtermMO * moWeight / 100);
-        const finalGrade = percentToGrade(midtermGrade);
-        // Show grade equivalents for components and final
-        row.push(csGrade.toFixed(2), labGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+      if (hasMinimumComponents) {
+        // Convert component percentages to grade equivalents
+        const csGrade = percentToGrade(midtermCS);
+        const labGrade = (subjectHasLab && midtermLab !== '') ? percentToGrade(midtermLab) : 0;
+        const moGrade = percentToGrade(midtermMO);
+        
+        // Calculate final midterm grade using custom grading schema
+        let midtermGrade;
+        if (subjectHasLab && midtermLab !== '') {
+          // Has lab and lab score exists
+          midtermGrade = (midtermCS * csWeight / 100) + (midtermLab * labWeight / 100) + (midtermMO * moWeight / 100);
+          const finalGrade = percentToGrade(midtermGrade);
+          row.push(csGrade.toFixed(2), labGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        } else if (subjectHasLab && midtermLab === '') {
+          // Has lab but no lab score - redistribute lab weight proportionally
+          const redistributedWeight = labWeight;
+          const adjustedCSWeight = csWeight + (redistributedWeight * csWeight / (csWeight + moWeight));
+          const adjustedMOWeight = moWeight + (redistributedWeight * moWeight / (csWeight + moWeight));
+          midtermGrade = (midtermCS * adjustedCSWeight / 100) + (midtermMO * adjustedMOWeight / 100);
+          const finalGrade = percentToGrade(midtermGrade);
+          row.push(csGrade.toFixed(2), '', moGrade.toFixed(2), finalGrade.toFixed(2));
+        } else {
+          // No lab subject - use standard weights
+          midtermGrade = (midtermCS * csWeight / 100) + (midtermMO * moWeight / 100);
+          const finalGrade = percentToGrade(midtermGrade);
+          row.push(csGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        }
       } else {
-        midtermGrade = (midtermCS * csWeight / 100) + (midtermMO * moWeight / 100);
-        const finalGrade = percentToGrade(midtermGrade);
-        // Show grade equivalents for components and final
-        row.push(csGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        // Show individual components but no final grade
+        if (subjectHasLab) {
+          row.push(
+            midtermCS !== '' ? percentToGrade(midtermCS).toFixed(2) : '', 
+            midtermLab !== '' ? percentToGrade(midtermLab).toFixed(2) : '', 
+            midtermMO !== '' ? percentToGrade(midtermMO).toFixed(2) : '', 
+            ''
+          );
+        } else {
+          row.push(
+            midtermCS !== '' ? percentToGrade(midtermCS).toFixed(2) : '', 
+            midtermMO !== '' ? percentToGrade(midtermMO).toFixed(2) : '', 
+            ''
+          );
+        }
       }
       
     } else if (isFinalTermOnly) {
       // Calculate final term component averages (as percentages)
       const finalCS = avgFor(classStandingActivities, student, scoresByStudent);
-      const finalLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : 0;
+      const finalLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : '';
       const finalMO = avgFor(majorOutputActivities, student, scoresByStudent);
       
-      // Convert component percentages to grade equivalents
-      const csGrade = percentToGrade(finalCS);
-      const labGrade = percentToGrade(finalLab);
-      const moGrade = percentToGrade(finalMO);
+      // Calculate grades if we have at least CS and MO (required components)
+      const hasMinimumComponents = finalCS !== '' && finalMO !== '';
       
-      // Calculate final term grade using custom grading schema
-      let finalTermGrade;
-      if (subjectHasLab) {
-        finalTermGrade = (finalCS * csWeight / 100) + (finalLab * labWeight / 100) + (finalMO * moWeight / 100);
-        const finalGrade = percentToGrade(finalTermGrade);
-        // Show grade equivalents for components and final
-        row.push(csGrade.toFixed(2), labGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+      if (hasMinimumComponents) {
+        // Convert component percentages to grade equivalents
+        const csGrade = percentToGrade(finalCS);
+        const labGrade = (subjectHasLab && finalLab !== '') ? percentToGrade(finalLab) : 0;
+        const moGrade = percentToGrade(finalMO);
+        
+        // Calculate final term grade using custom grading schema
+        let finalTermGrade;
+        if (subjectHasLab && finalLab !== '') {
+          // Has lab and lab score exists
+          finalTermGrade = (finalCS * csWeight / 100) + (finalLab * labWeight / 100) + (finalMO * moWeight / 100);
+          const finalGrade = percentToGrade(finalTermGrade);
+          row.push(csGrade.toFixed(2), labGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        } else if (subjectHasLab && finalLab === '') {
+          // Has lab but no lab score - redistribute lab weight proportionally
+          const redistributedWeight = labWeight;
+          const adjustedCSWeight = csWeight + (redistributedWeight * csWeight / (csWeight + moWeight));
+          const adjustedMOWeight = moWeight + (redistributedWeight * moWeight / (csWeight + moWeight));
+          finalTermGrade = (finalCS * adjustedCSWeight / 100) + (finalMO * adjustedMOWeight / 100);
+          const finalGrade = percentToGrade(finalTermGrade);
+          row.push(csGrade.toFixed(2), '', moGrade.toFixed(2), finalGrade.toFixed(2));
+        } else {
+          // No lab subject - use standard weights
+          finalTermGrade = (finalCS * csWeight / 100) + (finalMO * moWeight / 100);
+          const finalGrade = percentToGrade(finalTermGrade);
+          row.push(csGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        }
       } else {
-        finalTermGrade = (finalCS * csWeight / 100) + (finalMO * moWeight / 100);
-        const finalGrade = percentToGrade(finalTermGrade);
-        // Show grade equivalents for components and final
-        row.push(csGrade.toFixed(2), moGrade.toFixed(2), finalGrade.toFixed(2));
+        // Show individual components but no final grade
+        if (subjectHasLab) {
+          row.push(
+            finalCS !== '' ? percentToGrade(finalCS).toFixed(2) : '', 
+            finalLab !== '' ? percentToGrade(finalLab).toFixed(2) : '', 
+            finalMO !== '' ? percentToGrade(finalMO).toFixed(2) : '', 
+            ''
+          );
+        } else {
+          row.push(
+            finalCS !== '' ? percentToGrade(finalCS).toFixed(2) : '', 
+            finalMO !== '' ? percentToGrade(finalMO).toFixed(2) : '', 
+            ''
+          );
+        }
       }
       
     } else if (isAllTerms) {
@@ -428,13 +526,21 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule) =
         finalTermGrade = (finalCS * csWeight / 100) + (finalMO * moWeight / 100);
       }
       
-      const finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
-      const finalGrade = percentToGrade(finalPercent);
-      const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+      // Calculate final grade using proper BukSU algorithm
+      // Step 1: Convert term percentages to equivalent grades
+      const midtermEquivalent = percentToGrade(midtermGrade);
+      const finalEquivalent = percentToGrade(finalTermGrade);
       
-      // Convert term grades to grade equivalents
-      const mtgEquivalent = percentToGrade(midtermGrade);
-      const ftgEquivalent = percentToGrade(finalTermGrade);
+      // Step 2: Calculate weighted average of equivalent grades (40%/60%)
+      const finalGradeNumeric = (midtermEquivalent * 0.40) + (finalEquivalent * 0.60);
+      
+      // Step 3: Final grade is the weighted average
+      const finalGrade = finalGradeNumeric;
+      const remarks = finalGrade <= 3.00 ? 'Passed' : 'Failed';
+      
+      // Convert term grades to grade equivalents for display
+      const mtgEquivalent = midtermEquivalent;
+      const ftgEquivalent = finalEquivalent;
       
       // Show all as grade equivalents
       row.push(mtgEquivalent.toFixed(2), ftgEquivalent.toFixed(2), finalGrade.toFixed(2));
@@ -460,13 +566,6 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule) =
 };
 
 export const persistGrades = async (section, activities, scoresByStudent, instructorId) => {
-  // Get grading schema weights
-  const gradingSchema = section.gradingSchema || {};
-  const csWeight = gradingSchema.classStanding || 0;
-  const labWeight = gradingSchema.laboratory || 0;
-  const moWeight = gradingSchema.majorOutput || 0;
-  const subjectHasLab = labWeight > 0;
-  
   // Group activities by term and category
   const midtermActivities = activities.filter((a) => a.term === 'Midterm');
   const finalTermActivities = activities.filter((a) => a.term === 'Finalterm');
@@ -483,70 +582,109 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
     section.students.map(async (student) => {
       // Calculate midterm component averages
       const midtermClassStanding = avgFor(midtermCS, student, scoresByStudent);
-      const midtermLaboratory = subjectHasLab ? avgFor(midtermLab, student, scoresByStudent) : 0;
+      const midtermLaboratory = subjectHasLab ? avgFor(midtermLab, student, scoresByStudent) : '';
       const midtermMajorOutput = avgFor(midtermMO, student, scoresByStudent);
       
       // Calculate final term component averages
       const finalClassStanding = avgFor(finalCS, student, scoresByStudent);
-      const finalLaboratory = subjectHasLab ? avgFor(finalLab, student, scoresByStudent) : 0;
+      const finalLaboratory = subjectHasLab ? avgFor(finalLab, student, scoresByStudent) : '';
       const finalMajorOutput = avgFor(finalMO, student, scoresByStudent);
       
-      // Calculate term grades using custom grading schema
-      let midtermGrade, finalTermGrade;
+      // Check if we have sufficient components for term grade calculations (at least CS and MO)
+      const hasMidtermComponents = midtermClassStanding !== '' && midtermMajorOutput !== '';
+      const hasFinalComponents = finalClassStanding !== '' && finalMajorOutput !== '';
       
-      if (subjectHasLab) {
-        // With Laboratory: use custom weights
-        midtermGrade = (midtermClassStanding * csWeight / 100) + (midtermLaboratory * labWeight / 100) + (midtermMajorOutput * moWeight / 100);
-        finalTermGrade = (finalClassStanding * csWeight / 100) + (finalLaboratory * labWeight / 100) + (finalMajorOutput * moWeight / 100);
-      } else {
-        // No Laboratory: use custom weights
-        midtermGrade = (midtermClassStanding * csWeight / 100) + (midtermMajorOutput * moWeight / 100);
-        finalTermGrade = (finalClassStanding * csWeight / 100) + (finalMajorOutput * moWeight / 100);
+      // Calculate term grades if minimum components are available
+      let midtermGrade = '', finalTermGrade = '', finalPercent = '', finalGradeNumeric = '';
+      let equivalentGrade = '', remarks = '';
+      
+      if (hasMidtermComponents) {
+        if (subjectHasLab && midtermLaboratory !== '') {
+          // Has lab and lab score exists
+          midtermGrade = (midtermClassStanding * csWeight / 100) + (midtermLaboratory * labWeight / 100) + (midtermMajorOutput * moWeight / 100);
+        } else if (subjectHasLab && midtermLaboratory === '') {
+          // Has lab but no lab score - redistribute lab weight proportionally
+          const redistributedWeight = labWeight;
+          const adjustedCSWeight = csWeight + (redistributedWeight * csWeight / (csWeight + moWeight));
+          const adjustedMOWeight = moWeight + (redistributedWeight * moWeight / (csWeight + moWeight));
+          midtermGrade = (midtermClassStanding * adjustedCSWeight / 100) + (midtermMajorOutput * adjustedMOWeight / 100);
+        } else {
+          // No lab subject - use standard weights
+          midtermGrade = (midtermClassStanding * csWeight / 100) + (midtermMajorOutput * moWeight / 100);
+        }
       }
       
-      // Calculate final grade: Midterm=40%, FinalTerm=60%
-      const finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
-      const finalGradeNumeric = percentToGrade(finalPercent);
-      const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+      if (hasFinalComponents) {
+        if (subjectHasLab && finalLaboratory !== '') {
+          // Has lab and lab score exists
+          finalTermGrade = (finalClassStanding * csWeight / 100) + (finalLaboratory * labWeight / 100) + (finalMajorOutput * moWeight / 100);
+        } else if (subjectHasLab && finalLaboratory === '') {
+          // Has lab but no lab score - redistribute lab weight proportionally
+          const redistributedWeight = labWeight;
+          const adjustedCSWeight = csWeight + (redistributedWeight * csWeight / (csWeight + moWeight));
+          const adjustedMOWeight = moWeight + (redistributedWeight * moWeight / (csWeight + moWeight));
+          finalTermGrade = (finalClassStanding * adjustedCSWeight / 100) + (finalMajorOutput * adjustedMOWeight / 100);
+        } else {
+          // No lab subject - use standard weights
+          finalTermGrade = (finalClassStanding * csWeight / 100) + (finalMajorOutput * moWeight / 100);
+        }
+      }
+      
+      // Calculate final grade only if both terms have grades using proper BukSU algorithm
+      if (midtermGrade !== '' && finalTermGrade !== '') {
+        // Step 1: Convert term percentages to equivalent grades
+        const midtermEquivalent = percentToGrade(midtermGrade);
+        const finalEquivalent = percentToGrade(finalTermGrade);
+        
+        // Step 2: Calculate weighted average of equivalent grades (40%/60%)
+        finalGradeNumeric = (midtermEquivalent * 0.40) + (finalEquivalent * 0.60);
+        equivalentGrade = finalGradeNumeric;
+        remarks = finalGradeNumeric <= 3.00 ? 'Passed' : 'Failed';
+        
+        // Keep finalPercent for reference (though not used in final calculation)
+        finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
+      }
       
       // Convert term grades to equivalent grades for student display
-      const midtermEquivalentGrade = percentToGrade(midtermGrade);
-      const finalTermEquivalentGrade = percentToGrade(finalTermGrade);
-      const equivalentGrade = finalGradeNumeric; // Already converted
+      const midtermEquivalentGrade = midtermGrade !== '' ? percentToGrade(midtermGrade) : '';
+      const finalTermEquivalentGrade = finalTermGrade !== '' ? percentToGrade(finalTermGrade) : '';
       
-      // Calculate overall averages for compatibility
-      const classStandingAvg = (midtermClassStanding * 0.40) + (finalClassStanding * 0.60);
-      const laboratoryAvg = subjectHasLab ? (midtermLaboratory * 0.40) + (finalLaboratory * 0.60) : 0;
-      const majorOutputAvg = (midtermMajorOutput * 0.40) + (finalMajorOutput * 0.60);
+      // Calculate overall averages only if components exist
+      const classStandingAvg = (midtermClassStanding !== '' && finalClassStanding !== '') 
+        ? (midtermClassStanding * 0.40) + (finalClassStanding * 0.60) : '';
+      const laboratoryAvg = (subjectHasLab && midtermLaboratory !== '' && finalLaboratory !== '') 
+        ? (midtermLaboratory * 0.40) + (finalLaboratory * 0.60) : '';
+      const majorOutputAvg = (midtermMajorOutput !== '' && finalMajorOutput !== '') 
+        ? (midtermMajorOutput * 0.40) + (finalMajorOutput * 0.60) : '';
 
       return Grade.findOneAndUpdate(
         { student: student._id, section: section._id },
         {
-          // Term grades (percentages)
-          midtermGrade,
-          finalTermGrade,
+          // Term grades (percentages) - null if blank
+          midtermGrade: midtermGrade === '' ? null : midtermGrade,
+          finalTermGrade: finalTermGrade === '' ? null : finalTermGrade,
           
-          // Equivalent grades for student display
-          midtermEquivalentGrade,
-          finalTermEquivalentGrade,
-          equivalentGrade,
+          // Equivalent grades for student display - empty string if blank
+          midtermEquivalentGrade: midtermEquivalentGrade === '' ? '' : midtermEquivalentGrade,
+          finalTermEquivalentGrade: finalTermEquivalentGrade === '' ? '' : finalTermEquivalentGrade,
+          equivalentGrade: equivalentGrade === '' ? '' : equivalentGrade,
           
-          // Term component averages
-          midtermClassStanding,
-          midtermLaboratory,
-          midtermMajorOutput,
-          finalClassStanding,
-          finalLaboratory,
-          finalMajorOutput,
+          // Term component averages - null if blank
+          midtermClassStanding: midtermClassStanding === '' ? null : midtermClassStanding,
+          midtermLaboratory: midtermLaboratory === '' ? null : midtermLaboratory,
+          midtermMajorOutput: midtermMajorOutput === '' ? null : midtermMajorOutput,
+          finalClassStanding: finalClassStanding === '' ? null : finalClassStanding,
+          finalLaboratory: finalLaboratory === '' ? null : finalLaboratory,
+          finalMajorOutput: finalMajorOutput === '' ? null : finalMajorOutput,
           
-          // Overall averages (compatibility)
-          classStanding: classStandingAvg,
-          laboratory: laboratoryAvg,
-          majorOutput: majorOutputAvg,
+          // Overall averages (compatibility) - null if blank
+          classStanding: classStandingAvg === '' ? null : classStandingAvg,
+          laboratory: laboratoryAvg === '' ? null : laboratoryAvg,
+          majorOutput: majorOutputAvg === '' ? null : majorOutputAvg,
           
-          // Final results
-          finalGrade: finalGradeNumeric,
-          remarks,
+          // Final results - null/empty if blank
+          finalGrade: finalGradeNumeric === '' ? null : finalGradeNumeric,
+          remarks: remarks === '' ? '' : remarks,
           hasLaboratory: subjectHasLab,
           encodedBy: instructorId,
           dateRecorded: new Date(),
@@ -580,24 +718,24 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
     ['Semester/School Year:', '', '', '', `${section.term} Semester/${section.schoolYear}`],
   ];
 
-  // Get grading schema weights
+  // Get grading schema weights with proper defaults
   const gradingSchema = section.gradingSchema || {};
-  const csWeight = gradingSchema.classStanding || 60;
-  const labWeight = gradingSchema.laboratory || 0;  // Default to 0, not 30
-  const moWeight = gradingSchema.majorOutput || 40;
+  let csWeight = gradingSchema.classStanding || 60;  // Default to 60%
+  let labWeight = gradingSchema.laboratory || 0;     // Default to 0%
+  let moWeight = gradingSchema.majorOutput || 40;    // Default to 40%
   
-  // Properly detect if subject has laboratory
-  const subjectHasLab = Boolean(gradingSchema.laboratory && Number(gradingSchema.laboratory) > 0);
+  // Determine if subject has laboratory based on schema
+  const subjectHasLab = Boolean(labWeight && Number(labWeight) > 0);
   
-  // Debug logging
-  console.log('[buildFinalGradeSheetDataScreenshotDesign] Debug info:');
-  console.log('- Section ID:', section._id);
-  console.log('- Subject Code:', section.subject?.subjectCode);
-  console.log('- Grading Schema:', JSON.stringify(gradingSchema));
-  console.log('- CS Weight:', csWeight);
-  console.log('- Lab Weight:', labWeight);
-  console.log('- MO Weight:', moWeight);
-  console.log('- Subject Has Lab:', subjectHasLab);
+  // If subject has lab, adjust default weights
+  if (subjectHasLab && (csWeight === 60 || moWeight === 40)) {
+    // Use laboratory subject defaults: CS=30%, LAB=30%, MO=40%
+    csWeight = gradingSchema.classStanding || 30;
+    labWeight = gradingSchema.laboratory || 30;
+    moWeight = gradingSchema.majorOutput || 40;
+  }
+  
+  // Handle weights based on whether subject has lab
 
   // Group activities by term
   const midtermActivities = activities.filter(a => a.term === 'Midterm');
@@ -617,7 +755,7 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
   const finaltermHeaders = [`CS (${csWeight}%)`, `LAB (${labWeight}%)`, `MO (${moWeight}%)`, 'FTG'];
 
   // Final Grade section headers
-  const finalGradeHeaders = ['MTG(1/3)', 'FTG(2/3)', 'FG', 'Remarks'];
+  const finalGradeHeaders = ['MTG(40%)', 'FTG(60%)', 'FG', 'Remarks'];
 
   // Build the category row (Midterm, Finalterm, Final Grade)
   const categoryRow = ['', '', ''];  // Empty cells for base columns
@@ -668,56 +806,142 @@ export const buildFinalGradeSheetDataScreenshotDesign = (section, activities, sc
     const finaltermLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
     const finaltermMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
     
-    // Calculate term grades using weighted percentages
-    let midtermGrade, finaltermGrade;
-    if (subjectHasLab) {
-      midtermGrade = (midtermCS * csWeight / 100) + (midtermLab * labWeight / 100) + (midtermMO * moWeight / 100);
-      finaltermGrade = (finaltermCS * csWeight / 100) + (finaltermLab * labWeight / 100) + (finaltermMO * moWeight / 100);
-    } else {
-      midtermGrade = (midtermCS * csWeight / 100) + (midtermMO * moWeight / 100);
-      finaltermGrade = (finaltermCS * csWeight / 100) + (finaltermMO * moWeight / 100);
+    // Debug logging
+    console.log(`[Final Grade Debug] Student: ${student.fullName}`);
+    console.log(`  Midterm Activities: ${midtermActivities.length} (CS:${midtermActivities.filter(a => a.category === 'classStanding').length}, LAB:${midtermActivities.filter(a => a.category === 'laboratory').length}, MO:${midtermActivities.filter(a => a.category === 'majorOutput').length})`);
+    console.log(`  Finalterm Activities: ${finalTermActivities.length} (CS:${finalTermActivities.filter(a => a.category === 'classStanding').length}, LAB:${finalTermActivities.filter(a => a.category === 'laboratory').length}, MO:${finalTermActivities.filter(a => a.category === 'majorOutput').length})`);
+    console.log(`  Midterm Scores: CS=${midtermCS}, LAB=${midtermLab}, MO=${midtermMO}`);
+    console.log(`  Finalterm Scores: CS=${finaltermCS}, LAB=${finaltermLab}, MO=${finaltermMO}`);
+    console.log(`  Subject Has Lab: ${subjectHasLab}, Weights: CS=${csWeight}%, LAB=${labWeight}%, MO=${moWeight}%`);
+    
+    // More flexible calculation - require at least one component
+    const hasMidtermData = midtermCS !== '' || (subjectHasLab && midtermLab !== '') || midtermMO !== '';
+    const hasFinaltermData = finaltermCS !== '' || (subjectHasLab && finaltermLab !== '') || finaltermMO !== '';
+    
+    console.log(`  Has Midterm Data: ${hasMidtermData}, Has Finalterm Data: ${hasFinaltermData}`);
+    
+    let midtermGrade = '', finaltermGrade = '', finalPercent = '', finalGrade = '', remarks = '';
+    
+    // Calculate midterm grade with flexible component requirements
+    if (hasMidtermData) {
+      let totalWeight = 0;
+      let weightedSum = 0;
+      
+      // Add CS score if available
+      if (midtermCS !== '') {
+        weightedSum += midtermCS * csWeight;
+        totalWeight += csWeight;
+      }
+      
+      // Add lab score if available (for lab subjects)
+      if (subjectHasLab && midtermLab !== '') {
+        weightedSum += midtermLab * labWeight;
+        totalWeight += labWeight;
+      }
+      
+      // Add MO score if available
+      if (midtermMO !== '') {
+        weightedSum += midtermMO * moWeight;
+        totalWeight += moWeight;
+      }
+      
+      // Calculate grade if we have any components
+      if (totalWeight > 0) {
+        midtermGrade = weightedSum / totalWeight;
+      }
     }
     
-    // Calculate final grade: MTG(1/3) + FTG(2/3)
-    const finalPercent = (midtermGrade * (1/3)) + (finaltermGrade * (2/3));
-    const finalGrade = percentToGrade(finalPercent);
-    const remarks = finalPercent >= 75 ? 'Passed' : 'Failed';
+    // Calculate finalterm grade with flexible component requirements
+    if (hasFinaltermData) {
+      let totalWeight = 0;
+      let weightedSum = 0;
+      
+      // Add CS score if available
+      if (finaltermCS !== '') {
+        weightedSum += finaltermCS * csWeight;
+        totalWeight += csWeight;
+      }
+      
+      // Add lab score if available (for lab subjects)
+      if (subjectHasLab && finaltermLab !== '') {
+        weightedSum += finaltermLab * labWeight;
+        totalWeight += labWeight;
+      }
+      
+      // Add MO score if available
+      if (finaltermMO !== '') {
+        weightedSum += finaltermMO * moWeight;
+        totalWeight += moWeight;
+      }
+      
+      // Calculate grade if we have any components
+      if (totalWeight > 0) {
+        finaltermGrade = weightedSum / totalWeight;
+      }
+    }
     
-    // Convert all components to grade equivalents for display
-    const midtermCSGrade = percentToGrade(midtermCS);
-    const midtermLabGrade = percentToGrade(midtermLab);
-    const midtermMOGrade = percentToGrade(midtermMO);
-    const midtermGradeEquiv = percentToGrade(midtermGrade);
+    console.log(`\n[FINAL CALC] Student: ${student.fullName}`);
+    console.log(`[FINAL CALC] Midterm Grade: ${midtermGrade} (type: ${typeof midtermGrade})`);
+    console.log(`[FINAL CALC] Finalterm Grade: ${finaltermGrade} (type: ${typeof finaltermGrade})`);
     
-    const finaltermCSGrade = percentToGrade(finaltermCS);
-    const finaltermLabGrade = percentToGrade(finaltermLab);
-    const finaltermMOGrade = percentToGrade(finaltermMO);
-    const finaltermGradeEquiv = percentToGrade(finaltermGrade);
-
+    // Calculate final grade with flexible requirements using proper BukSU algorithm
+    if (midtermGrade !== '' && finaltermGrade !== '') {
+      // Both terms available - use proper BukSU algorithm
+      // Step 1: Convert term percentages to equivalent grades (Table 1)
+      const midtermEquivalent = percentToGrade(midtermGrade);
+      const finaltermEquivalent = percentToGrade(finaltermGrade);
+      
+      // Step 2: Calculate weighted average of equivalent grades (40%/60%)
+      const finalGradeNumeric = (midtermEquivalent * 0.40) + (finaltermEquivalent * 0.60);
+      
+      // Step 3: Convert to final equivalent grade (Table 3) - for now use same conversion
+      finalGrade = finalGradeNumeric; // Will be properly rounded when displayed
+      finalPercent = midtermGrade * 0.40 + finaltermGrade * 0.60; // For reference only
+      remarks = finalGrade <= 3.00 ? 'Passed' : 'Failed';
+      console.log(`[FINAL CALC] Both terms - Midterm: ${midtermGrade}% → ${midtermEquivalent}, Finalterm: ${finaltermGrade}% → ${finaltermEquivalent}, Final: ${finalGradeNumeric}, Remarks: ${remarks}`);
+    } else if (midtermGrade !== '' && finaltermGrade === '') {
+      // Only midterm available - use midterm grade equivalent as basis
+      finalGrade = percentToGrade(midtermGrade);
+      remarks = finalGrade <= 3.00 ? 'Incomplete' : 'Failed';
+      finalPercent = midtermGrade;
+      console.log(`[FINAL CALC] Midterm only - Grade: ${finalGrade}, Remarks: ${remarks}`);
+    } else if (midtermGrade === '' && finaltermGrade !== '') {
+      // Only finalterm available - use finalterm grade equivalent as basis
+      finalGrade = percentToGrade(finaltermGrade);
+      remarks = finalGrade <= 3.00 ? 'Incomplete' : 'Failed';
+      finalPercent = finaltermGrade;
+      console.log(`[FINAL CALC] Finalterm only - Grade: ${finalGrade}, Remarks: ${remarks}`);
+    } else {
+      console.log(`[FINAL CALC] No grades available for final calculation`);
+    }
+    
+    console.log(`\n[ROW BUILD] Building row for student: ${student.fullName}`);
+    console.log(`[ROW BUILD] Final values - MTG: ${midtermGrade !== '' ? percentToGrade(midtermGrade).toFixed(2) : 'BLANK'}, FTG: ${finaltermGrade !== '' ? percentToGrade(finaltermGrade).toFixed(2) : 'BLANK'}, FG: ${finalGrade !== '' ? finalGrade.toFixed(2) : 'BLANK'}`);
+    
     // Build row data exactly as shown in screenshot
     const row = [String(idx + 1), student.studid || '', student.fullName || ''];
     
-    // Add midterm data - always include LAB column
+    // Add midterm data - convert component scores to grade equivalents
     row.push(
-      midtermCSGrade.toFixed(2), 
-      subjectHasLab ? midtermLabGrade.toFixed(2) : '', // Blank if no lab
-      midtermMOGrade.toFixed(2), 
-      midtermGradeEquiv.toFixed(2)
+      midtermCS !== '' ? percentToGrade(midtermCS).toFixed(2) : '', // Convert percentage to grade
+      (subjectHasLab && midtermLab !== '') ? percentToGrade(midtermLab).toFixed(2) : '', // Convert percentage to grade
+      midtermMO !== '' ? percentToGrade(midtermMO).toFixed(2) : '', // Convert percentage to grade
+      midtermGrade !== '' ? percentToGrade(midtermGrade).toFixed(2) : '' // Convert to grade for MTG
     );
     
-    // Add finalterm data - always include LAB column
+    // Add finalterm data - convert component scores to grade equivalents
     row.push(
-      finaltermCSGrade.toFixed(2), 
-      subjectHasLab ? finaltermLabGrade.toFixed(2) : '', // Blank if no lab
-      finaltermMOGrade.toFixed(2), 
-      finaltermGradeEquiv.toFixed(2)
+      finaltermCS !== '' ? percentToGrade(finaltermCS).toFixed(2) : '', // Convert percentage to grade
+      (subjectHasLab && finaltermLab !== '') ? percentToGrade(finaltermLab).toFixed(2) : '', // Convert percentage to grade
+      finaltermMO !== '' ? percentToGrade(finaltermMO).toFixed(2) : '', // Convert percentage to grade
+      finaltermGrade !== '' ? percentToGrade(finaltermGrade).toFixed(2) : '' // Convert to grade for FTG
     );
     
-    // Add final grade data: MTG(1/3), FTG(2/3), FG, Remarks
+    // Add final grade data: MTG(40%), FTG(60%), FG, Remarks
     row.push(
-      midtermGradeEquiv.toFixed(2), // MTG(1/3)
-      finaltermGradeEquiv.toFixed(2), // FTG(2/3) 
-      finalGrade.toFixed(2), // FG
+      midtermGrade !== '' ? percentToGrade(midtermGrade).toFixed(2) : '', // MTG(40%)
+      finaltermGrade !== '' ? percentToGrade(finaltermGrade).toFixed(2) : '', // FTG(60%) 
+      finalGrade !== '' ? finalGrade.toFixed(2) : '', // FG
       remarks // Remarks
     );
     

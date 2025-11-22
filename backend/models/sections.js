@@ -7,7 +7,7 @@ const sectionSchema = new mongoose.Schema({
   sectionName: { type: String, required: true }, // e.g., "BSCS 1A"
   sectionCode: { type: String, default: '' }, // e.g., "BSCS-1A"
   schoolYear: { type: String, required: true },
-  term: { type: String, required: true, enum: ["1st", "2nd"] },
+  term: { type: String, required: true, enum: ["1st", "2nd", "Summer"] },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }], // optional
   gradingSchema: {
     classStanding: { type: Number, default: 0 }, // percentages
@@ -44,7 +44,7 @@ const sectionSchema = new mongoose.Schema({
   }], // Students who have hidden this section
 });
 
-sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1 }, { unique: true });
+sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1, sectionName: 1 }, { unique: true });
 
 // Check if model already exists before creating
 let Section;
