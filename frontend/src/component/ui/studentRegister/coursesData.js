@@ -64,7 +64,7 @@ export const coursesData = {
       "Juris Doctor",
     ],
   },
-  "College of Technology": {
+  "College of Technologies": {
     undergraduate: [
       "Bachelor of Science in Automotive Technology",
       "Bachelor of Science in Electronics Technology",

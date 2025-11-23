@@ -95,7 +95,7 @@ export default function SectionManagement() {
         const [secRes, subRes, instRes, semRes] = await Promise.all([
           authenticatedFetch(`${API_BASE}/api/admin/sections`),
           authenticatedFetch(`${API_BASE}/api/admin/subjects`),
-          authenticatedFetch(`${API_BASE}/api/admin/instructors`),
+          authenticatedFetch(`${API_BASE}/api/admin/instructors?limit=12000`),
           authenticatedFetch(`${API_BASE}/api/semesters`),
         ]);
 
@@ -363,7 +363,7 @@ export default function SectionManagement() {
       const res = await authenticatedFetch(
         `${API_BASE}/api/admin/students?search=${encodeURIComponent(
           query
-        )}&limit=50`
+        )}&limit=12000`
       );
       if (res.ok) {
         const data = await res.json();

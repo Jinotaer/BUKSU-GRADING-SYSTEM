@@ -28,7 +28,7 @@ const tones = {
 
 function WeightBadge({ weight }) {
   return (
-    <div className="flex-shrink-0 rounded-full px-2 sm:px-3 py-1 text-xs font-semibold bg-gray-900/80 text-white">
+    <div className="shrink-0 rounded-full px-2 sm:px-3 py-1 text-xs font-semibold bg-gray-900/80 text-white">
       {weight}%
     </div>
   );
@@ -90,6 +90,10 @@ export function CategoryTable({
   const showExportButton =
     gradeType === "final" && selectedTerm === "" && onExportFinalGrade;
 
+  // Hide averages and grades for activity tabs when "All Terms" is selected (empty string)
+  // Final Grade tab should always show grades regardless of term filter
+  const shouldShowAveragesAndGrades = selectedTerm !== "" || showGrades;
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
@@ -148,7 +152,7 @@ export function CategoryTable({
                 </th>
               ))}
 
-              {!showGrades && (
+              {!showGrades && shouldShowAveragesAndGrades && (
                 <>
                   <th
                     className={`border border-gray-200 px-2 py-2 text-center w-16 ${tone.cell} text-xs`}
@@ -218,7 +222,7 @@ export function CategoryTable({
                     );
                   })}
 
-                  {!showGrades && (
+                  {!showGrades && shouldShowAveragesAndGrades && (
                     <>
                       <td
                         className={`border border-gray-200 px-1 py-4 text-center font-semibold text-xs ${tone.cell}`}
@@ -314,8 +318,8 @@ export function CategoryTable({
                         {student.fullName}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      {!showGrades && (
+                    <div className="text-right shrink-0">
+                      {!showGrades && shouldShowAveragesAndGrades && (
                         <>
                           <div className="text-xs text-gray-500">Average</div>
                           <div className="text-sm sm:text-base font-bold text-gray-900">

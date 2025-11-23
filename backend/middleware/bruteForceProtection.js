@@ -1,6 +1,7 @@
 import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
 import Admin from "../models/admin.js";
+import { decryptAdminData, decryptInstructorData, decryptStudentData } from "../controller/decryptionController.js";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -20,6 +21,41 @@ const getUserModel = (userType) => {
   }
 };
 
+// Helper function to get decrypt function based on type
+const getDecryptFunction = (userType) => {
+  switch (userType) {
+    case 'student':
+      return decryptStudentData;
+    case 'instructor':
+      return decryptInstructorData;
+    case 'admin':
+      return decryptAdminData;
+    default:
+      throw new Error('Invalid user type');
+  }
+};
+
+// Helper function to find user by decrypted email
+const findUserByEmail = async (email, userType) => {
+  const UserModel = getUserModel(userType);
+  const decryptFn = getDecryptFunction(userType);
+  
+  // Fetch all users and decrypt to find match
+  const users = await UserModel.find({});
+  for (const user of users) {
+    try {
+      const decrypted = decryptFn(user.toObject());
+      if (decrypted.email && decrypted.email.toLowerCase() === email.toLowerCase()) {
+        return user; // Return the Mongoose document for updates
+      }
+    } catch (error) {
+      console.warn(`Failed to decrypt user ${user._id}:`, error.message);
+      continue;
+    }
+  }
+  return null;
+};
+
 // Check if account is locked
 export const isAccountLocked = (user) => {
   return user.accountLockedUntil && user.accountLockedUntil > Date.now();
@@ -28,8 +64,7 @@ export const isAccountLocked = (user) => {
 // Handle failed login attempt
 export const handleFailedLogin = async (email, userType) => {
   try {
-    const UserModel = getUserModel(userType);
-    const user = await UserModel.findOne({ email });
+    const user = await findUserByEmail(email, userType);
     
     if (!user) {
       return { locked: false };
@@ -37,37 +72,29 @@ export const handleFailedLogin = async (email, userType) => {
 
     // If previous lock has expired, reset attempts
     if (user.accountLockedUntil && user.accountLockedUntil < Date.now()) {
-      await UserModel.updateOne(
-        { email },
-        {
-          $unset: { accountLockedUntil: 1 },
-          $set: { 
-            failedLoginAttempts: 1,
-            lastFailedLogin: new Date()
-          }
-        }
-      );
+      user.accountLockedUntil = undefined;
+      user.failedLoginAttempts = 1;
+      user.lastFailedLogin = new Date();
+      await user.save();
       return { locked: false, attempts: 1 };
     }
 
     // Increment failed attempts
     const newAttempts = (user.failedLoginAttempts || 0) + 1;
-    const updates = {
-      failedLoginAttempts: newAttempts,
-      lastFailedLogin: new Date()
-    };
+    user.failedLoginAttempts = newAttempts;
+    user.lastFailedLogin = new Date();
 
     // Lock account if max attempts reached
     if (newAttempts >= MAX_FAILED_ATTEMPTS) {
-      updates.accountLockedUntil = new Date(Date.now() + LOCK_TIME);
+      user.accountLockedUntil = new Date(Date.now() + LOCK_TIME);
     }
 
-    await UserModel.updateOne({ email }, { $set: updates });
+    await user.save();
 
     return {
       locked: newAttempts >= MAX_FAILED_ATTEMPTS,
       attempts: newAttempts,
-      lockUntil: updates.accountLockedUntil,
+      lockUntil: user.accountLockedUntil,
       remainingAttempts: Math.max(0, MAX_FAILED_ATTEMPTS - newAttempts)
     };
   } catch (error) {
@@ -79,18 +106,15 @@ export const handleFailedLogin = async (email, userType) => {
 // Handle successful login (reset failed attempts)
 export const handleSuccessfulLogin = async (email, userType) => {
   try {
-    const UserModel = getUserModel(userType);
-    await UserModel.updateOne(
-      { email },
-      {
-        $unset: { 
-          failedLoginAttempts: 1, 
-          accountLockedUntil: 1, 
-          lastFailedLogin: 1 
-        },
-        $set: { lastLogin: new Date() }
-      }
-    );
+    const user = await findUserByEmail(email, userType);
+    
+    if (user) {
+      user.failedLoginAttempts = undefined;
+      user.accountLockedUntil = undefined;
+      user.lastFailedLogin = undefined;
+      user.lastLogin = new Date();
+      await user.save();
+    }
   } catch (error) {
     console.error('Error handling successful login:', error);
     throw error;
@@ -100,8 +124,7 @@ export const handleSuccessfulLogin = async (email, userType) => {
 // Check account status before login
 export const checkAccountStatus = async (email, userType) => {
   try {
-    const UserModel = getUserModel(userType);
-    const user = await UserModel.findOne({ email });
+    const user = await findUserByEmail(email, userType);
     
     if (!user) {
       return { exists: false };

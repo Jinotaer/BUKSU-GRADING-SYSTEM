@@ -39,7 +39,7 @@ export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
               key={`${user.userType}-${user._id}-${index}`}
               className="hover:bg-gray-50"
             >
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium truncate max-w-[80px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-sm truncate max-w-[80px]">
                 {user.id}
               </td>
               <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm truncate max-w-[120px]">

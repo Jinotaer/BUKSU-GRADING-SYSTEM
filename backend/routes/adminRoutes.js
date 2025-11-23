@@ -3,6 +3,7 @@ import {
   loginAdmin,
   refreshToken,
   inviteInstructor,
+  inviteMultipleInstructors,
   getAllInstructors,
   deleteInstructor,
   getAllStudents,
@@ -78,6 +79,7 @@ router.get('/dashboard/stats', universalAuditLogger('DASHBOARD_VIEWED', 'SYSTEM'
 
 // Instructor management
 router.post('/instructors/invite', universalAuditLogger('INSTRUCTOR_INVITED', 'USER_MANAGEMENT'), inviteInstructor);
+router.post('/instructors/invite/bulk', universalAuditLogger('MULTIPLE_INSTRUCTORS_INVITED', 'USER_MANAGEMENT'), inviteMultipleInstructors);
 router.get('/instructors', universalAuditLogger('INSTRUCTOR_VIEWED', 'USER_MANAGEMENT'), getAllInstructors);
 router.delete('/instructors/:instructorId', universalAuditLogger('INSTRUCTOR_DELETED', 'USER_MANAGEMENT'), deleteInstructor);
 router.put('/instructors/:instructorId/archive', universalAuditLogger('INSTRUCTOR_ARCHIVED', 'USER_MANAGEMENT'), archiveInstructor);

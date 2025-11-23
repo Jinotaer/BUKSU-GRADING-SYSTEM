@@ -412,8 +412,14 @@ export const inviteStudentsToSection = async (req, res) => {
     section.students.push(...newStudentIds);
     await section.save();
 
+    // Decrypt student data before sending emails
+    // Convert Mongoose documents to plain objects first
+    const plainStudents = newStudents.map(s => s.toObject());
+    const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+    console.log('📧 Sending emails to students:', decryptedStudents.map(s => s.email));
+
     // Send invitation emails to new students
-    const emailPromises = newStudents.map(async (student) => {
+    const emailPromises = decryptedStudents.map(async (student) => {
       const sectionDetails = {
         subjectCode: section.subject.subjectCode,
         subjectName: section.subject.subjectName,

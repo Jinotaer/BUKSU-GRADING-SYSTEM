@@ -15,6 +15,12 @@ const secretKey = process.env.ENCRYPTION_SECRET_KEY || '12c64ab616476558cd1c1011
 const decrypt = (encryptedText) => {
   if (!encryptedText) return null;
   
+  // Check if the text is in encrypted format (contains ":")
+  if (!encryptedText.includes(":")) {
+    // Not encrypted, return as is
+    return encryptedText;
+  }
+  
   if (!secretKey) {
     console.error("Decryption secret key is not set");
     throw new Error("Decryption secret key is not set");
@@ -24,7 +30,8 @@ const decrypt = (encryptedText) => {
     const [ivHex, encryptedHex] = encryptedText.split(":");
     
     if (!ivHex || !encryptedHex) {
-      throw new Error("Invalid encrypted data format");
+      // Invalid format, return as is (might be plain text)
+      return encryptedText;
     }
     
     const iv = Buffer.from(ivHex, "hex");
@@ -35,8 +42,9 @@ const decrypt = (encryptedText) => {
     
     return decrypted.toString("utf8");
   } catch (error) {
-    console.error("Decryption error:", error);
-    throw new Error("Failed to decrypt data");
+    // If decryption fails, return the original value (might be plain text)
+    console.warn("Decryption failed, returning original value:", error.message);
+    return encryptedText;
   }
 };
 
@@ -128,10 +136,11 @@ const decryptStudentData = (studentData) => {
   sensitiveFields.forEach(field => {
     if (decryptedData[field]) {
       try {
-        decryptedData[field] = decrypt(decryptedData[field]);
+        const decryptedValue = decrypt(decryptedData[field]);
+        decryptedData[field] = decryptedValue;
       } catch (error) {
-        console.warn(`Failed to decrypt student field ${field}:`, error.message);
-        // Keep original value if decryption fails (might not be encrypted)
+        // If error occurs, keep the original value (likely plain text)
+        console.debug(`Keeping original value for student field ${field}`);
       }
     }
   });

@@ -1,7 +1,8 @@
 // routes/subjectRoutes.js
 import express from "express";
 import { 
-  addSubject, 
+  addSubject,
+  addMultipleSubjects,
   getSubjectsBySemester, 
   listSubjects, 
   updateSubject, 
@@ -16,6 +17,7 @@ const router = express.Router();
 
 // Admin routes
 router.post("/", adminAuth, universalAuditLogger('SUBJECT_CREATED', 'ACADEMIC_MANAGEMENT'), addSubject);
+router.post("/bulk", adminAuth, universalAuditLogger('MULTIPLE_SUBJECTS_CREATED', 'ACADEMIC_MANAGEMENT'), addMultipleSubjects);
 router.put("/:id", adminAuth, universalAuditLogger('SUBJECT_UPDATED', 'ACADEMIC_MANAGEMENT'), updateSubject);
 router.delete("/:id", adminAuth, universalAuditLogger('SUBJECT_DELETED', 'ACADEMIC_MANAGEMENT'), deleteSubject);
 router.post("/:subjectId/assign-instructor", adminAuth, universalAuditLogger('INSTRUCTOR_ASSIGNED', 'USER_MANAGEMENT'), assignInstructorToSubject);

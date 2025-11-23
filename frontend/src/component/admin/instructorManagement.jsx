@@ -39,7 +39,7 @@ export default function InstructorManagement() {
   });
 
   const colleges = [
-    "College of Technology",
+    "College of Technologies",
     "College of Education",
     "College of Business",
     "College of Arts and Science",
@@ -54,7 +54,7 @@ export default function InstructorManagement() {
       setLoading(true);
 
       const res = await authenticatedFetch(
-        "http://localhost:5000/api/admin/instructors"
+        "http://localhost:5000/api/admin/instructors?limit=12000"
       );
 
       if (res.ok) {

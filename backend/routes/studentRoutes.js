@@ -1,6 +1,7 @@
 import express from "express";
 import {
   registerStudent,
+  bulkRegisterStudents,
   getStudentProfile,
   updateStudentProfile,
   getAllStudents,
@@ -29,6 +30,13 @@ const router = express.Router();
  * @access  Public
  */
 router.post("/register", universalAuditLogger('STUDENT_REGISTERED', 'STUDENT_ACTIVITY'), registerStudent);
+
+/**
+ * @route   POST /api/student/register/bulk
+ * @desc    Bulk register students
+ * @access  Public
+ */
+router.post("/register/bulk", universalAuditLogger('BULK_STUDENTS_REGISTERED', 'STUDENT_ACTIVITY'), bulkRegisterStudents);
 
 /**
  * @route   GET /api/student/profile

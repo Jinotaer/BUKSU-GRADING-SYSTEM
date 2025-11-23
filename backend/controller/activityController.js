@@ -7,6 +7,7 @@ import Schedule from "../models/schedule.js";
 import Instructor from "../models/instructor.js";
 import googleCalendarService from "../services/googleCalendarService.js";
 import emailService from "../services/emailService.js";
+import { bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
 
 // Safely get the current instructor id from the request, regardless of shape
 const getInstructorId = (req) =>
@@ -199,7 +200,9 @@ export const createActivity = async (req, res) => {
         .populate('students', 'email firstName lastName fullName');
       
       const instructor = await Instructor.findById(instructorId);
-      const instructorName = instructor?.fullName || instructor?.firstName + ' ' + instructor?.lastName || 'Your Instructor';
+      // Decrypt instructor data
+      const decryptedInstructor = instructor ? decryptInstructorData(instructor.toObject()) : null;
+      const instructorName = decryptedInstructor?.fullName || 'Your Instructor';
 
       if (sectionWithStudents && sectionWithStudents.students && sectionWithStudents.students.length > 0) {
         const scheduleDetails = {
@@ -214,8 +217,29 @@ export const createActivity = async (req, res) => {
           subjectName: section.subject.subjectName
         };
 
-        const emailPromises = sectionWithStudents.students.map(student => {
+        // Decrypt student data before sending emails
+        // Convert Mongoose documents to plain objects first
+        const plainStudents = sectionWithStudents.students.map(s => s.toObject());
+        const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+
+        console.log(`📧 Preparing to send schedule notifications to ${decryptedStudents.length} students`);
+        console.log('📧 Student emails:', decryptedStudents.map(s => s.email));
+
+        // Filter students with email addresses
+        const studentsWithEmail = decryptedStudents.filter(student => student.email);
+        const studentsWithoutEmail = decryptedStudents.filter(student => !student.email);
+
+        if (studentsWithoutEmail.length > 0) {
+          console.warn(`⚠️ ${studentsWithoutEmail.length} student(s) have no email address:`,
+            studentsWithoutEmail.map(s => `${s.firstName} ${s.lastName} (${s.studid})`).join(', ')
+          );
+        }
+
+        console.log(`✉️ Sending emails to ${studentsWithEmail.length} students with email addresses`);
+
+        const emailPromises = studentsWithEmail.map(student => {
           const studentName = student.fullName || `${student.firstName} ${student.lastName}`;
+          console.log(`  → Queuing email for ${studentName} (${student.email})`);
           return emailService.sendScheduleNotification({
             studentEmail: student.email,
             studentName,
@@ -224,14 +248,18 @@ export const createActivity = async (req, res) => {
           });
         });
 
-        Promise.all(emailPromises)
-          .then(results => {
-            const successCount = results.filter(r => r.success).length;
-            console.log(`✅ Activity schedule notification emails sent: ${successCount}/${sectionWithStudents.students.length}`);
-          })
-          .catch(error => {
-            console.error('❌ Error sending activity schedule notification emails:', error);
-          });
+        if (emailPromises.length > 0) {
+          Promise.all(emailPromises)
+            .then(results => {
+              const successCount = results.filter(r => r.success).length;
+              console.log(`✅ Activity schedule notification emails sent: ${successCount}/${studentsWithEmail.length}`);
+            })
+            .catch(error => {
+              console.error('❌ Error sending activity schedule notification emails:', error);
+            });
+        } else {
+          console.warn('⚠️ No schedule notification emails sent - no students have email addresses');
+        }
       }
     } catch (emailError) {
       console.error('❌ Error sending activity schedule notification emails:', emailError);
@@ -450,7 +478,9 @@ export const updateActivity = async (req, res) => {
         .populate('students', 'email firstName lastName fullName');
       
       const instructor = await Instructor.findById(instructorId);
-      const instructorName = instructor?.fullName || instructor?.firstName + ' ' + instructor?.lastName || 'Your Instructor';
+      // Decrypt instructor data
+      const decryptedInstructor = instructor ? decryptInstructorData(instructor.toObject()) : null;
+      const instructorName = decryptedInstructor?.fullName || 'Your Instructor';
 
       if (section && section.students && section.students.length > 0) {
         const scheduleDetails = {
@@ -465,8 +495,29 @@ export const updateActivity = async (req, res) => {
           subjectName: updatedActivity.subject.subjectName
         };
 
-        const emailPromises = section.students.map(student => {
+        // Decrypt student data before sending emails
+        // Convert Mongoose documents to plain objects first
+        const plainStudents = section.students.map(s => s.toObject());
+        const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+
+        console.log(`📧 Preparing to send activity update notifications to ${decryptedStudents.length} students`);
+        console.log('📧 Student emails:', decryptedStudents.map(s => s.email));
+
+        // Filter students with email addresses
+        const studentsWithEmail = decryptedStudents.filter(student => student.email);
+        const studentsWithoutEmail = decryptedStudents.filter(student => !student.email);
+
+        if (studentsWithoutEmail.length > 0) {
+          console.warn(`⚠️ ${studentsWithoutEmail.length} student(s) have no email address:`,
+            studentsWithoutEmail.map(s => `${s.firstName} ${s.lastName} (${s.studid})`).join(', ')
+          );
+        }
+
+        console.log(`✉️ Sending update emails to ${studentsWithEmail.length} students with email addresses`);
+
+        const emailPromises = studentsWithEmail.map(student => {
           const studentName = student.fullName || `${student.firstName} ${student.lastName}`;
+          console.log(`  → Queuing email for ${studentName} (${student.email})`);
           return emailService.sendScheduleNotification({
             studentEmail: student.email,
             studentName,
@@ -475,14 +526,18 @@ export const updateActivity = async (req, res) => {
           });
         });
 
-        Promise.all(emailPromises)
-          .then(results => {
-            const successCount = results.filter(r => r.success).length;
-            console.log(`✅ Activity update notification emails sent: ${successCount}/${section.students.length}`);
-          })
-          .catch(error => {
-            console.error('❌ Error sending activity update notification emails:', error);
-          });
+        if (emailPromises.length > 0) {
+          Promise.all(emailPromises)
+            .then(results => {
+              const successCount = results.filter(r => r.success).length;
+              console.log(`✅ Activity update notification emails sent: ${successCount}/${studentsWithEmail.length}`);
+            })
+            .catch(error => {
+              console.error('❌ Error sending activity update notification emails:', error);
+            });
+        } else {
+          console.warn('⚠️ No activity update notification emails sent - no students have email addresses');
+        }
       }
     } catch (emailError) {
       console.error('❌ Error sending activity update notification emails:', emailError);

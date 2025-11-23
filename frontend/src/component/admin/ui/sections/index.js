@@ -6,3 +6,4 @@ export { SectionCard } from "./SectionCard";
 export { EmptyState } from "./EmptyState";
 export { SectionForm } from "./SectionForm";
 export { InviteStudentsModal } from "./InviteStudentsModal";
+export { SearchableSelect } from "./SearchableSelect";

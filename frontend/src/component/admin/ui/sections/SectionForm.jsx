@@ -1,5 +1,6 @@
 import React from "react";
 import { IconCheck } from "@tabler/icons-react";
+import { SearchableSelect } from "./SearchableSelect";
 
 export function SectionForm({
   formData,
@@ -100,20 +101,18 @@ export function SectionForm({
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Instructor *
         </label>
-        <select
+        <SearchableSelect
           name="instructorId"
           value={formData.instructorId}
           onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none cursor-pointer"
+          options={instructors}
+          getOptionLabel={(instructor) => 
+            `${instructor.fullName} - ${instructor.email}`
+          }
+          getOptionValue={(instructor) => instructor._id}
+          placeholder="Select Instructor"
           required
-        >
-          <option value="">Select Instructor</option>
-          {instructors.map((instructor) => (
-            <option key={instructor._id} value={instructor._id}>
-              {instructor.fullName} - {instructor.email}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div>

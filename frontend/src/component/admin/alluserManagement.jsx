@@ -31,8 +31,8 @@ export default function AllUserManagement() {
     try {
       setLoading(true);
       const [studentsRes, instructorsRes] = await Promise.all([
-        authenticatedFetch("http://localhost:5000/api/admin/students"),
-        authenticatedFetch("http://localhost:5000/api/admin/instructors"),
+        authenticatedFetch("http://localhost:5000/api/admin/students?limit=12000"),
+        authenticatedFetch("http://localhost:5000/api/admin/instructors?limit=12000"),
       ]);
 
       let allUsers = [];

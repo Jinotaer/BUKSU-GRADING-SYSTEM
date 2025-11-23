@@ -2,15 +2,26 @@ import nodemailer from "nodemailer";
 
 class EmailService {
   constructor() {
-    this.initializeTransporter();
+    this.transporter = null;
+    this.initialized = false;
+    // Don't call async initialization in constructor
   }
 
   async initializeTransporter() {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    // If already initialized, skip
+    if (this.initialized) {
+      return;
+    }
+
+    // Remove spaces from password if present (Gmail App Passwords have spaces)
+    const smtpPass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s/g, '') : null;
+    
+    if (!process.env.SMTP_USER || !smtpPass) {
       console.warn(
         "⚠️ SMTP credentials not configured. Email sending will be disabled."
       );
       this.transporter = null;
+      this.initialized = true;
       return;
     }
 
@@ -18,22 +29,40 @@ class EmailService {
       this.transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
-          user: process.env.SMTP_USER || "u7382361@gmail.com",
-          pass: process.env.SMTP_PASS || "vkksgvimarbfttgi",
+          user: process.env.SMTP_USER,
+          pass: smtpPass,
         },
       });
 
       console.log("✅ Email transporter initialized with Gmail service");
+      
+      // Verify connection immediately after initialization
+      try {
+        await this.transporter.verify();
+        console.log("✅ Email server connection verified successfully");
+        this.initialized = true;
+      } catch (verifyError) {
+        console.warn("⚠️ Email server connection verification failed:", verifyError.message);
+        console.warn("⚠️ Emails may not be sent successfully");
+        // Still mark as initialized even if verification fails
+        this.initialized = true;
+      }
     } catch (error) {
       console.error(
         "❌ Failed to initialize email transporter:",
         error.message
       );
       this.transporter = null;
+      this.initialized = true;
     }
   }
 
   async verifyConnection() {
+    // Initialize if not already initialized
+    if (!this.initialized) {
+      await this.initializeTransporter();
+    }
+
     if (!this.transporter) {
       console.log("⚠️ Email transporter not configured");
       return false;
@@ -50,7 +79,7 @@ class EmailService {
   }
 
   async ensureTransporter() {
-    if (!this.transporter) {
+    if (!this.initialized) {
       await this.initializeTransporter();
     }
     return this.transporter !== null;

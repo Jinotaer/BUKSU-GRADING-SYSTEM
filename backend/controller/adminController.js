@@ -397,6 +397,9 @@ export const inviteInstructor = async (req, res) => {
       });
     }
 
+    // Decrypt admin data to get the real fullName
+    const decryptedAdmin = decryptAdminData(admin.toObject());
+
     // Prepare instructor data for encryption
     const instructorData = {
       instructorid,
@@ -405,7 +408,7 @@ export const inviteInstructor = async (req, res) => {
       college,
       department,
       status: "Active", // Automatically approved when invited by admin - keep unencrypted
-      invitedBy: admin.email, // Keep unencrypted for audit trails
+      invitedBy: decryptedAdmin.email, // Use decrypted email for audit trails
     };
 
     // Encrypt sensitive instructor data before saving
@@ -420,7 +423,7 @@ export const inviteInstructor = async (req, res) => {
     const emailResult = await emailService.sendInstructorInvitation(
       email,
       null, // No token needed since auto-approved
-      admin.fullName
+      decryptedAdmin.fullName
     );
 
     if (!emailResult.success) {
@@ -430,7 +433,7 @@ export const inviteInstructor = async (req, res) => {
       // Log failed invitation
       await logUniversalActivity(
         adminId,
-        admin.email,
+        decryptedAdmin.email,
         'admin',
         'INSTRUCTOR_INVITED',
         {
@@ -454,7 +457,7 @@ export const inviteInstructor = async (req, res) => {
     // Log successful invitation
     await logUniversalActivity(
       adminId,
-      admin.email,
+      decryptedAdmin.email,
       'admin',
       'INSTRUCTOR_INVITED',
       {
@@ -496,6 +499,159 @@ export const inviteInstructor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+export const inviteMultipleInstructors = async (req, res) => {
+  try {
+    const { instructors } = req.body;
+    const adminId = req.admin.id;
+
+    if (!Array.isArray(instructors) || instructors.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "instructors array is required and must not be empty"
+      });
+    }
+
+    // Get admin info for invitation
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found"
+      });
+    }
+
+    // Decrypt admin data to get the real fullName
+    const decryptedAdmin = decryptAdminData(admin.toObject());
+
+    const results = {
+      successful: [],
+      failed: []
+    };
+
+    for (const instructorData of instructors) {
+      const { instructorid, email, fullName, college, department } = instructorData;
+
+      // Validate input
+      if (!instructorid || !email || !fullName || !college || !department) {
+        results.failed.push({
+          data: instructorData,
+          reason: "All fields are required: instructorid, email, fullName, college, department"
+        });
+        continue;
+      }
+
+      // Validate email domain
+      if (!email.endsWith("@gmail.com")) {
+        results.failed.push({
+          data: instructorData,
+          reason: "Invalid email domain. Must be @buksu.edu.ph"
+        });
+        continue;
+      }
+
+      // Check if instructor already exists
+      const existingInstructor = await Instructor.findOne({
+        $or: [{ email }, { instructorid }],
+      });
+      if (existingInstructor) {
+        results.failed.push({
+          data: instructorData,
+          reason: "Instructor with this email or ID already exists"
+        });
+        continue;
+      }
+
+      try {
+        // Prepare instructor data for encryption
+        const preparedData = {
+          instructorid,
+          email,
+          fullName,
+          college,
+          department,
+          status: "Active",
+          invitedBy: decryptedAdmin.email,
+        };
+
+        // Encrypt sensitive instructor data before saving
+        const encryptedInstructorData = encryptInstructorData(preparedData);
+
+        // Create instructor record with encrypted data
+        const instructor = new Instructor(encryptedInstructorData);
+        await instructor.save();
+
+        // Send notification email
+        try {
+          await emailService.sendInstructorInvitation(
+            email,
+            null,
+            decryptedAdmin.fullName
+          );
+        } catch (emailError) {
+          console.error(`Failed to send invitation email to ${email}:`, emailError);
+          // Continue even if email fails
+        }
+
+        // Log successful invitation
+        await logUniversalActivity(
+          adminId,
+          decryptedAdmin.email,
+          'admin',
+          'INSTRUCTOR_INVITED',
+          {
+            category: 'USER_MANAGEMENT',
+            success: true,
+            description: `Successfully invited instructor ${fullName} (${email})`,
+            targetType: 'Instructor',
+            targetId: instructor._id,
+            targetIdentifier: email,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent'),
+            metadata: {
+              instructorId: instructor.instructorid,
+              college,
+              department
+            }
+          }
+        );
+
+        // Decrypt instructor data for response
+        const responseInstructor = decryptInstructorData(instructor.toObject());
+
+        results.successful.push({
+          id: responseInstructor._id,
+          email: responseInstructor.email,
+          fullName: responseInstructor.fullName,
+          instructorid: responseInstructor.instructorid,
+          college: responseInstructor.college,
+          department: responseInstructor.department,
+          status: responseInstructor.status,
+          invitedBy: responseInstructor.invitedBy
+        });
+
+      } catch (error) {
+        results.failed.push({
+          data: instructorData,
+          reason: error.message || "Failed to create instructor"
+        });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Invited ${results.successful.length} instructors, ${results.failed.length} failed`,
+      results
+    });
+
+  } catch (error) {
+    console.error("Bulk invite instructors error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
     });
   }
 };

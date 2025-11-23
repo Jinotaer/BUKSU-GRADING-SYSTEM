@@ -21,7 +21,7 @@ export function StudentTableDesktop({ students, onArchive }) {
           {students.map((student) => (
             <tr key={student._id} className="hover:bg-gray-50">
               <td className="px-3 py-3 text-sm">{student.studid}</td>
-              <td className="px-3 py-3 text-sm font-medium">{student.fullName}</td>
+              <td className="px-3 py-3 text-sm font-sm">{student.fullName}</td>
               <td className="px-3 py-3 text-sm text-blue-600 break-all">{student.email}</td>
               <td className="px-3 py-3 text-sm">{student.college}</td>
               <td className="px-3 py-3 text-sm">{student.course}</td>

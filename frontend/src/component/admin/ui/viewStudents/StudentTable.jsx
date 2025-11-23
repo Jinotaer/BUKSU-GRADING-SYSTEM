@@ -1,6 +1,6 @@
 import React from "react";
 
-export function StudentTable({ students, submitting, onRemoveStudent }) {
+export function StudentTable({ students, submitting, onRemoveStudent, pagination }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm sm:text-base border-collapse">
@@ -69,6 +69,15 @@ export function StudentTable({ students, submitting, onRemoveStudent }) {
             </tr>
           ))}
         </tbody>
+        {pagination && (
+          <tfoot>
+            <tr>
+              <td colSpan="7" className="p-0 border-t-0">
+                {pagination}
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

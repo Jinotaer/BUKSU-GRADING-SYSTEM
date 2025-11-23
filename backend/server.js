@@ -24,6 +24,7 @@ import scheduleRoutes from "./routes/scheduleRoutes.js";
 import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
 import monitoringRoutes from "./routes/monitoringRoutes.js";
 import aiController from './controller/aiController.js';
+import emailService from './services/emailService.js';
 
 
 dotenv.config();
@@ -35,6 +36,15 @@ const initializeApp = async () => {
     logger.database('MongoDB connected successfully');
     await seedAdminAccount();
     logger.info('Admin account seeding completed');
+    
+    // Initialize and verify email service
+    logger.info('Initializing email service...');
+    const emailVerified = await emailService.verifyConnection();
+    if (emailVerified) {
+      logger.info('✅ Email service ready');
+    } else {
+      logger.warn('⚠️ Email service not available - emails will not be sent');
+    }
   } catch (error) {
     logger.error('Failed to initialize application:', error);
     process.exit(1);

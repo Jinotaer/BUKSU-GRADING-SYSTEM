@@ -3,7 +3,7 @@ import { IconPlus } from "@tabler/icons-react";
 
 export function PageHeader({ onAddClick }) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-4">
+    <div className="flex flex-col  sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-4 ">
       <div className="w-full sm:w-auto">
         <h2 className="pt-2 sm:pt-4 md:pt-6 lg:pt-10 font-outfit text-[#1E3A5F] text-xl sm:text-2xl md:text-3xl lg:text-3xl font-bold leading-tight">
           Subject Management

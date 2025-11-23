@@ -6,6 +6,7 @@ import Section from "../models/sections.js";
 import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
+import { decryptInstructorData, decryptAdminData } from "./decryptionController.js";
 
 export const addSubject = async (req, res) => {
   try {
@@ -37,8 +38,19 @@ export const addSubject = async (req, res) => {
 
     // Send email notification to instructor if assigned
     if (instructor) {
+      // Decrypt instructor and admin data before sending email
+      const decryptedInstructor = decryptInstructorData(instructor.toObject());
+      
       const adminUser = req.admin || req.user; // Get admin info from request
-      const adminName = adminUser?.fullName || "System Administrator";
+      let adminName = "System Administrator";
+      if (adminUser?.fullName) {
+        try {
+          const decryptedAdmin = decryptAdminData({ fullName: adminUser.fullName });
+          adminName = decryptedAdmin.fullName;
+        } catch (e) {
+          adminName = adminUser.fullName; // Fallback if not encrypted
+        }
+      }
       
       const subjectDetails = {
         subjectCode,
@@ -51,7 +63,7 @@ export const addSubject = async (req, res) => {
 
       try {
         await emailService.sendSubjectAssignmentNotification(
-          instructor.email,
+          decryptedInstructor.email,
           subjectDetails,
           adminName
         );
@@ -65,6 +77,126 @@ export const addSubject = async (req, res) => {
   } catch (err) {
     console.error("addSubject:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const addMultipleSubjects = async (req, res) => {
+  try {
+    const { subjects } = req.body;
+
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+      return res.status(400).json({ message: "subjects array is required and must not be empty" });
+    }
+
+    const results = {
+      successful: [],
+      failed: []
+    };
+
+    for (const subjectData of subjects) {
+      const { subjectCode, subjectName, units, college, department, semester, instructorId } = subjectData;
+
+      if (!subjectCode || !subjectName || !units || !college || !department || !semester) {
+        results.failed.push({
+          data: subjectData,
+          reason: "All fields are required (subjectCode, subjectName, units, college, department, semester)"
+        });
+        continue;
+      }
+
+      const semesterExists = await Semester.findById(semester);
+      if (!semesterExists) {
+        results.failed.push({
+          data: subjectData,
+          reason: "Semester not found"
+        });
+        continue;
+      }
+
+      // Check if instructor exists (if provided)
+      let instructor = null;
+      if (instructorId) {
+        instructor = await Instructor.findById(instructorId);
+        if (!instructor) {
+          results.failed.push({
+            data: subjectData,
+            reason: "Instructor not found"
+          });
+          continue;
+        }
+      }
+
+      const exists = await Subject.findOne({ subjectCode, semester });
+      if (exists) {
+        results.failed.push({
+          data: subjectData,
+          reason: "Subject code already exists for this semester"
+        });
+        continue;
+      }
+
+      try {
+        const subject = await Subject.create({
+          subjectCode, subjectName, units, college, department, semester, assignedInstructor: instructorId || null,
+        });
+
+        const populatedSubject = await Subject.findById(subject._id)
+          .populate("semester")
+          .populate("assignedInstructor", "fullName email college department");
+
+        // Send email notification to instructor if assigned
+        if (instructor) {
+          // Decrypt instructor data
+          const decryptedInstructor = decryptInstructorData(instructor.toObject());
+          
+          const adminUser = req.admin || req.user;
+          let adminName = "System Administrator";
+          if (adminUser?.fullName) {
+            try {
+              const decryptedAdmin = decryptAdminData({ fullName: adminUser.fullName });
+              adminName = decryptedAdmin.fullName;
+            } catch (e) {
+              adminName = adminUser.fullName;
+            }
+          }
+          
+          const subjectDetails = {
+            subjectCode,
+            subjectName,
+            units,
+            college,
+            department,
+            semester: `${semesterExists.schoolYear} - ${semesterExists.term} Semester`
+          };
+
+          try {
+            await emailService.sendSubjectAssignmentNotification(
+              decryptedInstructor.email,
+              subjectDetails,
+              adminName
+            );
+          } catch (emailError) {
+            console.error("Failed to send subject assignment email:", emailError);
+          }
+        }
+
+        results.successful.push(populatedSubject);
+      } catch (err) {
+        results.failed.push({
+          data: subjectData,
+          reason: err.message
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Created ${results.successful.length} subjects, ${results.failed.length} failed`,
+      results
+    });
+  } catch (err) {
+    console.error("addMultipleSubjects:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -92,8 +224,19 @@ export const assignInstructorToSubject = async (req, res) => {
       .populate("assignedInstructor", "fullName email college department");
 
     // Send email notification to instructor
+    // Decrypt instructor data
+    const decryptedInstructor = decryptInstructorData(instructor.toObject());
+    
     const adminUser = req.admin || req.user;
-    const adminName = adminUser?.fullName || "System Administrator";
+    let adminName = "System Administrator";
+    if (adminUser?.fullName) {
+      try {
+        const decryptedAdmin = decryptAdminData({ fullName: adminUser.fullName });
+        adminName = decryptedAdmin.fullName;
+      } catch (e) {
+        adminName = adminUser.fullName;
+      }
+    }
     
     const subjectDetails = {
       subjectCode: subject.subjectCode,
@@ -106,7 +249,7 @@ export const assignInstructorToSubject = async (req, res) => {
 
     try {
       await emailService.sendSubjectAssignmentNotification(
-        instructor.email,
+        decryptedInstructor.email,
         subjectDetails,
         adminName
       );

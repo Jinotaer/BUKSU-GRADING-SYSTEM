@@ -136,59 +136,56 @@ export default function ViewInviteStudentPage() {
 
   return (
     <NotificationProvider notifications={notifications}>
-      <div className="flex flex-col lg:flex-row h-screen bg-gray-100 overflow-hidden">
+      <div className="flex min-h-screen bg-gray-100">
         {/* Sidebar */}
-        <div className="flex-shrink-0">
-          <NavbarSimple />
-        </div>
+        <NavbarSimple />
 
         {/* Main Content */}
-        <div className="flex-1 mt-8 p-2 sm:p-4 md:p-6 w-full mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 pt-4 sm:pt-6 md:pt-8 lg:pt-10">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
           <PageHeader />
 
-          {/* Student Table */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
-            {loading ? (
-              <LoadingSpinner />
-            ) : error ? (
-              <ErrorState error={error} onRetry={fetchInvitedStudents} />
-            ) : invitedStudents.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <>
-                <div className="overflow-x-auto bg-white rounded-lg shadow border border-gray-100 p-4 sm:p-6 mb-6">
-                  <SectionInfo
-                    sectionDetails={sectionDetails}
-                    invitedStudents={invitedStudents}
-                    getSubjectName={getSubjectName}
-                    getInstructorName={getInstructorName}
-                  />
+          {loading ? (
+            <LoadingSpinner />
+          ) : error ? (
+            <ErrorState error={error} onRetry={fetchInvitedStudents} />
+          ) : invitedStudents.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <>
+              <div className="bg-white rounded-lg shadow border border-gray-100 p-4 sm:p-6 mb-6">
+                <SectionInfo
+                  sectionDetails={sectionDetails}
+                  invitedStudents={invitedStudents}
+                  getSubjectName={getSubjectName}
+                  getInstructorName={getInstructorName}
+                />
 
-                  <SearchBar
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                  />
+                <SearchBar
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                />
 
+                <div className="overflow-x-auto">
                   <StudentTable
                     students={paginatedStudents}
                     submitting={submitting}
                     onRemoveStudent={handleRemoveStudent}
+                    pagination={
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        totalItems={totalItems}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setCurrentPage}
+                        onItemsPerPageChange={setItemsPerPage}
+                        rowsPerPageOptions={[5, 10, 25, 50]}
+                      />
+                    }
                   />
                 </div>
-
-                {/* Pagination */}
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                  onItemsPerPageChange={setItemsPerPage}
-                  rowsPerPageOptions={[5, 10, 25, 50]}
-                />
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </NotificationProvider>

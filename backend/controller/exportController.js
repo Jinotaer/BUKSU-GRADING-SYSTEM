@@ -14,7 +14,7 @@ import {
   tryShareWithInstructor,
   trySetPublicAccess,
   formatClassRecordLayout,
-  removeLeadingEmptyColumns, // <-- replaced to remove any number of leading empty columns
+  removeLeadingEmptyColumns, 
   GOOGLE_DRIVE_FOLDER_ID,
 } from '../services/googleSheetsService.js';
 import { applyFormatting, addStudentDataBorders } from '../services/sheetFormattingService.js';
@@ -24,7 +24,6 @@ import {
   loadActivities,
   loadActivityScores,
   buildSheetData,
-  buildFinalGradeSheetData,
   persistGrades,
   updateSectionMetadata,
 } from '../services/sheetDataService.js';

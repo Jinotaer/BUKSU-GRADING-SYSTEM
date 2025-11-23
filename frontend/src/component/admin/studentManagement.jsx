@@ -32,7 +32,8 @@ export default function StudentManagement() {
     const fetchStudents = async () => {
       try {
         setLoading(true);
-        const res = await authenticatedFetch("http://localhost:5000/api/admin/students?status=Approved");
+        // Fetch all students by setting a high limit
+        const res = await authenticatedFetch("http://localhost:5000/api/admin/students?status=Approved&limit=12000");
         if (res.ok) {
           const data = await res.json();
           setStudents(data.students || []);

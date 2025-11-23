@@ -198,7 +198,7 @@ export default function StudentActivityScores() {
     categoryMap.majorOutput.weight = gradingSchema.majorOutput;
 
     const currentStudentId = getCurrentStudentId();
-    console.log('Current student ID:', currentStudentId);
+    console.log('Current student ID:', currentStudentId); 
 
     // Group activities by category
     activities.forEach(activity => {

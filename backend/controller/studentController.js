@@ -111,6 +111,128 @@ export const registerStudent = async (req, res) => {
 };
 
 /**
+ * Bulk register students
+ * @route POST /api/student/register/bulk
+ * @access Public or Admin
+ */
+export const bulkRegisterStudents = async (req, res) => {
+  try {
+    const { students } = req.body;
+
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "students array is required and must not be empty"
+      });
+    }
+
+    const validYearLevels = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
+    const results = {
+      successful: [],
+      failed: []
+    };
+
+    for (const studentData of students) {
+      const { email, studid, fullName, college, course, yearLevel } = studentData;
+
+      // Validate required fields
+      if (!email || !studid || !fullName || !college || !course || !yearLevel) {
+        results.failed.push({
+          data: studentData,
+          reason: "All fields are required"
+        });
+        continue;
+      }
+
+      // Validate email domain
+      if (!email.endsWith("@student.buksu.edu.ph")) {
+        results.failed.push({
+          data: studentData,
+          reason: "Invalid student email domain. Must use @student.buksu.edu.ph"
+        });
+        continue;
+      }
+
+      // Validate year level
+      if (!validYearLevels.includes(yearLevel)) {
+        results.failed.push({
+          data: studentData,
+          reason: "Invalid year level. Must be one of: " + validYearLevels.join(", ")
+        });
+        continue;
+      }
+
+      // Check if student already exists
+      const existingStudent = await Student.findOne({ email });
+      if (existingStudent) {
+        results.failed.push({
+          data: studentData,
+          reason: "Student with this email already exists"
+        });
+        continue;
+      }
+
+      try {
+        // Create temporary googleId
+        const tempGoogleId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Prepare student data for encryption
+        const preparedData = {
+          googleId: tempGoogleId,
+          studid,
+          email,
+          fullName: fullName.trim(),
+          college,
+          course,
+          yearLevel,
+          status: "Approved"
+        };
+
+        // Encrypt sensitive student data before saving
+        const encryptedStudentData = encryptStudentData(preparedData);
+
+        // Create new student with encrypted data
+        const newStudent = new Student(encryptedStudentData);
+        await newStudent.save();
+
+        // Decrypt student data for response
+        const responseStudent = decryptStudentData(newStudent.toObject());
+
+        results.successful.push({
+          id: responseStudent._id,
+          email: responseStudent.email,
+          fullName: responseStudent.fullName,
+          studid: responseStudent.studid,
+          college: responseStudent.college,
+          course: responseStudent.course,
+          yearLevel: responseStudent.yearLevel,
+          status: responseStudent.status
+        });
+
+      } catch (error) {
+        results.failed.push({
+          data: studentData,
+          reason: error.message || "Failed to create student"
+        });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Registered ${results.successful.length} students, ${results.failed.length} failed`,
+      results
+    });
+
+  } catch (error) {
+    console.error("Bulk student registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/**
  * Get student profile
  * @route GET /api/student/profile
  * @access Private (Student only)
@@ -129,18 +251,22 @@ export const getStudentProfile = async (req, res) => {
       });
     }
 
+    // Decrypt student data before sending to client
+    const decryptedStudent = decryptStudentData(student.toObject());
+
     res.json({
       success: true,
       student: {
-        id: student._id,
-        email: student.email,
-        fullName: student.fullName,
-        college: student.college,
-        course: student.course,
-        yearLevel: student.yearLevel,
-        status: student.status,
-        role: student.role,
-        createdAt: student.createdAt
+        id: decryptedStudent._id,
+        studid: decryptedStudent.studid,
+        email: decryptedStudent.email,
+        fullName: decryptedStudent.fullName,
+        college: decryptedStudent.college,
+        course: decryptedStudent.course,
+        yearLevel: decryptedStudent.yearLevel,
+        status: decryptedStudent.status,
+        role: decryptedStudent.role,
+        createdAt: decryptedStudent.createdAt
       }
     });
   } catch (error) {
@@ -164,7 +290,11 @@ export const updateStudentProfile = async (req, res) => {
 
     // Build update object with only provided fields
     const updateData = {};
-    if (fullName) updateData.fullName = fullName.trim();
+    if (fullName) {
+      const trimmedName = fullName.trim();
+      // Encrypt the fullName before updating
+      updateData.fullName = encryptField(trimmedName);
+    }
     if (college) updateData.college = college;
     if (course) updateData.course = course;
     if (yearLevel) {
@@ -198,17 +328,21 @@ export const updateStudentProfile = async (req, res) => {
       });
     }
 
+    // Decrypt student data before sending to client
+    const decryptedStudent = decryptStudentData(updatedStudent.toObject());
+
     res.json({
       success: true,
       message: "Profile updated successfully",
       student: {
-        id: updatedStudent._id,
-        email: updatedStudent.email,
-        fullName: updatedStudent.fullName,
-        college: updatedStudent.college,
-        course: updatedStudent.course,
-        yearLevel: updatedStudent.yearLevel,
-        status: updatedStudent.status
+        id: decryptedStudent._id,
+        studid: decryptedStudent.studid,
+        email: decryptedStudent.email,
+        fullName: decryptedStudent.fullName,
+        college: decryptedStudent.college,
+        course: decryptedStudent.course,
+        yearLevel: decryptedStudent.yearLevel,
+        status: decryptedStudent.status
       }
     });
 

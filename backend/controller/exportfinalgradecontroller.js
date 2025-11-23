@@ -21,8 +21,7 @@ import {
   authorizeInstructor,
   loadActivities,
   loadActivityScores,
-  buildFinalGradeSheetData,
-  buildFinalGradeSheetDataScreenshotDesign,
+  buildFinalGradeSheet,
   persistGrades,
   updateSectionMetadata,
 } from '../services/sheetDataService.js';
@@ -241,7 +240,7 @@ export const exportFinalGrade = async (req, res) => {
 
   // 8) Build final grade sheet data using the new screenshot design
   const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room };
-  const sheetDataResult = buildFinalGradeSheetDataScreenshotDesign(section, activities, scoresByStudent, scheduleInfo);
+  const sheetDataResult = buildFinalGradeSheet(section, activities, scoresByStudent, scheduleInfo);
   
   const {
     allData,

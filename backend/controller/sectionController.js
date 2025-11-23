@@ -70,6 +70,9 @@ export const createSection = async (req, res) => {
 
     // Send email notification to the assigned instructor
     try {
+      // Decrypt instructor data before sending email
+      const decryptedInstructor = decryptInstructorData(populatedSection.instructor.toObject());
+
       const sectionDetails = {
         subjectCode: populatedSection.subject.subjectCode,
         subjectName: populatedSection.subject.subjectName,
@@ -85,13 +88,13 @@ export const createSection = async (req, res) => {
       const createdBy = instructorId ? "Admin" : "Self-assigned";
       
       await emailService.sendSectionAssignmentNotification(
-        populatedSection.instructor.email,
-        populatedSection.instructor.fullName,
+        decryptedInstructor.email,
+        decryptedInstructor.fullName,
         sectionDetails,
         createdBy
       );
       
-      console.log(`📧 Section assignment email sent to ${populatedSection.instructor.email}`);
+      console.log(`📧 Section assignment email sent to ${decryptedInstructor.email}`);
     } catch (emailError) {
       console.error("❌ Error sending section assignment email:", emailError);
       // Don't fail the request if email fails
@@ -454,21 +457,40 @@ export const inviteStudentsToSection = async (req, res) => {
     }
 
     // Add students to the section if they're not already enrolled
-    const newStudents = studentIds.filter(studentId => 
+    const newStudentIds = studentIds.filter(studentId => 
       !section.students.includes(studentId)
     );
 
-    if (newStudents.length === 0) {
+    if (newStudentIds.length === 0) {
       return res.status(400).json({ message: "All selected students are already enrolled in this section" });
     }
 
-    section.students.push(...newStudents);
+    section.students.push(...newStudentIds);
     await section.save();
 
+    // Decrypt student data before sending emails
+    // Convert Mongoose documents to plain objects first
+    const plainStudents = students.map(s => s.toObject());
+    const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+    console.log('📧 Sending emails to students:', decryptedStudents.map(s => s.email));
+    
+    // Decrypt instructor data
+    const decryptedInstructor = decryptInstructorData(section.instructor.toObject());
+
+    // Create a map of student IDs to decrypted student data for easy lookup
+    const studentMap = new Map(
+      decryptedStudents.map(student => [student._id?.toString() || student.id?.toString(), student])
+    );
+
     // Send email invitations to newly added students
-    const emailPromises = students
-      .filter(student => newStudents.includes(student._id.toString()))
-      .map(student => {
+    const emailPromises = [];
+    const studentsWithoutEmail = [];
+
+    for (const studentId of newStudentIds) {
+      const student = studentMap.get(studentId.toString());
+      if (!student) continue;
+
+      if (student.email) {
         const sectionDetails = {
           subjectCode: section.subject.subjectCode,
           subjectName: section.subject.subjectName,
@@ -477,20 +499,23 @@ export const inviteStudentsToSection = async (req, res) => {
           term: section.term
         };
         
-        return emailService.sendSectionInvitation(
-          student.email,
-          `${student.firstName} ${student.lastName}`,
-          sectionDetails,
-          section.instructor.fullName
+        emailPromises.push(
+          emailService.sendSectionInvitation(
+            student.email,
+            `${student.firstName} ${student.lastName}`,
+            sectionDetails,
+            decryptedInstructor.fullName
+          )
         );
-      });
-
-    // Send emails but don't fail the request if emails fail
-    try {
-      await Promise.all(emailPromises);
-      console.log(`📧 Section invitation emails sent to ${newStudents.length} students`);
-    } catch (emailError) {
-      console.error("❌ Error sending some invitation emails:", emailError);
+      } else {
+        studentsWithoutEmail.push(student);
+      }
+    }
+    
+    if (studentsWithoutEmail.length > 0) {
+      console.warn(`⚠️ ${studentsWithoutEmail.length} student(s) have no email address:`, 
+        studentsWithoutEmail.map(s => `${s.firstName} ${s.lastName} (${s.studid})`).join(', ')
+      );
     }
 
     const updatedSection = await Section.findById(id)
@@ -500,9 +525,9 @@ export const inviteStudentsToSection = async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: `Successfully added ${newStudents.length} students to the section and sent email invitations`,
+      message: `Successfully added ${newStudentIds.length} students to the section and sent email invitations`,
       section: updatedSection,
-      invitedStudents: newStudents
+      invitedStudents: newStudentIds
     });
   } catch (err) {
     console.error("inviteStudentsToSection:", err);

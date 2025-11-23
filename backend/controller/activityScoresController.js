@@ -7,7 +7,7 @@ import ActivityScore from "../models/activityScore.js";
 import emailService from "../services/emailService.js";
 import { getInstructorId } from "../utils/getInstructorId.js";
 import { calculateAndUpdateGrades } from "../utils/gradeCalculator.js";
-import { bulkDecryptUserData } from "./decryptionController.js";
+import { bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
 
 // GET /activities/:activityId/scores?sectionId=...
 export const getActivityScores = async (req, res) => {
@@ -169,8 +169,16 @@ export const upsertActivityScoresBulk = async (req, res) => {
       .map(r => r.studentId);
 
     if (notify && changedIds.length) {
-      const lookup = new Map(section.students.map(s => [String(s._id), s]));
-      const instructorName = section?.instructor?.fullName || "Your Instructor";
+      // Decrypt student data before sending emails
+      // Convert Mongoose documents to plain objects first
+      const plainStudents = section.students.map(s => s.toObject());
+      const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+      const lookup = new Map(decryptedStudents.map(s => [String(s._id), s]));
+      console.log('📧 Notifying students about score changes:', decryptedStudents.filter(s => changedIds.includes(String(s._id))).map(s => s.email));
+      
+      // Decrypt instructor data
+      const decryptedInstructor = section?.instructor ? decryptInstructorData(section.instructor.toObject()) : null;
+      const instructorName = decryptedInstructor?.fullName || "Your Instructor";
       const { subjectCode, subjectName } = section.subject;
       const sectionName = section.sectionName;
       const activityTitle = activity.title;
@@ -202,12 +210,20 @@ export const upsertActivityScoresBulk = async (req, res) => {
     // Send notifications to students with NO scores (only if this is a bulk upload)
     if (notify && incoming.length > 1) {
       const uploadedStudentIds = new Set(incoming.map(r => r.studentId));
-      const studentsWithNoScores = section.students.filter(
+      
+      // Decrypt student data
+      // Convert Mongoose documents to plain objects first
+      const plainStudents = section.students.map(s => s.toObject());
+      const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
+      console.log('📧 Notifying students with no scores:', decryptedStudents.filter(s => !uploadedStudentIds.has(String(s._id))).map(s => s.email));
+      const studentsWithNoScores = decryptedStudents.filter(
         student => !uploadedStudentIds.has(String(student._id))
       );
 
       if (studentsWithNoScores.length > 0) {
-        const instructorName = section?.instructor?.fullName || "Your Instructor";
+        // Decrypt instructor data
+        const decryptedInstructor = section?.instructor ? decryptInstructorData(section.instructor.toObject()) : null;
+        const instructorName = decryptedInstructor?.fullName || "Your Instructor";
         const { subjectCode, subjectName } = section.subject;
         const sectionName = section.sectionName;
         const activityTitle = activity.title;

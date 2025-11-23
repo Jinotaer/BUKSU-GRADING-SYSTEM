@@ -827,6 +827,7 @@ export default function GradeManagement() {
                             getCategoryAverage={categoryAverage}
                             getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
+                            selectedTerm={selectedTerm}
                           />
                         )}
                         {activeTab === "laboratory" && hasLaboratory() && (
@@ -839,6 +840,7 @@ export default function GradeManagement() {
                             getCategoryAverage={categoryAverage}
                             getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
+                            selectedTerm={selectedTerm}
                           />
                         )}
                         {activeTab === "majorOutput" && (
@@ -851,6 +853,7 @@ export default function GradeManagement() {
                             getCategoryAverage={categoryAverage}
                             getEquivalent={getEquivalentGrade}
                             getActivityScore={getActivityScore}
+                            selectedTerm={selectedTerm}
                           />
                         )}
                         {activeTab === "midtermGrade" && (

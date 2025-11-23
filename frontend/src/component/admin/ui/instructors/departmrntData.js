@@ -62,7 +62,7 @@ export const departmentsData = {
       "Law Department / Juris Doctor Program",
     ],
   },
-  "College of Technology": {
+  "College of Technologies": {
     undergraduate: [
       "Automotive Technology Department",
       "Electronics Technology Department",
