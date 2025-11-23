@@ -4,7 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  serve: {
+  server: {
+    port: 5001, // Specify your desired port here
+    // host: true, // Optional: allows access from other devices on network
     headers: {
       "Cross-Origin-Opener-Policy": "unsafe-none",
       "Cross-Origin-Embedder-Policy": "unsafe-none",

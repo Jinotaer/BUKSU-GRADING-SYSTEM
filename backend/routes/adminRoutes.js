@@ -17,6 +17,7 @@ import {
   unarchiveStudent,
   archiveInstructor,
   unarchiveInstructor,
+  logoutAdmin,
   // changePassword,
 } from '../controller/adminController.js';
 import {
@@ -69,6 +70,7 @@ router.use(adminAuth); // Apply admin authentication to all routes below
 
 // Admin profile routes
 router.get('/profile', universalAuditLogger('PROFILE_VIEWED', 'PROFILE_MANAGEMENT'), getAdminProfile);
+router.post('/logout', universalAuditLogger('LOGOUT', 'AUTHENTICATION'), logoutAdmin);
 // router.put('/change-password', changePassword);
 
 // Dashboard

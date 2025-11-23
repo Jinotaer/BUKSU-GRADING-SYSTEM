@@ -6,6 +6,7 @@ import Student from "../models/student.js";
 import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
+import { bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
 
 export const createSection = async (req, res) => {
   try {
@@ -176,13 +177,24 @@ export const getSectionById = async (req, res) => {
     const section = await Section.findById(id)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department")
-      .populate("students", "studid firstName lastName email yearLevel course");
+      .populate("students", "studid fullName email yearLevel course");
     
     if (!section) {
       return res.status(404).json({ message: "Section not found" });
     }
     
-    res.json({ success: true, section });
+    // Decrypt student and instructor data
+    const sectionObj = section.toObject();
+    
+    if (sectionObj.students && sectionObj.students.length > 0) {
+      sectionObj.students = bulkDecryptUserData(sectionObj.students, 'student');
+    }
+    
+    if (sectionObj.instructor) {
+      sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
+    }
+    
+    res.json({ success: true, section: sectionObj });
   } catch (err) {
     console.error("getSectionById:", err);
     res.status(500).json({ message: "Server error" });
@@ -512,8 +524,18 @@ export const getSectionStudents = async (req, res) => {
       return res.status(404).json({ message: "Section not found" });
     }
 
+    // Decrypt student data
+    const decryptedStudents = bulkDecryptUserData(
+      section.students.map(s => s.toObject()),
+      'student'
+    );
+
+    // Decrypt instructor data
+    const decryptedInstructor = section.instructor ? 
+      decryptInstructorData(section.instructor.toObject()) : null;
+
     // Format student data with invite date
-    const studentsWithInviteDate = section.students.map(student => ({
+    const studentsWithInviteDate = decryptedStudents.map(student => ({
       _id: student._id,
       studid: student.studid,
       fullName: student.fullName,
@@ -532,7 +554,7 @@ export const getSectionStudents = async (req, res) => {
         schoolYear: section.schoolYear,
         term: section.term,
         subject: section.subject,
-        instructor: section.instructor
+        instructor: decryptedInstructor
       }
     });
   } catch (err) {

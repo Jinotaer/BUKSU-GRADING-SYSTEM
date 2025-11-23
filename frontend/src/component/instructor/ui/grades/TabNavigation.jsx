@@ -27,8 +27,8 @@ const gradeTabs = [
   },
   {
     key: "finalTermGrade", 
-    label: "Final Term Grade",
-    shortLabel: "Final Term Grade",
+    label: "Finalterm Grade",
+    shortLabel: "Finalterm Grade",
     availableFor: ["Finalterm"]
   },
   {

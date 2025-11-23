@@ -5,6 +5,7 @@ import ActivityScore from '../models/activityScore.js';
 import Grade from '../models/grades.js';
 import { HttpError } from '../utils/googleSheetsHelpers.js';
 import { percentToGrade, computeScoresByStudent, avgFor } from '../utils/gradeUtils.js';
+import { bulkDecryptUserData, decryptInstructorData } from '../controller/decryptionController.js';
 
 export const toActivityTerm = (sectionTerm) => {
   const mapping = { '1st': 'First', '2nd': 'Second', Summer: 'Summer' };
@@ -16,8 +17,21 @@ export const loadSection = async (sectionId) => {
     const section = await Section.findById(sectionId)
       .populate('subject')
       .populate('instructor')
-      .populate('students');
+      .populate('students')
+      .lean(); // Use lean() to get plain objects
+      
     if (!section) throw new HttpError(402, 'Section not found');
+    
+    // Decrypt instructor data
+    if (section.instructor) {
+      section.instructor = decryptInstructorData(section.instructor);
+    }
+    
+    // Decrypt student data
+    if (section.students && section.students.length > 0) {
+      section.students = await bulkDecryptUserData(section.students, 'student');
+    }
+    
     return section;
   } catch (err) {
     if (err instanceof HttpError) throw err;

@@ -13,6 +13,46 @@ import {
   handleFailedLogin,
   handleSuccessfulLogin,
 } from "../middleware/bruteForceProtection.js";
+import { encryptAdminData, encryptInstructorData } from "./encryptionController.js";
+import { decryptAdminData, decryptInstructorData, bulkDecryptUserData } from "./decryptionController.js";
+
+/**
+ * Find admin by decrypting email field
+ * Since admin emails are encrypted in database, we need to decrypt and compare
+ * @param {string} email - Plain text email to search for
+ * @returns {Object|null} - Found admin or null
+ */
+const findAdminByEmail = async (email) => {
+  try {
+    console.log(`🔍 Searching for admin with email: "${email}"`);
+    const admins = await Admin.find({});
+    console.log(`📊 Found ${admins.length} total admin records in database`);
+    
+    // Decrypt each admin and check email match
+    for (const admin of admins) {
+      try {
+        const decryptedAdmin = decryptAdminData(admin.toObject());
+        console.log(`🔓 Decrypted admin email: "${decryptedAdmin.email}"`);
+        console.log(`🔍 Comparing: "${decryptedAdmin.email.toLowerCase()}" === "${email.toLowerCase()}"`);
+        console.log(`🔍 Match result: ${decryptedAdmin.email.toLowerCase() === email.toLowerCase()}`);
+        
+        if (decryptedAdmin.email && decryptedAdmin.email.toLowerCase() === email.toLowerCase()) {
+          console.log(`✅ Found matching admin: ${admin._id}`);
+          return admin; // Return the original admin with encrypted data
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to decrypt admin ${admin._id}:`, error.message);
+        continue;
+      }
+    }
+    
+    console.log(`❌ No admin found with email: "${email}"`);
+    return null;
+  } catch (error) {
+    console.error('💥 Error finding admin by email:', error);
+    return null;
+  }
+};
 
 // Generate JWT token
 const generateToken = (payload, secret, expiresIn) => {
@@ -34,8 +74,11 @@ export const requestResetPassword = async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email required" });
 
-    const admin = await Admin.findOne({ email: email.toLowerCase() });
+    const admin = await findAdminByEmail(email);
     if (!admin) return res.json({ ok: true }); // hide existence
+
+    // Decrypt admin data for email sending
+    const decryptedAdmin = decryptAdminData(admin.toObject());
 
     // Remove previous reset requests
     await AdminReset.deleteMany({ adminId: admin._id });
@@ -53,8 +96,8 @@ export const requestResetPassword = async (req, res) => {
 
     // Send reset email via existing EmailService
     const emailResult = await emailService.sendAdminResetCode(
-      admin.email,
-      `${admin.firstName} ${admin.lastName}`,
+      decryptedAdmin.email,
+      `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`,
       passcode
     );
 
@@ -140,19 +183,31 @@ export const verifyResetCode = async (req, res) => {
 // Admin login
 export const loginAdmin = async (req, res) => {
   try {
+    console.log(`🔍 ========================================`);
+    console.log(`🔍 Admin login attempt received`);
+    console.log(`🔍 Request body:`, JSON.stringify(req.body));
+    console.log(`🔍 ========================================`);
+    
     const { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
+      console.log(`❌ Missing email or password`);
+      console.log(`❌ Email present: ${!!email}, Password present: ${!!password}`);
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
-    // Find admin by email
-    const admin = await Admin.findByEmail(email);
+    console.log(`🔍 Searching for admin with email: "${email}"`);
+
+    // Find admin by encrypted email
+    const admin = await findAdminByEmail(email);
+    console.log(`🔍 Admin found:`, admin ? `Yes (ID: ${admin._id})` : 'No');
+    
     if (!admin) {
+      console.log(`❌ Admin not found for email: ${email}`);
       // Record failed attempt for non-existent admin
       await handleFailedLogin(email, req.inferredUserType || "admin").catch(
         () => {}
@@ -200,7 +255,10 @@ export const loginAdmin = async (req, res) => {
     }
 
     // Verify password
+    console.log(`🔍 Verifying password for admin ${admin._id}...`);
     const isPasswordValid = await admin.comparePassword(password);
+    console.log(`🔍 Password valid: ${isPasswordValid}`);
+    
     if (!isPasswordValid) {
       const result = await handleFailedLogin(
         email,
@@ -241,10 +299,13 @@ export const loginAdmin = async (req, res) => {
       () => {}
     );
 
+    // Decrypt admin data for response
+    const decryptedAdmin = decryptAdminData(admin.toObject());
+
     // Log successful login
     logger.auth('Successful admin login', {
       adminId: admin._id,
-      email: admin.email,
+      email: decryptedAdmin.email,
       role: admin.role,
       ip: req.ip
     });
@@ -253,7 +314,7 @@ export const loginAdmin = async (req, res) => {
     const accessToken = generateToken(
       {
         adminId: admin._id,
-        email: admin.email,
+        email: decryptedAdmin.email,
         role: admin.role,
       },
       process.env.JWT_ACCESS_SECRET,
@@ -271,10 +332,10 @@ export const loginAdmin = async (req, res) => {
       message: "Login successful",
       admin: {
         id: admin._id,
-        email: admin.email,
-        fullName: admin.fullName,
-        firstName: admin.firstName,
-        lastName: admin.lastName,
+        email: decryptedAdmin.email,
+        fullName: decryptedAdmin.fullName || `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`,
+        firstName: decryptedAdmin.firstName,
+        lastName: decryptedAdmin.lastName,
         role: admin.role,
         status: admin.status,
         lastLogin: admin.lastLogin,
@@ -336,16 +397,22 @@ export const inviteInstructor = async (req, res) => {
       });
     }
 
-    // Create instructor record
-    const instructor = new Instructor({
+    // Prepare instructor data for encryption
+    const instructorData = {
       instructorid,
       email,
       fullName,
       college,
       department,
-      status: "Active", // Automatically approved when invited by admin
-      invitedBy: admin.email,
-    });
+      status: "Active", // Automatically approved when invited by admin - keep unencrypted
+      invitedBy: admin.email, // Keep unencrypted for audit trails
+    };
+
+    // Encrypt sensitive instructor data before saving
+    const encryptedInstructorData = encryptInstructorData(instructorData);
+
+    // Create instructor record with encrypted data
+    const instructor = new Instructor(encryptedInstructorData);
 
     await instructor.save();
 
@@ -407,18 +474,21 @@ export const inviteInstructor = async (req, res) => {
       }
     );
 
+    // Decrypt instructor data for response (don't send encrypted data to client)
+    const responseInstructor = decryptInstructorData(instructor.toObject());
+
     res.status(201).json({
       success: true,
       message: "Instructor invited and automatically approved successfully",
       instructor: {
-        id: instructor._id,
-        email: instructor.email,
-        fullName: instructor.fullName,
-        college: instructor.college,
-        department: instructor.department,
-        status: instructor.status,
-        invitedBy: instructor.invitedBy,
-        createdAt: instructor.createdAt,
+        id: responseInstructor._id,
+        email: responseInstructor.email,
+        fullName: responseInstructor.fullName,
+        college: responseInstructor.college,
+        department: responseInstructor.department,
+        status: responseInstructor.status,
+        invitedBy: responseInstructor.invitedBy,
+        createdAt: responseInstructor.createdAt,
       },
     });
   } catch (error) {
@@ -457,9 +527,15 @@ export const getAllInstructors = async (req, res) => {
 
     const total = await Instructor.countDocuments(filter);
 
+    // Decrypt instructor data for response
+    const decryptedInstructors = bulkDecryptUserData(
+      instructors.map(instructor => instructor.toObject()),
+      'instructor'
+    );
+
     res.status(200).json({
       success: true,
-      instructors,
+      instructors: decryptedInstructors,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
@@ -524,9 +600,15 @@ export const getAllStudents = async (req, res) => {
 
     const total = await Student.countDocuments(filter);
 
+    // Decrypt student data for response
+    const decryptedStudents = bulkDecryptUserData(
+      students.map(student => student.toObject()),
+      'student'
+    );
+
     res.status(200).json({
       success: true,
-      students,
+      students: decryptedStudents,
       pagination: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
@@ -741,6 +823,17 @@ export const getDashboardStats = async (req, res) => {
       .limit(5)
       .select("fullName email status createdAt");
 
+    // Decrypt recent activities data before sending to frontend
+    const decryptedRecentStudents = bulkDecryptUserData(
+      recentStudents.map(s => s.toObject()),
+      'student'
+    );
+    
+    const decryptedRecentInstructors = bulkDecryptUserData(
+      recentInstructors.map(i => i.toObject()),
+      'instructor'
+    );
+
     res.status(200).json({
       success: true,
       stats: {
@@ -763,8 +856,8 @@ export const getDashboardStats = async (req, res) => {
         },
       },
       recentActivities: {
-        students: recentStudents,
-        instructors: recentInstructors,
+        students: decryptedRecentStudents,
+        instructors: decryptedRecentInstructors,
       },
     });
   } catch (error) {
@@ -788,18 +881,21 @@ export const getAdminProfile = async (req, res) => {
       });
     }
 
+    // Decrypt admin data for response
+    const decryptedAdmin = decryptAdminData(admin.toObject());
+
     res.status(200).json({
       success: true,
       admin: {
-        id: admin._id,
-        email: admin.email,
-        fullName: admin.fullName,
-        firstName: admin.firstName,
-        lastName: admin.lastName,
-        role: admin.role,
-        status: admin.status,
-        lastLogin: admin.lastLogin,
-        createdAt: admin.createdAt,
+        id: decryptedAdmin._id,
+        email: decryptedAdmin.email,
+        fullName: decryptedAdmin.fullName,
+        firstName: decryptedAdmin.firstName,
+        lastName: decryptedAdmin.lastName,
+        role: decryptedAdmin.role,
+        status: decryptedAdmin.status,
+        lastLogin: decryptedAdmin.lastLogin,
+        createdAt: decryptedAdmin.createdAt,
       },
     });
   } catch (error) {
@@ -1038,6 +1134,54 @@ export const unarchiveInstructor = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+// Admin logout
+export const logoutAdmin = async (req, res) => {
+  try {
+    // If using sessions, destroy the session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+        }
+      });
+    }
+
+    // Log the logout activity
+    if (req.admin) {
+      await logUniversalActivity(
+        req.admin.id,
+        req.admin.email,
+        'admin',
+        'LOGOUT',
+        {
+          category: 'AUTHENTICATION',
+          success: true,
+          description: `Admin ${req.admin.email} logged out successfully`,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      );
+
+      logger.auth('Admin logout', {
+        adminId: req.admin.id,
+        email: req.admin.email,
+        ip: req.ip
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Logout failed"
     });
   }
 };

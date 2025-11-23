@@ -81,7 +81,7 @@ export function CategoryTable({
 
   const getGradeTitle = () => {
     if (gradeType === "midterm") return "Midterm Grade";
-    if (gradeType === "finalTerm") return "Final Term Grade";
+    if (gradeType === "finalTerm") return "Finalterm Grade";
     if (gradeType === "final") return "Final Grade";
     return "Grade";
   };
@@ -170,7 +170,7 @@ export function CategoryTable({
                     {gradeType === "midterm"
                       ? "Midterm %"
                       : gradeType === "finalTerm"
-                      ? "Final Term %"
+                      ? "Finalterm %"
                       : "Final %"}
                   </th>
                   <th

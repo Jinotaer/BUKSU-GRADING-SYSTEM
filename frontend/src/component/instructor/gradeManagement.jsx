@@ -872,7 +872,7 @@ export default function GradeManagement() {
                         {activeTab === "finalTermGrade" && (
                           <CategoryTable
                             category="laboratory"
-                            title="Final Term Grade Summary"
+                            title="Finalterm Grade Summary"
                             activities={[]}
                             students={filteredStudents}
                             weight={100}

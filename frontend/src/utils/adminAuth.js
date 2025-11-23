@@ -173,7 +173,7 @@ class AdminAuth {
         return data;
       } else {
         // Create error with response data for better error handling
-        const error = new Error(data.message || "Login failed");
+        const error = new Error(data.message || "Login failed") ;
         error.response = {
           status: response.status,
           message: data.message,

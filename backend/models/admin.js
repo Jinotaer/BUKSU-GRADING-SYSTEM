@@ -8,8 +8,8 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
       trim: true,
+      // Removed validation regex to allow encrypted values
     },                                                               
     firstName: { type: String, required: true, trim: true },
     lastName:  { type: String, required: true, trim: true },   
@@ -90,9 +90,10 @@ adminSchema.statics.createDefaultAdmin = async function(adminData) {
   return { success: true, admin };
 };
 
-adminSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase() });
-};
+// Note: findByEmail is deprecated with encryption - use findAdminByEmail from adminController instead
+// adminSchema.statics.findByEmail = function(email) {
+//   return this.findOne({ email: email.toLowerCase() });
+// };
 
 // Ensure email unique index
 adminSchema.index({ email: 1 }, { unique: true });

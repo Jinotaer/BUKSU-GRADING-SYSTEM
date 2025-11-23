@@ -16,7 +16,8 @@ const studentSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      match: [/^[\w-\.]+@student\.buksu\.edu\.ph$/, "Invalid student email domain"],
+      // Removed regex validation since email is encrypted before saving
+      // Validation is now handled in the controller before encryption
     },
     fullName: {
       type: String,
@@ -34,7 +35,8 @@ const studentSchema = new mongoose.Schema(
     yearLevel: {
       type: String,
       required: true,
-      enum: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"],
+      // Removed enum validation since yearLevel is encrypted before saving
+      // Validation is now handled in the controller before encryption
     },
 
     status: {

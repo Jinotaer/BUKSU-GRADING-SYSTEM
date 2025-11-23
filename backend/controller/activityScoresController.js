@@ -7,6 +7,7 @@ import ActivityScore from "../models/activityScore.js";
 import emailService from "../services/emailService.js";
 import { getInstructorId } from "../utils/getInstructorId.js";
 import { calculateAndUpdateGrades } from "../utils/gradeCalculator.js";
+import { bulkDecryptUserData } from "./decryptionController.js";
 
 // GET /activities/:activityId/scores?sectionId=...
 export const getActivityScores = async (req, res) => {
@@ -44,10 +45,16 @@ export const getActivityScores = async (req, res) => {
 
     const scoreMap = new Map(scores.map(s => [String(s.student), s]));
     
+    // Decrypt student data before sending to frontend
+    const decryptedStudents = bulkDecryptUserData(
+      section.students.map(s => s.toObject()),
+      'student'
+    );
+    
     let rows;
     if (userRole === 'student') {
       // Students only see their own scores
-      const studentRecord = section.students.find(stu => String(stu._id) === String(userId));
+      const studentRecord = decryptedStudents.find(stu => String(stu._id) === String(userId));
       if (studentRecord) {
         rows = [{
           studentId: String(studentRecord._id),
@@ -62,7 +69,7 @@ export const getActivityScores = async (req, res) => {
       }
     } else {
       // Instructors see all students' scores
-      rows = section.students.map(stu => ({
+      rows = decryptedStudents.map(stu => ({
         studentId: String(stu._id),
         fullName: stu.fullName,
         email: stu.email,

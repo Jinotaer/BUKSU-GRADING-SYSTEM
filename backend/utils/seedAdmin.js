@@ -1,6 +1,8 @@
 // seeders/seedAdminAccounts.js
 import bcrypt from "bcryptjs";
 import Admin from "../models/admin.js";
+import { encryptAdminData } from "../controller/encryptionController.js";
+import { decryptAdminData, isEncrypted } from "../controller/decryptionController.js";
 
 const parseAdminsFromEnv = () => {
   const raw = process.env.ADMIN_ACCOUNTS;
@@ -41,30 +43,68 @@ const seedAdminAccounts = async () => {
     return;
   }
 
-  // Build bulk upsert ops with pre-hashed passwords
-  const ops = [];
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
   for (const a of admins) {
-    const hashed = await bcrypt.hash(a.password, 12);
-    const doc = {
-      email: a.email,
-      firstName: a.firstName,
-      lastName: a.lastName,
-      password: hashed,
-      role: "Admin",
-      status: "Active",
-      // ...(a.schoolName ? { schoolName: a.schoolName } : {})
-    };
-    ops.push({
-      updateOne: {
-        filter: { email: a.email },
-        update: { $setOnInsert: doc },
-        upsert: true
+    try {
+      // Check if admin with this email already exists by searching all admins and decrypting
+      const existingAdmins = await Admin.find({});
+      let existingAdmin = null;
+      
+      for (const admin of existingAdmins) {
+        try {
+          // Try to decrypt admin data to compare emails
+          const decryptedData = decryptAdminData(admin.toObject());
+          if (decryptedData.email && decryptedData.email.toLowerCase() === a.email.toLowerCase()) {
+            existingAdmin = admin;
+            break;
+          }
+        } catch (error) {
+          // If decryption fails, try direct comparison (for non-encrypted legacy data)
+          if (admin.email && admin.email.toLowerCase() === a.email.toLowerCase()) {
+            existingAdmin = admin;
+            break;
+          }
+        }
       }
-    });
+
+      const hashed = await bcrypt.hash(a.password, 12);
+      const doc = {
+        email: a.email,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        password: hashed,
+        role: "Admin",
+        status: "Active",
+        // ...(a.schoolName ? { schoolName: a.schoolName } : {})
+      };
+
+      if (existingAdmin) {
+        // Admin exists, check if needs encryption update
+        if (!isEncrypted(existingAdmin.email)) {
+          console.log(`🔄 Updating admin ${a.email} to encrypted format...`);
+          const encryptedDoc = encryptAdminData(doc);
+          await Admin.findByIdAndUpdate(existingAdmin._id, encryptedDoc);
+          updated++;
+        } else {
+          console.log(`⏭️  Admin ${a.email} already exists and is encrypted, skipping...`);
+          skipped++;
+        }
+      } else {
+        // Create new admin with encrypted data
+        console.log(`➕ Creating new encrypted admin ${a.email}...`);
+        const encryptedDoc = encryptAdminData(doc);
+        await Admin.create(encryptedDoc);
+        created++;
+      }
+    } catch (error) {
+      console.error(`❌ Error processing admin ${a.email}:`, error.message);
+    }
   }
 
-  const res = await Admin.bulkWrite(ops, { ordered: false });
-  console.log(`✅ Admin seeding complete. Upserted: ${res.upsertedCount ?? 0}, Matched: ${res.matchedCount ?? 0}`);
+  console.log(`✅ Admin seeding complete. Created: ${created}, Updated: ${updated}, Skipped: ${skipped}`);
 };
 
 export default seedAdminAccounts;

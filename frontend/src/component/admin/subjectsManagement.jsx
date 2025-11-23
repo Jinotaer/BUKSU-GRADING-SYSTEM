@@ -255,7 +255,6 @@ export default function SubjectManagement() {
         // If no semesters found, show helpful message
         if (!data.semesters || data.semesters.length === 0) {
           console.log('⚠️ No semesters found in database');
-          showError("No semesters found. Please go to 'Semester Management' and add at least one semester first (e.g., 2024-2025 - 1st Semester).");
         }
       } else {
         console.error('❌ Failed to fetch semesters:', res.status, res.statusText);

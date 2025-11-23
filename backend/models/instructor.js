@@ -31,7 +31,8 @@ const instructorSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      match: [/^[\w-\.]+@gmail\.com$/, "Invalid institutional email domain"],
+      // Removed regex validation since email is encrypted before saving
+      // Validation is now handled in the controller before encryption
     },
     fullName: {
       type: String,

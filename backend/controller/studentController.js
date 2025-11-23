@@ -2,6 +2,8 @@ import Student from "../models/student.js";
 import Section from "../models/sections.js";
 import Grade from "../models/grades.js";
 import bcrypt from "bcryptjs";
+import { encryptStudentData, encryptField } from "./encryptionController.js";
+import { decryptStudentData, bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
 
 /**
  * Register a new student
@@ -53,8 +55,8 @@ export const registerStudent = async (req, res) => {
     // Create temporary googleId (will be updated when they first login with Google)
     const tempGoogleId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Create new student
-    const newStudent = new Student({
+    // Prepare student data for encryption
+    const studentData = {
       googleId: tempGoogleId,
       studid,
       email,
@@ -62,23 +64,31 @@ export const registerStudent = async (req, res) => {
       college,
       course,
       yearLevel,
-// Add password field to model if not exists
-      status: "Approved" // Automatically approved
-    });
+      status: "Approved" // Automatically approved - keep unencrypted for queries
+    };
+
+    // Encrypt sensitive student data before saving
+    const encryptedStudentData = encryptStudentData(studentData);
+
+    // Create new student with encrypted data
+    const newStudent = new Student(encryptedStudentData);
 
     await newStudent.save();
+
+    // Decrypt student data for response (don't send encrypted data to client)
+    const responseStudent = decryptStudentData(newStudent.toObject());
 
     res.status(201).json({
       success: true,
       message: "Student registration successful. Your account has been automatically approved.",
       student: {
-        id: newStudent._id,
-        email: newStudent.email,
-        fullName: newStudent.fullName,
-        college: newStudent.college,
-        course: newStudent.course,
-        yearLevel: newStudent.yearLevel,
-        status: newStudent.status
+        id: responseStudent._id,
+        email: responseStudent.email,
+        fullName: responseStudent.fullName,
+        college: responseStudent.college,
+        course: responseStudent.course,
+        yearLevel: responseStudent.yearLevel,
+        status: responseStudent.status
       }
     });
 
@@ -361,7 +371,16 @@ export const getStudentSections = async (req, res) => {
       });
     }
 
-    res.json({ success: true, sections: filteredSections });
+    // Decrypt instructor data in sections
+    const decryptedSections = filteredSections.map(section => {
+      const sectionObj = section.toObject();
+      if (sectionObj.instructor) {
+        sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
+      }
+      return sectionObj;
+    });
+
+    res.json({ success: true, sections: decryptedSections });
   } catch (err) {
     console.error("getStudentSections:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -389,7 +408,16 @@ export const getHiddenSections = async (req, res) => {
       )
     );
 
-    res.json({ success: true, sections: hiddenSections });
+    // Decrypt instructor data in sections
+    const decryptedSections = hiddenSections.map(section => {
+      const sectionObj = section.toObject();
+      if (sectionObj.instructor) {
+        sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
+      }
+      return sectionObj;
+    });
+
+    res.json({ success: true, sections: decryptedSections });
   } catch (err) {
     console.error("getHiddenSections:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -468,6 +496,11 @@ export const getStudentGrades = async (req, res) => {
     // Combine section info with grades
     const gradesWithSections = sections.map(section => {
       const grade = grades.find(g => g.section._id.toString() === section._id.toString());
+      
+      // Decrypt instructor data
+      const decryptedInstructor = section.instructor ? 
+        decryptInstructorData(section.instructor.toObject()) : null;
+      
       return {
         section: {
           _id: section._id,
@@ -475,7 +508,7 @@ export const getStudentGrades = async (req, res) => {
           schoolYear: section.schoolYear,
           term: section.term,
           subject: section.subject,
-          instructor: section.instructor,
+          instructor: decryptedInstructor,
           gradingSchema: section.gradingSchema
         },
         grade: grade ? {
@@ -575,7 +608,19 @@ export const getAvailableSubjects = async (req, res) => {
       !section.students.some(s => s._id.toString() === studentId.toString())
     );
 
-    res.json({ success: true, sections: availableSections });
+    // Decrypt instructor and student data in sections
+    const decryptedSections = availableSections.map(section => {
+      const sectionObj = section.toObject();
+      if (sectionObj.instructor) {
+        sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
+      }
+      if (sectionObj.students && sectionObj.students.length > 0) {
+        sectionObj.students = bulkDecryptUserData(sectionObj.students, 'student');
+      }
+      return sectionObj;
+    });
+
+    res.json({ success: true, sections: decryptedSections });
   } catch (err) {
     console.error("getAvailableSubjects:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -619,9 +664,15 @@ export const searchStudents = async (req, res) => {
       .limit(20) // Limit results to prevent overwhelming response
       .sort({ fullName: 1 });
 
+    // Decrypt student data
+    const decryptedStudents = bulkDecryptUserData(
+      students.map(s => s.toObject()),
+      'student'
+    );
+
     res.json({
       success: true,
-      students
+      students: decryptedStudents
     });
 
   } catch (error) {

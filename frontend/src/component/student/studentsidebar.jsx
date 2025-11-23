@@ -269,13 +269,13 @@ export function NavbarSimple() {
         } ${
           opened ? "max-[880px]:translate-x-0" : "max-[880px]:-translate-x-full"
         }`}
-        style={{ backgroundColor: "#152259" }}
+        style={{ backgroundColor: "#091057" }}
         aria-label="Student sidebar"
       >
         <div>
           <div
             className="px-6 py-8 flex flex-col items-center justify-center border-b border-white/20"
-            style={{ backgroundColor: "#152259" }}
+            style={{ backgroundColor: "#091057" }}
           >
             <div className="flex flex-col items-center gap-4">
               <img

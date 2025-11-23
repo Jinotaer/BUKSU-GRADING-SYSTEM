@@ -6,6 +6,7 @@ import Grade from "../models/grades.js";
 import Subject from "../models/subjects.js";
 import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
+import { bulkDecryptUserData } from "./decryptionController.js";
 
 // Update grading schema for instructor's section
 export const updateSectionGradingSchema = async (req, res) => {
@@ -192,7 +193,16 @@ export const getInstructorSections = async (req, res) => {
       );
     }
 
-    res.json({ success: true, sections: filteredSections });
+    // Decrypt student data in each section
+    const decryptedSections = filteredSections.map(section => {
+      const sectionObj = section.toObject();
+      if (sectionObj.students && sectionObj.students.length > 0) {
+        sectionObj.students = bulkDecryptUserData(sectionObj.students, 'student');
+      }
+      return sectionObj;
+    });
+
+    res.json({ success: true, sections: decryptedSections });
   } catch (err) {
     console.error("getInstructorSections:", err);
     res.status(500).json({ message: "Server error" });
@@ -220,11 +230,17 @@ export const getStudentsInSection = async (req, res) => {
     const grades = await Grade.find({ section: sectionId })
       .populate("student", "fullName studid");
 
+    // Decrypt student data
+    const decryptedStudents = bulkDecryptUserData(
+      section.students.map(s => s.toObject()),
+      'student'
+    );
+
     // Combine student info with their grades
-    const studentsWithGrades = section.students.map(student => {
+    const studentsWithGrades = decryptedStudents.map(student => {
       const grade = grades.find(g => g.student._id.toString() === student._id.toString());
       return {
-        ...student.toObject(),
+        ...student,
         grade: grade || null
       };
     });
@@ -571,22 +587,31 @@ export const searchStudents = async (req, res) => {
       return res.json({ success: true, students: [] });
     }
 
-    const searchTerm = q.trim();
+    const searchTerm = q.trim().toLowerCase();
     
-    // Search students by name, student ID, or email
-    const students = await Student.find({
-      status: "Approved", // Only approved students
-      $or: [
-        { fullName: { $regex: searchTerm, $options: 'i' } },
-        { studid: { $regex: searchTerm, $options: 'i' } },
-        { email: { $regex: searchTerm, $options: 'i' } }
-      ]
-    })
-    .select("fullName studid email yearLevel college course")
-    .limit(20); // Limit results to avoid overwhelming the UI
+    // Since data is encrypted, we need to fetch all approved students and filter after decryption
+    const students = await Student.find({ status: "Approved" })
+      .select("fullName studid email yearLevel college course")
+      .lean();
+
+    // Decrypt all students
+    const decryptedStudents = await bulkDecryptUserData(students, 'student');
+
+    // Filter decrypted students based on search term
+    const filteredStudents = decryptedStudents.filter(student => {
+      const fullName = student.fullName || '';
+      const studid = student.studid || '';
+      const email = student.email || '';
+      
+      return (
+        fullName.toLowerCase().includes(searchTerm) ||
+        studid.toLowerCase().includes(searchTerm) ||
+        email.toLowerCase().includes(searchTerm)
+      );
+    }).slice(0, 20); // Limit to 20 results
 
     // Transform the data to match frontend expectations
-    const transformedStudents = students.map(student => ({
+    const transformedStudents = filteredStudents.map(student => ({
       _id: student._id,
       first_name: student.fullName ? student.fullName.split(' ')[0] : '',
       last_name: student.fullName ? student.fullName.split(' ').slice(1).join(' ') : '',

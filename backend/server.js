@@ -51,13 +51,23 @@ app.use(helmetConfig);
 // CORS configuration
 app.use(cors({
   origin: [
-    "http://localhost:5173",
+    "http://localhost:5001",
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true
 }));
 
 app.use(express.json());
+
+// Add request logging middleware for debugging
+app.use((req, res, next) => {
+  if (req.url.includes('/admin/login')) {
+    console.log(`📝 Incoming ${req.method} request to ${req.url}`);
+    console.log(`📝 Body:`, req.body);
+    console.log(`📝 Headers:`, req.headers);
+  }
+  next();
+});
 
 // Session configuration (required for Passport)
 app.use(session({
@@ -104,6 +114,35 @@ app.get("/api/health", (req, res) => {
     message: "BUKSU Grading System API is running",
     timestamp : new Date().toISOString()
   });
+});
+
+// Generic logout endpoint (for compatibility with frontend)
+app.post("/api/logout", (req, res) => {
+  try {
+    // If using sessions, destroy the session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+        }
+      });
+    }
+
+    // Clear any cookies
+    res.clearCookie('connect.sid');
+    res.clearCookie('token');
+
+    res.status(200).json({
+      success: true,
+      message: "Logout successful"
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Logout failed"
+    });
+  }
 });
 
 // Global error handler with logging

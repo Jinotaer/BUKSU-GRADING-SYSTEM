@@ -2,9 +2,11 @@ import jwt from 'jsonwebtoken';
 import Admin from '../models/admin.js';
 import Instructor from '../models/instructor.js';
 import Student from '../models/student.js';
+import { decryptAdminData, decryptInstructorData, decryptStudentData } from '../controller/decryptionController.js';
 
-// JWT secret for Google OAuth tokens
+// JWT secret for Google OAuth tokens - should match loginController
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || "your-secret-key";
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || "your-secret-key";
 
 // Admin authentication middleware
 export const adminAuth = async (req, res, next) => {
@@ -18,7 +20,7 @@ export const adminAuth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
     const admin = await Admin.findById(decoded.adminId).select('-password');
     
     if (!admin) {
@@ -35,14 +37,17 @@ export const adminAuth = async (req, res, next) => {
       });
     }
 
+    // Decrypt admin data for use in controllers
+    const decryptedAdmin = decryptAdminData(admin.toObject());
+
     req.admin = {
       _id: admin._id,
       id: admin._id,
-      email: admin.email,
+      email: decryptedAdmin.email,
       role: admin.role,
-      fullName: admin.fullName,
-      firstName: admin.firstName,
-      lastName: admin.lastName
+      fullName: decryptedAdmin.fullName || `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`,
+      firstName: decryptedAdmin.firstName,
+      lastName: decryptedAdmin.lastName
     };
     next();
   } catch (error) {
@@ -93,12 +98,15 @@ export const instructorAuth = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Instructor account not active' });
     }
 
+    // Decrypt instructor data for use in controllers
+    const decryptedInstructor = decryptInstructorData(instructor.toObject());
+
     // normalize for controllers
     req.instructor = {
       id: instructor._id,
-      email: instructor.email,
+      email: decryptedInstructor.email,
       role: 'instructor',
-      fullName: instructor.fullName,
+      fullName: decryptedInstructor.fullName,
     };
     // (optional) also expose a generic user
     req.user = { ...req.instructor, userType: 'instructor' };
@@ -153,11 +161,14 @@ export const studentAuth = async (req, res, next) => {
       });
     }
 
+    // Decrypt student data for use in controllers
+    const decryptedStudent = decryptStudentData(student.toObject());
+
     req.student = {
       id: student._id,
-      email: student.email,
+      email: decryptedStudent.email,
       role: student.role,
-      fullName: student.fullName
+      fullName: decryptedStudent.fullName
     };
     next();
   } catch (error) {
@@ -174,7 +185,10 @@ export const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
+    console.log('🔐 [AUTH] Token received:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+    
     if (!token) {
+      console.log('🔐 [AUTH] No token provided');
       return res.status(401).json({ 
         success: false, 
         message: 'No token, authorization denied' 
@@ -188,13 +202,23 @@ export const auth = async (req, res, next) => {
     // Try to decode with admin JWT secret first
     try {
       decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-      isAdminToken = true;
+      // Check if it's actually an admin token based on the payload structure
+      if (decoded.adminId) {
+        isAdminToken = true;
+        console.log('🔐 [AUTH] Token verified as ADMIN token');
+      } else if (decoded.role === 'instructor' || decoded.role === 'student') {
+        // Token was signed with JWT_ACCESS_SECRET but it's an instructor/student token
+        isInstructorToken = true;
+        console.log('🔐 [AUTH] Token verified as INSTRUCTOR/STUDENT token (via JWT_ACCESS_SECRET)');
+      }
     } catch (error) {
       // If admin token verification fails, try instructor JWT secret
       try {
         decoded = jwt.verify(token, JWT_SECRET);
         isInstructorToken = true;
+        console.log('🔐 [AUTH] Token verified as INSTRUCTOR/STUDENT token (via JWT_SECRET)');
       } catch (error2) {
+        console.log('🔐 [AUTH] Token verification failed with both secrets:', error2.message);
         return res.status(401).json({ 
           success: false, 
           message: 'Token is not valid' 
@@ -204,57 +228,77 @@ export const auth = async (req, res, next) => {
     
     // Check which type of user based on the token payload and verification method
     if (isAdminToken && decoded.adminId) {
+      console.log('🔐 [AUTH] Authenticated as ADMIN:', decoded.adminId);
       const admin = await Admin.findById(decoded.adminId).select('-password');
       if (!admin || admin.status !== 'Active') {
+        console.log('🔐 [AUTH] Admin not found or inactive');
         return res.status(401).json({ 
           success: false, 
           message: 'Invalid or inactive account' 
         });
       }
-      req.user = { ...admin.toObject(), userType: 'admin' };
+      
+      // Decrypt admin data
+      const decryptedAdmin = decryptAdminData(admin.toObject());
+      
+      req.user = { ...decryptedAdmin, userType: 'admin' };
       req.admin = {
         id: admin._id,
-        email: admin.email,
+        email: decryptedAdmin.email,
         role: admin.role,
-        fullName: admin.fullName
+        fullName: decryptedAdmin.fullName || `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`
       };
     } else if (isInstructorToken && decoded.role === 'instructor') {
+      console.log('🔐 [AUTH] Authenticated as INSTRUCTOR:', decoded.id);
       const instructor = await Instructor.findById(decoded.id);
       if (!instructor || instructor.status !== 'Active') {
+        console.log('🔐 [AUTH] Instructor not found or inactive');
         return res.status(401).json({ 
           success: false, 
           message: 'Invalid or inactive account' 
         });
       }
-      req.user = { ...instructor.toObject(), userType: 'instructor' };
+      
+      // Decrypt instructor data
+      const decryptedInstructor = decryptInstructorData(instructor.toObject());
+      
+      req.user = { ...decryptedInstructor, userType: 'instructor' };
       req.instructor = {
         id: instructor._id,
-        email: instructor.email,
-        role: instructor.role,
-        fullName: instructor.fullName
+        email: decryptedInstructor.email,
+        role: 'instructor',
+        fullName: decryptedInstructor.fullName
       };
     } else if (isInstructorToken && decoded.role === 'student') {
+      console.log('🔐 [AUTH] Authenticated as STUDENT:', decoded.id);
       const student = await Student.findById(decoded.id);
       if (!student || student.status !== 'Approved') {
+        console.log('🔐 [AUTH] Student not found or unapproved');
         return res.status(401).json({ 
           success: false, 
           message: 'Invalid or unapproved account' 
         });
       }
-      req.user = { ...student.toObject(), userType: 'student' };
+      
+      // Decrypt student data
+      const decryptedStudent = decryptStudentData(student.toObject());
+      
+      req.user = { ...decryptedStudent, userType: 'student' };
       req.student = {
         id: student._id,
-        email: student.email,
-        role: student.role,
-        fullName: student.fullName
+        email: decryptedStudent.email,
+        role: 'student',
+        fullName: decryptedStudent.fullName
       };
     } else {
+      console.log('🔐 [AUTH] Invalid token format - decoded:', decoded);
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid token format' 
       });
     }
 
+    console.log('🔐 [AUTH] Authentication successful');
     next();
   } catch (error) {
     console.error('Auth error:', error);

@@ -2,6 +2,7 @@
 import Grade from "../models/grades.js";
 import Section from "../models/sections.js";
 import { calculateAndUpdateGrade } from "../utils/gradeCalculator.js";
+import { decryptStudentData } from "./decryptionController.js";
 
 export const addOrUpdateGrade = async (req, res) => {
   try {
@@ -58,11 +59,20 @@ export const getGradesBySection = async (req, res) => {
   try {
     const { sectionId } = req.params;
     const grades = await Grade.find({ section: sectionId })
-      .populate("student", "fullName studentId")
+      .populate("student", "fullName studid email")
       .populate("section", "sectionName")
       .sort({ "student.fullName": 1 });
 
-    res.json(grades);
+    // Decrypt student data before sending to frontend
+    const decryptedGrades = grades.map(grade => {
+      const gradeObj = grade.toObject();
+      if (gradeObj.student) {
+        gradeObj.student = decryptStudentData(gradeObj.student);
+      }
+      return gradeObj;
+    });
+
+    res.json(decryptedGrades);
   } catch (err) {
     console.error("getGradesBySection:", err);
     res.status(500).json({ message: "Server error" });

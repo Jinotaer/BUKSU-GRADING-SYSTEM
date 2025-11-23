@@ -4,9 +4,51 @@ import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
 import logger from "../config/logger.js";
 import { handleFailedLogin, handleSuccessfulLogin } from "../middleware/bruteForceProtection.js";
+import { decryptStudentData, decryptInstructorData } from "./decryptionController.js";
 
-// JWT secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+// JWT secret from environment variables - should match auth middleware
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || "your-secret-key";
+
+/**
+ * Find user by decrypting email field
+ * Since emails are encrypted in database, we need to decrypt and compare
+ * @param {string} email - Plain text email to search for
+ * @param {string} userType - 'student' or 'instructor'
+ * @returns {Object|null} - Found user or null
+ */
+const findUserByEmail = async (email, userType) => {
+  try {
+    let users, decryptFunction;
+    
+    if (userType === 'student') {
+      users = await Student.find({});
+      decryptFunction = decryptStudentData;
+    } else if (userType === 'instructor') {
+      users = await Instructor.find({});
+      decryptFunction = decryptInstructorData;
+    } else {
+      return null;
+    }
+
+    // Decrypt each user and check email match
+    for (const user of users) {
+      try {
+        const decryptedUser = decryptFunction(user.toObject());
+        if (decryptedUser.email && decryptedUser.email.toLowerCase() === email.toLowerCase()) {
+          return user; // Return the original user with encrypted data
+        }
+      } catch (error) {
+        console.warn(`Failed to decrypt user ${user._id}:`, error.message);
+        continue;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding user by email:', error);
+    return null;
+  }
+};
 
 /**
  * Validate institutional email domains
@@ -417,8 +459,8 @@ export const loginWithEmail = async (req, res) => {
     let message;
 
     if (actualUserType === 'student') {
-      // Check if student is registered
-      user = await Student.findOne({ email });
+      // Check if student is registered (using encrypted email search)
+      user = await findUserByEmail(email, 'student');
       
       if (!user) {
         // Record failed attempt for non-existent user
@@ -440,8 +482,8 @@ export const loginWithEmail = async (req, res) => {
 
       message = "Student login successful";
     } else if (actualUserType === 'instructor') {
-      // Check if instructor exists and is active
-      user = await Instructor.findOne({ email });
+      // Check if instructor exists and is active (using encrypted email search)
+      user = await findUserByEmail(email, 'instructor');
       
       if (!user) {
         // Record failed attempt for non-existent user
@@ -467,10 +509,18 @@ export const loginWithEmail = async (req, res) => {
     // Successful login - reset any failed attempts
     await handleSuccessfulLogin(email, actualUserType).catch(() => {});
 
+    // Decrypt user data for response and logging
+    let decryptedUser;
+    if (actualUserType === 'student') {
+      decryptedUser = decryptStudentData(user.toObject());
+    } else if (actualUserType === 'instructor') {
+      decryptedUser = decryptInstructorData(user.toObject());
+    }
+
     // Log successful login
     logger.auth(`Successful ${actualUserType} login`, {
       userId: user._id,
-      email: user.email,
+      email: decryptedUser.email,
       userType: actualUserType,
       ip: req.ip
     });
@@ -479,31 +529,31 @@ export const loginWithEmail = async (req, res) => {
     const token = jwt.sign(
       {
         id: user._id,
-        email: user.email,
+        email: decryptedUser.email,
         role: actualUserType,
-        googleId: user.googleId
+        googleId: decryptedUser.googleId
       },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Return user data and token
+    // Return decrypted user data and token
     const userData = {
-      id: user._id,
-      email: user.email,
-      fullName: user.fullName,
+      id: decryptedUser._id,
+      email: decryptedUser.email,
+      fullName: decryptedUser.fullName,
       role: actualUserType,
-      status: user.status
+      status: decryptedUser.status
     };
 
     // Add role-specific data
     if (actualUserType === "student") {
-      userData.college = user.college;
-      userData.course = user.course;
-      userData.yearLevel = user.yearLevel;
+      userData.college = decryptedUser.college;
+      userData.course = decryptedUser.course;
+      userData.yearLevel = decryptedUser.yearLevel;
     } else if (actualUserType === "instructor") {
-      userData.college = user.college;
-      userData.department = user.department;
+      userData.college = decryptedUser.college;
+      userData.department = decryptedUser.department;
     }
 
     res.json({
