@@ -33,7 +33,7 @@ export function InstructorTable({ instructors, onArchive }) {
               key={`${inst.instructorid || inst._id || inst.id}-${i}`}
               className="hover:bg-gray-50"
             >
-              <td className="px-4 py-3 text-xs md:text-sm truncate max-w-[80px]">
+              <td className="px-4 py-3 text-xs md:text-sm">
                 {inst.instructorid || inst._id || inst.id || "N/A"}
               </td>
               <td className="px-4 py-3 text-xs md:text-sm">

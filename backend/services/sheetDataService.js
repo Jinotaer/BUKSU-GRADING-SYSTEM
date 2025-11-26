@@ -5,6 +5,7 @@ import ActivityScore from '../models/activityScore.js';
 import Grade from '../models/grades.js';
 import { HttpError } from '../utils/googleSheetsHelpers.js';
 import { percentToGrade, computeScoresByStudent, avgFor } from '../utils/gradeUtils.js';
+import { getFinalEquivalentGrade } from '../utils/gradeCalculator.js';
 import { bulkDecryptUserData, decryptInstructorData } from '../controller/decryptionController.js';
 
 export const toActivityTerm = (sectionTerm) => {
@@ -193,8 +194,8 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
     // Step 2: Calculate weighted average of equivalent grades (40%/60%)
     const finalGradeNumeric = (midtermEquivalent * 0.40) + (finalTermEquivalent * 0.60);
     
-    // Step 3: Final grade result
-    const finalGrade = finalGradeNumeric;
+    // Step 3: Convert to final equivalent grade using Table 3 (Final Grade Equivalency Table)
+    const finalGrade = parseFloat(getFinalEquivalentGrade(finalGradeNumeric));
     const remarks = finalGrade <= 3.00 ? 'PASSED' : 'FAILED';
     
     // Convert all components and term grades to grade equivalents (round percentages first)
@@ -402,7 +403,7 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule, r
       const sMap = scoresByStudent[String(student._id)] || {};
       const score = sMap[String(a._id)];
       // Show blank for missing/undefined/null scores, not zero
-      if (score === undefined || score === null || score === '' || score === 0) {
+      if (score === undefined || score === null || score === '') {
         row.push('');
       } else {
         row.push(String(Number(score)));
@@ -548,8 +549,8 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule, r
       // Step 2: Calculate weighted average of equivalent grades (40%/60%)
       const finalGradeNumeric = (midtermEquivalent * 0.40) + (finalEquivalent * 0.60);
       
-      // Step 3: Final grade is the weighted average
-      const finalGrade = finalGradeNumeric;
+      // Step 3: Convert to final equivalent grade using Table 3 (Final Grade Equivalency Table)
+      const finalGrade = parseFloat(getFinalEquivalentGrade(finalGradeNumeric));
       const remarks = finalGrade <= 3.00 ? 'Passed' : 'Failed';
       
       // Convert term grades to grade equivalents for display
@@ -652,8 +653,9 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
         
         // Step 2: Calculate weighted average of equivalent grades (40%/60%)
         finalGradeNumeric = (midtermEquivalent * 0.40) + (finalEquivalent * 0.60);
-        equivalentGrade = finalGradeNumeric;
-        remarks = finalGradeNumeric <= 3.00 ? 'Passed' : 'Failed';
+        // Step 3: Convert to final equivalent grade using Table 3
+        equivalentGrade = parseFloat(getFinalEquivalentGrade(finalGradeNumeric));
+        remarks = equivalentGrade <= 3.00 ? 'Passed' : 'Failed';
         
         // Keep finalPercent for reference (though not used in final calculation)
         finalPercent = (midtermGrade * 0.40) + (finalTermGrade * 0.60);
@@ -932,8 +934,8 @@ export const buildFinalGradeSheet = (section, activities, scoresByStudent, sched
       // Step 2: Calculate weighted average of equivalent grades (40%/60%)
       const finalGradeNumeric = (midtermEquivalent * 0.4) + (finaltermEquivalent * 0.6);
       
-      // Step 3: Convert to final equivalent grade (Table 3) - for now use same conversion
-      finalGrade = finalGradeNumeric; // Will be properly rounded when displayed
+      // Step 3: Convert to final equivalent grade using Table 3 (Final Grade Equivalency Table)
+      finalGrade = parseFloat(getFinalEquivalentGrade(finalGradeNumeric));
       finalPercent = midtermGrade * 0.4 + finaltermGrade * 0.6; 
       remarks = finalGrade <= 3.00 ? 'Passed' : 'Failed';
     } else if (midtermGrade !== '' && finaltermGrade === '') {

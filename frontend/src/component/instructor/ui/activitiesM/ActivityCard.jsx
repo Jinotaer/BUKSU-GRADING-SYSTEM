@@ -62,7 +62,7 @@ export function ActivityCard({
           <IconUsers size={16} className="text-gray-400" />
           <span className="text-sm text-gray-600">
             Assigned to:{" "}
-            {getAssignedSectionNames(activity.sectionIds || []) || "None"}
+            {getAssignedSectionNames(activity.sectionIds || [],  activity.subjectIds || []) || "None"}
           </span>
         </div>
 

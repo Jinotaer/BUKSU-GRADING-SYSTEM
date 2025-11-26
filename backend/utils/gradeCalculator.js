@@ -96,7 +96,7 @@ function getTermEquivalentGrade(numericGrade) {
  * @param {number} numericGrade - Final numeric grade (0.00 - 9.00)
  * @returns {string} Final equivalent grade ("1.00", "1.25", etc.)
  */
-function getFinalEquivalentGrade(numericGrade) {
+export function getFinalEquivalentGrade(numericGrade) {
   if (numericGrade === "" || numericGrade === null || numericGrade === undefined || isNaN(Number(numericGrade))) {
     return "";
   }

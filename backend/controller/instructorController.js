@@ -137,7 +137,12 @@ export const getInstructorProfile = async (req, res) => {
     if (!instructor) {
       return res.status(404).json({ message: "Instructor not found" });
     }
-    res.json({ success: true, instructor });
+    
+    // Decrypt instructor data before sending
+    const instructorObj = instructor.toObject();
+    const decryptedInstructor = bulkDecryptUserData([instructorObj], 'instructor')[0];
+    
+    res.json({ success: true, instructor: decryptedInstructor });
   } catch (err) {
     console.error("getInstructorProfile:", err);
     res.status(500).json({ message: "Server error" });
@@ -159,7 +164,11 @@ export const updateInstructorProfile = async (req, res) => {
       return res.status(404).json({ message: "Instructor not found" });
     }
 
-    res.json({ success: true, instructor });
+    // Decrypt instructor data before sending
+    const instructorObj = instructor.toObject();
+    const decryptedInstructor = bulkDecryptUserData([instructorObj], 'instructor')[0];
+
+    res.json({ success: true, instructor: decryptedInstructor });
   } catch (err) {
     console.error("updateInstructorProfile:", err);
     res.status(500).json({ message: "Server error" });

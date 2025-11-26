@@ -37,15 +37,15 @@ export const avgFor = (acts, student, scoresByStudent) => {
   if (!acts.length) return '';
   const sMap = scoresByStudent[String(student._id)] || {};
   
-  // Only calculate averages from activities that have actual scores
+  // Calculate averages from activities - include zero scores, exclude only missing/blank scores
   const validScores = [];
   
   for (const a of acts) {
     const score = sMap[String(a._id)];
     const max = Number(a.maxScore ?? 100) || 0;
     
-    // Only include if score exists and is not zero (zero means no score recorded)
-    if (score !== undefined && score !== null && score !== '' && Number(score) > 0 && max > 0) {
+    // Include if score exists (including zero) - exclude only undefined/null/empty string
+    if (score !== undefined && score !== null && score !== '' && max > 0) {
       validScores.push((Number(score) / max) * 100);
     }
   }

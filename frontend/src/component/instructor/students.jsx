@@ -135,7 +135,7 @@ export default function SectionsStudentTable() {
     try {
       setSubmitting(true);
       const res = await authenticatedFetch(
-        `http://localhost:5000/api/instructor/sections/${selectedSection._id}/invite-students`,
+        `http://localhost:5000/api/instructor/sections/${selectedSection._id}/invite-students?limit=12000`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

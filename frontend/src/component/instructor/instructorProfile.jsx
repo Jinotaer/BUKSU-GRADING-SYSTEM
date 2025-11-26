@@ -64,6 +64,18 @@ export default function InstructorProfile() {
     setTimeout(() => setAlert({ show: false, type: "", message: "" }), 5000);
   };
 
+  // Open edit modal and refresh form data
+  const openEditModal = () => {
+    if (profile) {
+      setEditForm({
+        fullName: profile.fullName || "",
+        college: profile.college || "",
+        department: profile.department || ""
+      });
+    }
+    setEditModalOpened(true);
+  };
+
   // Handle profile update
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
@@ -123,7 +135,7 @@ export default function InstructorProfile() {
           onClose={() => setAlert({ show: false, type: "", message: "" })}
         />
 
-        <PageHeader onEditClick={() => setEditModalOpened(true)} />
+        <PageHeader onEditClick={openEditModal} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <ProfileCard profile={profile} />

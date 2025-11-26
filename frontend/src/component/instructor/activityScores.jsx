@@ -294,7 +294,7 @@ export default function ActivityScores() {
                 itemsPerPage={itemsPerPage}
                 onPageChange={handlePageChange}
                 onItemsPerPageChange={handleItemsPerPageChange}
-                rowsPerPageOptions={[5, 10, 15, 20, 25]}
+                rowsPerPageOptions={[5, 10, 15, 20, 30, 50]}
               />
             )}
           </>

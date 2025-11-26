@@ -81,29 +81,7 @@ export default function StudentManagement() {
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
-  // const handleDelete = async (studentId) => {
-  //   showConfirmDialog(
-  //     'Delete Student',
-  //     'Are you sure you want to delete this student? This action cannot be undone.',
-  //     async () => {
-  //       try {
-  //         const res = await authenticatedFetch(`http://localhost:5000/api/admin/students/${studentId}`, {
-  //           method: "DELETE",
-  //         });
-          
-  //         if (res.ok) {
-  //           setStudents(prev => prev.filter(s => s._id !== studentId));
-  //           showSuccess("Student deleted successfully!");
-  //         } else {
-  //           showError("Failed to delete student");
-  //         }
-  //       } catch {
-  //         showError("There was an error processing your request.");
-  //       }
-  //     }
-  //   );
-  // };
-
+  
   const handleArchive = async (studentId) => {
     showConfirmDialog(
       'Archive Student',
@@ -158,7 +136,7 @@ export default function StudentManagement() {
                     itemsPerPage={itemsPerPage}
                     onPageChange={handlePageChange}
                     onItemsPerPageChange={handleItemsPerPageChange}
-                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    rowsPerPageOptions={[5, 10, 25, 50, 100]}
                   />
                 </>
               )}

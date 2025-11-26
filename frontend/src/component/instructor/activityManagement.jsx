@@ -134,7 +134,14 @@ export default function ActivityManagement() {
   const getSectionName = React.useCallback(
     (id) => {
       const s = sections.find((x) => (x._id || x.id) === id);
-      return s?.sectionName || "Unknown";
+      if (!s) return "Unknown";
+      
+      // Include subject name if available
+      const subjectName = s.subject?.subjectName || s.subject?.subjectCode;
+      if (subjectName) {
+        return `${s.sectionName} (${subjectName})`;
+      }
+      return s.sectionName;
     },
     [sections]
   );
