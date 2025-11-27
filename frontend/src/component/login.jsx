@@ -16,7 +16,7 @@ import {
   ErrorMessage,
 } from "./ui/login";
 
-const recaptchaKey = "6Lfty3MqAAAAACp-CJm8DFxDW1GfjdR1aXqHbqpg";
+const recaptchaKey = "6Lch_NUrAAAAAGZxddIK6FgJ_apfWchPCjEK0d8j";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -63,7 +63,8 @@ export default function Login() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               email: userEmail,
-              userType: isStudent ? 'student' : 'instructor'
+              userType: isStudent ? 'student' : 'instructor',
+              captchaResponse: recaptchaValue
             }),
           }
         );

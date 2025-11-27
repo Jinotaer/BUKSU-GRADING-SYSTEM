@@ -15,6 +15,7 @@ import {
 } from "../middleware/bruteForceProtection.js";
 import { encryptAdminData, encryptInstructorData } from "./encryptionController.js";
 import { decryptAdminData, decryptInstructorData, bulkDecryptUserData } from "./decryptionController.js";
+import { verifyCaptchaResponse } from "../middleware/captchaVerification.js";
 
 /**
  * Find admin by decrypting email field
@@ -188,7 +189,7 @@ export const loginAdmin = async (req, res) => {
     console.log(`🔍 Request body:`, JSON.stringify(req.body));
     console.log(`🔍 ========================================`);
     
-    const { email, password } = req.body;
+    const { email, password, captchaResponse } = req.body;
 
     // Validate input
     if (!email || !password) {
@@ -200,6 +201,31 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
+    // Verify reCAPTCHA
+    if (!captchaResponse) {
+      console.log(`❌ Missing CAPTCHA response`);
+      return res.status(400).json({
+        success: false,
+        message: "Please complete the reCAPTCHA verification",
+      });
+    }
+
+    console.log(`🔍 Verifying reCAPTCHA...`);
+    const isCaptchaValid = await verifyCaptchaResponse(captchaResponse, req.ip);
+    
+    if (!isCaptchaValid) {
+      console.log(`❌ CAPTCHA verification failed`);
+      // Record failed attempt for invalid CAPTCHA
+      await handleFailedLogin(email, req.inferredUserType || "admin").catch(
+        () => {}
+      );
+      return res.status(400).json({
+        success: false,
+        message: "CAPTCHA verification failed. Please try again.",
+      });
+    }
+    
+    console.log(`✅ CAPTCHA verification successful`);
     console.log(`🔍 Searching for admin with email: "${email}"`);
 
     // Find admin by encrypted email

@@ -13,7 +13,7 @@ import {
   LoginHeader,
 } from "./ui/adminLogin";
 
-const recaptchaKey = "6Lfty3MqAAAAACp-CJm8DFxDW1GfjdR1aXqHbqpg";
+const recaptchaKey = "6Lch_NUrAAAAAGZxddIK6FgJ_apfWchPCjEK0d8j";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ export default function AdminLogin() {
     const password = e.target.adminPassword.value;
 
     try {
-      const data = await adminAuth.login(email, password);
+      const data = await adminAuth.login(email, password, captchaValue);
       if (data.success) {
         // Store the access token in sessionStorage for ProtectedRoute compatibility
         sessionStorage.setItem("accessToken", data.tokens.accessToken);

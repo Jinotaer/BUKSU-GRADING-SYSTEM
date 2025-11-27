@@ -154,14 +154,14 @@ class AdminAuth {
   }
 
   // Login method
-  async login(email, password) {
+  async login(email, password, captchaResponse = null) {
     try {
       const response = await fetch(`${this.baseURL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, captchaResponse }),
       });
 
       const data = await response.json();

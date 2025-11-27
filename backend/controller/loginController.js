@@ -5,6 +5,7 @@ import Instructor from "../models/instructor.js";
 import logger from "../config/logger.js";
 import { handleFailedLogin, handleSuccessfulLogin } from "../middleware/bruteForceProtection.js";
 import { decryptStudentData, decryptInstructorData } from "./decryptionController.js";
+import { verifyCaptchaResponse } from "../middleware/captchaVerification.js";
 
 // JWT secret from environment variables - should match auth middleware
 const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || "your-secret-key";
@@ -424,8 +425,10 @@ export const requireRole = (allowedRoles) => {
  */
 export const loginWithEmail = async (req, res) => {
   try {
-    const { email, userType } = req.body;
+    const { email, userType, captchaResponse } = req.body;
     const actualUserType = userType || req.inferredUserType;
+    
+    console.log('Login request received:', { email, userType: actualUserType, hasCaptcha: !!captchaResponse });
     
     if (!email || !actualUserType) {
       return res.status(400).json({
@@ -433,6 +436,30 @@ export const loginWithEmail = async (req, res) => {
         message: "Email and userType are required"
       });
     }
+
+    // Verify reCAPTCHA
+    if (!captchaResponse) {
+      console.log('Missing reCAPTCHA response');
+      return res.status(400).json({
+        success: false,
+        message: "Please complete the reCAPTCHA verification"
+      });
+    }
+
+    console.log('Verifying reCAPTCHA...');
+    const isCaptchaValid = await verifyCaptchaResponse(captchaResponse, req.ip);
+    
+    if (!isCaptchaValid) {
+      console.log('reCAPTCHA verification failed');
+      // Record failed attempt for invalid CAPTCHA
+      await handleFailedLogin(email, actualUserType).catch(() => {});
+      return res.status(400).json({
+        success: false,
+        message: "CAPTCHA verification failed. Please try again."
+      });
+    }
+    
+    console.log('reCAPTCHA verification successful');
 
     // Validate email domain
     const validation = validateInstitutionalEmail(email);
