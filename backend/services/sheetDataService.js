@@ -812,14 +812,14 @@ export const buildFinalGradeSheet = (section, activities, scoresByStudent, sched
   // Student data rows matching HYBRID-FLEXIBLE LEARNING GRADE SHEET format
   const studentRows = section.students.map((student, idx) => {
     // Calculate midterm component averages
-    const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-    const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-    const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+    const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+    const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+    const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
     
     // Calculate finalterm component averages
-    const finaltermCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-    const finaltermLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-    const finaltermMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+    const finaltermCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+    const finaltermLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+    const finaltermMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
     
     // Debug logging
     console.log(`\n[Final Grade Debug] Student: ${student.fullName}`);
