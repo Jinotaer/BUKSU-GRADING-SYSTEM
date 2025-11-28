@@ -33,27 +33,36 @@ export const computeScoresByStudent = (activityScores) => {
   return map;
 };
 
-export const avgFor = (acts, student, scoresByStudent) => {
-  if (!acts.length) return '';
+export const avgFor = (acts, student, scoresByStudent, missingPercent = null) => {
+  // If there are no activities, return '' for "no data" unless missingPercent is provided
+  if (!acts.length) return missingPercent === null ? '' : missingPercent;
   const sMap = scoresByStudent[String(student._id)] || {};
-  
-  // Calculate averages from activities - include zero scores, exclude only missing/blank scores
-  const validScores = [];
-  
+
+  // Calculate averages from activities.
+  // - include explicit zero scores
+  // - exclude only undefined/null/empty string unless missingPercent is provided
+  const scores = [];
+
   for (const a of acts) {
     const score = sMap[String(a._id)];
     const max = Number(a.maxScore ?? 100) || 0;
-    
-    // Include if score exists (including zero) - exclude only undefined/null/empty string
-    if (score !== undefined && score !== null && score !== '' && max > 0) {
-      validScores.push((Number(score) / max) * 100);
+    if (max <= 0) continue;
+
+    if (score !== undefined && score !== null && score !== '') {
+      scores.push((Number(score) / max) * 100);
+    } else if (missingPercent !== null) {
+      // Treat missing/blank as the provided percent
+      scores.push(Number(missingPercent));
     }
   }
-  
-  // Return empty string if no valid scores, otherwise return average
-  return validScores.length > 0 ? 
-    validScores.reduce((a, b) => a + b, 0) / validScores.length : 
-    '';
+
+  // If we collected any scores, return the average.
+  // If none were collected and missingPercent was provided, return missingPercent.
+  if (scores.length > 0) {
+    return scores.reduce((a, b) => a + b, 0) / scores.length;
+  }
+
+  return missingPercent === null ? '' : missingPercent;
 };
 
 /**

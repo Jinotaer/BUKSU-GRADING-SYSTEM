@@ -167,14 +167,14 @@ export const buildFinalGradeSheetData = (section, activities, scoresByStudent, s
   // Student data rows
   const studentRows = section.students.map((student, idx) => {
     // Calculate midterm component averages
-    const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-    const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-    const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+    const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+    const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+    const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
     
     // Calculate final term component averages
-    const finalCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-    const finalLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-    const finalMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+    const finalCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+    const finalLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+    const finalMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
     
     // Calculate term grades using custom grading schema (with rounding)
     let midtermGrade, finalTermGrade;
@@ -413,9 +413,9 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule, r
     // Add grade calculations based on term
     if (isMidtermOnly) {
       // Calculate midterm component averages (as percentages)
-      const midtermCS = avgFor(classStandingActivities, student, scoresByStudent);
-      const midtermLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : '';
-      const midtermMO = avgFor(majorOutputActivities, student, scoresByStudent);
+      const midtermCS = avgFor(classStandingActivities, student, scoresByStudent, 5);
+      const midtermLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent, 5) : '';
+      const midtermMO = avgFor(majorOutputActivities, student, scoresByStudent, 5);
       
       // Calculate grades if we have at least CS and MO (required components)
       const hasMinimumComponents = midtermCS !== '' && midtermMO !== '';
@@ -467,9 +467,9 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule, r
       
     } else if (isFinalTermOnly) {
       // Calculate final term component averages (as percentages)
-      const finalCS = avgFor(classStandingActivities, student, scoresByStudent);
-      const finalLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent) : '';
-      const finalMO = avgFor(majorOutputActivities, student, scoresByStudent);
+      const finalCS = avgFor(classStandingActivities, student, scoresByStudent, 5);
+      const finalLab = subjectHasLab ? avgFor(laboratoryActivities, student, scoresByStudent, 5) : '';
+      const finalMO = avgFor(majorOutputActivities, student, scoresByStudent, 5);
       
       // Calculate grades if we have at least CS and MO (required components)
       const hasMinimumComponents = finalCS !== '' && finalMO !== '';
@@ -524,13 +524,13 @@ export const buildSheetData = (section, activities, scoresByStudent, schedule, r
       const midtermActivities = activities.filter(a => a.term === 'Midterm');
       const finalTermActivities = activities.filter(a => a.term === 'Finalterm');
       
-      const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-      const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-      const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+      const midtermCS = avgFor(midtermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+      const midtermLab = subjectHasLab ? avgFor(midtermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+      const midtermMO = avgFor(midtermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
       
-      const finalCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent);
-      const finalLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent) : 0;
-      const finalMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent);
+      const finalCS = avgFor(finalTermActivities.filter(a => a.category === 'classStanding'), student, scoresByStudent, 5);
+      const finalLab = subjectHasLab ? avgFor(finalTermActivities.filter(a => a.category === 'laboratory'), student, scoresByStudent, 5) : 0;
+      const finalMO = avgFor(finalTermActivities.filter(a => a.category === 'majorOutput'), student, scoresByStudent, 5);
       
       let midtermGrade, finalTermGrade;
       if (subjectHasLab) {
@@ -596,14 +596,14 @@ export const persistGrades = async (section, activities, scoresByStudent, instru
   const results = await Promise.allSettled(
     section.students.map(async (student) => {
       // Calculate midterm component averages
-      const midtermClassStanding = avgFor(midtermCS, student, scoresByStudent);
-      const midtermLaboratory = subjectHasLab ? avgFor(midtermLab, student, scoresByStudent) : '';
-      const midtermMajorOutput = avgFor(midtermMO, student, scoresByStudent);
+      const midtermClassStanding = avgFor(midtermCS, student, scoresByStudent, 5);
+      const midtermLaboratory = subjectHasLab ? avgFor(midtermLab, student, scoresByStudent, 5) : '';
+      const midtermMajorOutput = avgFor(midtermMO, student, scoresByStudent, 5);
       
       // Calculate final term component averages
-      const finalClassStanding = avgFor(finalCS, student, scoresByStudent);
-      const finalLaboratory = subjectHasLab ? avgFor(finalLab, student, scoresByStudent) : '';
-      const finalMajorOutput = avgFor(finalMO, student, scoresByStudent);
+      const finalClassStanding = avgFor(finalCS, student, scoresByStudent, 5);
+      const finalLaboratory = subjectHasLab ? avgFor(finalLab, student, scoresByStudent, 5) : '';
+      const finalMajorOutput = avgFor(finalMO, student, scoresByStudent, 5);
       
       // Check if we have sufficient components for term grade calculations (at least CS and MO)
       const hasMidtermComponents = midtermClassStanding !== '' && midtermMajorOutput !== '';

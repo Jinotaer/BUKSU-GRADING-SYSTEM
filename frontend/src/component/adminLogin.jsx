@@ -13,7 +13,7 @@ import {
   LoginHeader,
 } from "./ui/adminLogin";
 
-const recaptchaKey = "6Lch_NUrAAAAAGZxddIK6FgJ_apfWchPCjEK0d8j";
+const recaptchaKey = "6LeGERosAAAAAIFNiv1LsoBy_A4M0lVJ1m9Icn2v";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
