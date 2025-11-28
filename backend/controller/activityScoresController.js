@@ -125,8 +125,12 @@ export const upsertActivityScoresBulk = async (req, res) => {
     const max = Number(activity.maxScore ?? 100);
     const validIds = new Set(section.students.map(s => String(s._id)));
 
+    // Preserve null for empty scores. Do not coerce null/undefined to 0 here.
     const incoming = rows
-      .map(r => ({ studentId: String(r.studentId), score: Number(r.score ?? 0) }))
+      .map(r => ({
+        studentId: String(r.studentId),
+        score: r.score === null || r.score === undefined ? null : Number(r.score),
+      }))
       .filter(r => validIds.has(r.studentId));
 
     if (incoming.length === 0) {
@@ -139,7 +143,8 @@ export const upsertActivityScoresBulk = async (req, res) => {
       section: sectionId,
       student: { $in: incoming.map(r => r.studentId) },
     }, { student:1, score:1 });
-    const prevMap = new Map(prevDocs.map(d => [String(d.student), Number(d.score)]));
+    // Keep null as null when comparing previous values
+    const prevMap = new Map(prevDocs.map(d => [String(d.student), d.score === null || d.score === undefined ? null : Number(d.score)]));
 
     // upsert
     await ActivityScore.bulkWrite(
@@ -152,7 +157,8 @@ export const upsertActivityScoresBulk = async (req, res) => {
               section: sectionId,
               subject: section.subject._id,
               student: studentId,
-              score: Math.max(0, Math.min(max, Number(score))),
+              // If score is null, store null; otherwise bound it between 0 and max
+              score: score === null ? null : Math.max(0, Math.min(max, Number(score))),
               maxScore: max,
               gradedBy: instructorId || null,
               gradedAt: new Date(),
@@ -165,7 +171,11 @@ export const upsertActivityScoresBulk = async (req, res) => {
 
     // email notifications only for changed scores
     const changedIds = incoming
-      .filter(({ studentId, score }) => prevMap.get(studentId) !== Number(score))
+      .filter(({ studentId, score }) => {
+        const prev = prevMap.get(studentId);
+        const curr = score === null ? null : Number(score);
+        return prev !== curr;
+      })
       .map(r => r.studentId);
 
     if (notify && changedIds.length) {
@@ -190,7 +200,10 @@ export const upsertActivityScoresBulk = async (req, res) => {
         changedIds.map((sid) => {
           const s = lookup.get(sid);
           if (!s?.email) return Promise.resolve();
-          const newScore = incoming.find(r => r.studentId === sid)?.score ?? 0;
+          const inc = incoming.find(r => r.studentId === sid);
+          const newScore = inc ? inc.score : null;
+          // Only send notification if there's an actual numeric score change
+          if (newScore === null) return Promise.resolve();
           return emailService.sendActivityScoreNotification({
             studentEmail: s.email,
             studentName: s.fullName,
@@ -199,7 +212,7 @@ export const upsertActivityScoresBulk = async (req, res) => {
             subjectCode,
             subjectName,
             activityTitle,
-            score: newScore,
+            score: Number(newScore),
             maxScore: max,
             viewUrl,
           });

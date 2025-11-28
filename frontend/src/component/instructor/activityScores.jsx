@@ -99,10 +99,16 @@ export default function ActivityScores() {
   const uploadScore = async (studentId) => {
     const row = rows.find((r) => r.studentId === studentId);
     if (!row) return;
-
+    // Determine the score to send. If the input is empty, send `null` so
+    // the backend can treat it as "no score" instead of 0.
     const rowMax = Number(row.maxScore ?? max) || max;
-    const numeric = row.score === "" ? 0 : Number(row.score);
-    const boundedScore = Math.max(0, Math.min(rowMax, Number.isNaN(numeric) ? 0 : numeric));
+    let boundedScore = null;
+    if (row.score === "") {
+      boundedScore = null;
+    } else {
+      const numeric = Number(row.score);
+      boundedScore = Math.max(0, Math.min(rowMax, Number.isNaN(numeric) ? 0 : numeric));
+    }
 
     setRowStatus((prev) => ({ ...prev, [studentId]: { state: "saving" } }));
     try {
@@ -120,7 +126,9 @@ export default function ActivityScores() {
       if (!res.ok) throw new Error(data?.message || `Upload failed (HTTP ${res.status})`);
 
       setRows((prev) =>
-        prev.map((item) => (item.studentId === studentId ? { ...item, score: boundedScore } : item))
+        prev.map((item) =>
+          item.studentId === studentId ? { ...item, score: boundedScore === null ? "" : boundedScore } : item
+        )
       );
 
       setRowStatus((prev) => ({ ...prev, [studentId]: { state: "success" } }));
