@@ -11,7 +11,7 @@ const terms = [
   { key: "all", label: "All Terms" },
   { key: "Midterm", label: "Midterm" },
   { key: "Finalterm", label: "Finalterm" },
-  { key: "Summer", label: "Summer" },
+  // { key: "Summer", label: "Summer" },
 ];
 
 export function CategoryTabs({ activeTab, onTabChange, activeTerm, onTermChange }) {

@@ -16,7 +16,11 @@ import {
   ErrorMessage,
 } from "./ui/login";
 
-const recaptchaKey = "6LeGERosAAAAAIFNiv1LsoBy_A4M0lVJ1m9Icn2v";
+const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
+if (!recaptchaKey) {
+  console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');
+}
 
 export default function Login() {
   const navigate = useNavigate();

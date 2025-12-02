@@ -293,7 +293,7 @@ export const updateStudentProfile = async (req, res) => {
     if (fullName) {
       const trimmedName = fullName.trim();
       // Encrypt the fullName before updating
-      updateData.fullName = encryptField(trimmedName);
+      updateData.fullName = encryptField('fullName', trimmedName);
     }
     if (college) updateData.college = college;
     if (course) updateData.course = course;

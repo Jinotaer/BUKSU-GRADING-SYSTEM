@@ -153,7 +153,7 @@ const MonitoringDashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">Activity Logs</h1>
+            <h1 className="text-3xl font-bold text-[#1E3A5F]">Activity Logs</h1>
             <div className="flex space-x-3">
               <button
                 onClick={fetchData}
