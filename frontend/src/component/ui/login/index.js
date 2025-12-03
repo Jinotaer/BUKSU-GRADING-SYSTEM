@@ -6,3 +6,5 @@ export { default as LoginFormContainer } from "./LoginFormContainer";
 export { default as BrandPanel } from "../adminLogin/BrandPanel";
 export { default as CaptchaSection } from "../adminLogin/CaptchaSection";
 export { default as ErrorMessage } from "../adminLogin/ErrorMessage";
+export { default as LoginForm } from "./loginForm.jsx";
+export { default as ForgotPasswordLink } from "./ForgotPasswordLink";

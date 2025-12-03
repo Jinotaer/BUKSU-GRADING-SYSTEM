@@ -15,16 +15,14 @@ const ProtectedRoute = ({ children, role }) => {
     // Handle different role formats from different authentication systems
     const userRole = decodedToken.role || decodedToken.userType;
     
-    // Check role compatibility - be flexible with role matching
-    if (role === "Admin" && userRole === "Admin") {
-      return children;
-    }
+    console.log(`ProtectedRoute: Expected role: ${role}, User role: ${userRole}`);
     
-    if (role === "student" && userRole === "student") {
-      return children;
-    }
+    // Normalize roles to lowercase for comparison
+    const normalizedUserRole = userRole?.toLowerCase();
+    const normalizedExpectedRole = role?.toLowerCase();
     
-    if (role === "instructor" && userRole === "instructor") {
+    // Check if roles match (case-insensitive)
+    if (normalizedUserRole === normalizedExpectedRole) {
       return children;
     }
     

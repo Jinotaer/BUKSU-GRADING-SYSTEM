@@ -2,9 +2,10 @@ import passport from "passport";
 import jwt from "jsonwebtoken";
 import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
+import Admin from "../models/admin.js";
 import logger from "../config/logger.js";
 import { handleFailedLogin, handleSuccessfulLogin } from "../middleware/bruteForceProtection.js";
-import { decryptStudentData, decryptInstructorData } from "./decryptionController.js";
+import { decryptStudentData, decryptInstructorData, decryptAdminData } from "./decryptionController.js";
 import { verifyCaptchaResponse } from "../middleware/captchaVerification.js";
 
 // JWT secret from environment variables - should match auth middleware
@@ -14,33 +15,40 @@ const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || "y
  * Find user by decrypting email field
  * Since emails are encrypted in database, we need to decrypt and compare
  * @param {string} email - Plain text email to search for
- * @param {string} userType - 'student' or 'instructor'
- * @returns {Object|null} - Found user or null
+ * @param {string} userType - 'student', 'instructor', 'admin', or null to search all
+ * @returns {Object|null} - Found user with type or null
  */
-const findUserByEmail = async (email, userType) => {
+const findUserByEmail = async (email, userType = null) => {
   try {
-    let users, decryptFunction;
+    let searchTypes = userType ? [userType] : ['student', 'instructor', 'admin'];
     
-    if (userType === 'student') {
-      users = await Student.find({});
-      decryptFunction = decryptStudentData;
-    } else if (userType === 'instructor') {
-      users = await Instructor.find({});
-      decryptFunction = decryptInstructorData;
-    } else {
-      return null;
-    }
-
-    // Decrypt each user and check email match
-    for (const user of users) {
-      try {
-        const decryptedUser = decryptFunction(user.toObject());
-        if (decryptedUser.email && decryptedUser.email.toLowerCase() === email.toLowerCase()) {
-          return user; // Return the original user with encrypted data
-        }
-      } catch (error) {
-        console.warn(`Failed to decrypt user ${user._id}:`, error.message);
+    for (const type of searchTypes) {
+      let users, decryptFunction;
+      
+      if (type === 'student') {
+        users = await Student.find({});
+        decryptFunction = decryptStudentData;
+      } else if (type === 'instructor') {
+        users = await Instructor.find({});
+        decryptFunction = decryptInstructorData;
+      } else if (type === 'admin') {
+        users = await Admin.find({});
+        decryptFunction = decryptAdminData;
+      } else {
         continue;
+      }
+
+      // Decrypt each user and check email match
+      for (const user of users) {
+        try {
+          const decryptedUser = decryptFunction(user.toObject());
+          if (decryptedUser.email && decryptedUser.email.toLowerCase() === email.toLowerCase()) {
+            return { user, userType: type }; // Return user with detected type
+          }
+        } catch (error) {
+          console.warn(`Failed to decrypt ${type} ${user._id}:`, error.message);
+          continue;
+        }
       }
     }
     
@@ -71,11 +79,16 @@ const validateInstitutionalEmail = (email) => {
     return { isValid: true, role: "instructor", message: "Valid instructor email" };
   }
 
+  // Admin email validation
+  if (email.endsWith("@buksu.edu.ph")) {
+    return { isValid: true, role: "admin", message: "Valid admin email" };
+  }
+
   // Invalid domain
   return { 
     isValid: false, 
     role: null, 
-    message: "Invalid email domain. Use @student.buksu.edu.ph for students or @buksu.edu.ph for instructors" 
+    message: "Invalid email domain. Use @student.buksu.edu.ph for students, @buksu.edu.ph for admins, or @gmail.com for instructors" 
   };
 };
 
@@ -101,7 +114,8 @@ export const validateEmailDomain = (req, res) => {
         success: true,
         message: validation.message,
         role: validation.role,
-        emailDomain: validation.role === "student" ? "@student.buksu.edu.ph" : "@buksu.edu.ph"
+        emailDomain: validation.role === "student" ? "@student.buksu.edu.ph" : 
+                     validation.role === "admin" ? "@buksu.edu.ph" : "@gmail.com"
       });
     } else {
       return res.status(400).json({
@@ -109,7 +123,8 @@ export const validateEmailDomain = (req, res) => {
         message: validation.message,
         allowedDomains: [
           "@student.buksu.edu.ph (for students)",
-          "@buksu.edu.ph (for instructors)"
+          "@buksu.edu.ph (for admins)",
+          "@gmail.com (for instructors)"
         ]
       });
     }
@@ -242,6 +257,10 @@ export const getCurrentUser = async (req, res) => {
     } else if (role === "instructor") {
       userData.college = user.college;
       userData.department = user.department;
+    } else if (role === "admin") {
+      userData.firstName = user.firstName;
+      userData.lastName = user.lastName;
+      userData.lastLogin = user.lastLogin;
     }
 
     res.json({
@@ -341,6 +360,8 @@ export const verifyToken = async (req, res, next) => {
       user = await Student.findById(decoded.id);
     } else if (decoded.role === "instructor") {
       user = await Instructor.findById(decoded.id);
+    } else if (decoded.role === "admin") {
+      user = await Admin.findById(decoded.id);
     }
 
     if (!user) {
@@ -362,6 +383,13 @@ export const verifyToken = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: "Instructor account not active"
+      });
+    }
+
+    if (decoded.role === "admin" && user.status !== "Active") {
+      return res.status(401).json({
+        success: false,
+        message: "Admin account not active"
       });
     }
 
@@ -420,20 +448,34 @@ export const requireRole = (allowedRoles) => {
 };
 
 /**
- * Login Handler for Google OAuth Token
- * Validates email domain and checks user registration/approval status
+ * Login Handler for both Google OAuth and Email/Password Authentication
+ * Supports unified authentication for students and instructors
  */
 export const loginWithEmail = async (req, res) => {
   try {
-    const { email, userType, captchaResponse } = req.body;
-    const actualUserType = userType || req.inferredUserType;
+    const { email, password, userType, captchaResponse, loginMethod } = req.body;
+    let actualUserType = userType || req.inferredUserType;
     
-    console.log('Login request received:', { email, userType: actualUserType, hasCaptcha: !!captchaResponse });
+    console.log('Login request received:', { 
+      email, 
+      userType: actualUserType, 
+      loginMethod,
+      hasCaptcha: !!captchaResponse,
+      hasPassword: !!password 
+    });
     
-    if (!email || !actualUserType) {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Email and userType are required"
+        message: "Email is required"
+      });
+    }
+
+    // For email/password login, password is required
+    if (loginMethod === 'email' && !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required for email authentication"
       });
     }
 
@@ -452,7 +494,7 @@ export const loginWithEmail = async (req, res) => {
     if (!isCaptchaValid) {
       console.log('reCAPTCHA verification failed');
       // Record failed attempt for invalid CAPTCHA
-      await handleFailedLogin(email, actualUserType).catch(() => {});
+      await handleFailedLogin(email, actualUserType || "unknown").catch(() => {});
       return res.status(400).json({
         success: false,
         message: "CAPTCHA verification failed. Please try again."
@@ -461,77 +503,80 @@ export const loginWithEmail = async (req, res) => {
     
     console.log('reCAPTCHA verification successful');
 
-    // Validate email domain
-    const validation = validateInstitutionalEmail(email);
-    if (!validation.isValid) {
-      // Record failed attempt for invalid email
-      await handleFailedLogin(email, actualUserType).catch(() => {});
-      return res.status(400).json({
+    // Find user across all types if userType not specified
+    const userResult = await findUserByEmail(email, actualUserType);
+    
+    if (!userResult) {
+      // Record failed attempt for non-existent user
+      await handleFailedLogin(email, actualUserType || "unknown").catch(() => {});
+      return res.status(404).json({
         success: false,
-        message: validation.message
+        message: "User not registered"
       });
     }
 
-    // Check if the userType matches the email domain
-    if (validation.role !== actualUserType) {
-      // Record failed attempt for mismatched user type
-      await handleFailedLogin(email, actualUserType).catch(() => {});
-      return res.status(400).json({
-        success: false,
-        message: `Email domain doesn't match user type. ${email} should be used for ${validation.role} accounts.`
-      });
-    }
+    const { user, userType: detectedUserType } = userResult;
+    actualUserType = detectedUserType; // Use the detected user type
 
-    let user;
+    // Handle authentication based on detected user type
     let message;
-
-    if (actualUserType === 'student') {
-      // Check if student is registered (using encrypted email search)
-      user = await findUserByEmail(email, 'student');
-      
-      if (!user) {
-        // Record failed attempt for non-existent user
+    
+    // For email/password authentication, verify password
+    if (loginMethod === 'email' && password) {
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        // Record failed attempt for wrong password
         await handleFailedLogin(email, actualUserType).catch(() => {});
-        return res.status(404).json({
+        return res.status(401).json({
           success: false,
-          message: "Student not registered"
+          message: "Invalid email or password"
         });
       }
-
-      if (user.status !== 'Approved') {
-        // Record failed attempt for unapproved account
-        await handleFailedLogin(email, actualUserType).catch(() => {});
-        return res.status(403).json({
-          success: false,
-          message: "Account not approved yet"
-        });
-      }
-
-      message = "Student login successful";
-    } else if (actualUserType === 'instructor') {
-      // Check if instructor exists and is active (using encrypted email search)
-      user = await findUserByEmail(email, 'instructor');
-      
-      if (!user) {
-        // Record failed attempt for non-existent user
-        await handleFailedLogin(email, actualUserType).catch(() => {});
-        return res.status(404).json({
-          success: false,
-          message: "Instructor not registered"
-        });
-      }
-
-      if (user.status !== 'Active') {
-        // Record failed attempt for inactive account
-        await handleFailedLogin(email, actualUserType).catch(() => {});
-        return res.status(403).json({
-          success: false,
-          message: "Account not approved yet"
-        });
-      }
-
-      message = "Instructor login successful";
+    } else if (loginMethod === 'email' && !password) {
+      // For email login method, password is required
+      await handleFailedLogin(email, actualUserType).catch(() => {});
+      return res.status(401).json({
+        success: false,
+        message: "Password is required for email authentication"
+      });
     }
+
+    // Check account status based on user type
+    if (actualUserType === 'student' && user.status !== 'Approved') {
+      await handleFailedLogin(email, actualUserType).catch(() => {});
+      return res.status(403).json({
+        success: false,
+        message: "Account not approved yet"
+      });
+    } else if ((actualUserType === 'instructor' || actualUserType === 'admin') && user.status !== 'Active') {
+      await handleFailedLogin(email, actualUserType).catch(() => {});
+      return res.status(403).json({
+        success: false,
+        message: `${actualUserType.charAt(0).toUpperCase() + actualUserType.slice(1)} account is not active`
+      });
+    }
+
+    // Check if admin account is locked
+    if (actualUserType === 'admin' && user.isLocked && user.isLocked()) {
+      const timeUntilUnlock = user.accountLockedUntil - Date.now();
+      const hoursRemaining = Math.ceil(timeUntilUnlock / (60 * 60 * 1000));
+      const minutesRemaining = Math.ceil(timeUntilUnlock / (60 * 1000));
+
+      let timeMessage;
+      if (hoursRemaining >= 1) {
+        timeMessage = `${hoursRemaining} hour${hoursRemaining > 1 ? "s" : ""}`;
+      } else {
+        timeMessage = `${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""}`;
+      }
+
+      return res.status(423).json({
+        success: false,
+        message: `Account is temporarily locked due to too many failed login attempts. Please try again in ${timeMessage}.`,
+        locked: true
+      });
+    }
+
+    message = `${actualUserType.charAt(0).toUpperCase() + actualUserType.slice(1)} login successful`;
 
     // Successful login - reset any failed attempts
     await handleSuccessfulLogin(email, actualUserType).catch(() => {});
@@ -542,13 +587,16 @@ export const loginWithEmail = async (req, res) => {
       decryptedUser = decryptStudentData(user.toObject());
     } else if (actualUserType === 'instructor') {
       decryptedUser = decryptInstructorData(user.toObject());
+    } else if (actualUserType === 'admin') {
+      decryptedUser = decryptAdminData(user.toObject());
     }
 
     // Log successful login
-    logger.auth(`Successful ${actualUserType} login`, {
+    logger.auth(`Successful ${actualUserType} login via ${loginMethod}`, {
       userId: user._id,
       email: decryptedUser.email,
       userType: actualUserType,
+      loginMethod,
       ip: req.ip
     });
 
@@ -557,8 +605,9 @@ export const loginWithEmail = async (req, res) => {
       {
         id: user._id,
         email: decryptedUser.email,
-        role: actualUserType,
-        googleId: decryptedUser.googleId
+        role: decryptedUser.role || actualUserType, // Use actual role from database
+        googleId: decryptedUser.googleId || null,
+        loginMethod
       },
       JWT_SECRET,
       { expiresIn: "7d" }
@@ -568,9 +617,10 @@ export const loginWithEmail = async (req, res) => {
     const userData = {
       id: decryptedUser._id,
       email: decryptedUser.email,
-      fullName: decryptedUser.fullName,
-      role: actualUserType,
-      status: decryptedUser.status
+      fullName: decryptedUser.fullName || `${decryptedUser.firstName} ${decryptedUser.lastName}`,
+      role: decryptedUser.role || actualUserType, // Use actual role from database
+      status: decryptedUser.status,
+      authMethod: decryptedUser.authMethod || 'google'
     };
 
     // Add role-specific data
@@ -578,9 +628,15 @@ export const loginWithEmail = async (req, res) => {
       userData.college = decryptedUser.college;
       userData.course = decryptedUser.course;
       userData.yearLevel = decryptedUser.yearLevel;
+      userData.studid = decryptedUser.studid;
     } else if (actualUserType === "instructor") {
       userData.college = decryptedUser.college;
       userData.department = decryptedUser.department;
+      userData.instructorid = decryptedUser.instructorid;
+    } else if (actualUserType === "admin") {
+      userData.firstName = decryptedUser.firstName;
+      userData.lastName = decryptedUser.lastName;
+      userData.lastLogin = decryptedUser.lastLogin;
     }
 
     res.json({
@@ -648,6 +704,207 @@ export const checkAuthStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("Auth status check error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/**
+ * Request Password Reset for Students and Instructors
+ * Generates reset token and sends email
+ */
+export const requestPasswordReset = async (req, res) => {
+  try {
+    const { email, userType } = req.body;
+
+    if (!email || !userType) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and userType are required"
+      });
+    }
+
+    // Find user by email
+    const user = await findUserByEmail(email, userType);
+    
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        success: true,
+        message: "If an account exists with this email, password reset instructions will be sent."
+      });
+    }
+
+    // Check if user uses email/password authentication
+    if (user.authMethod === 'google' && !user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "This account uses Google authentication. Please sign in with Google."
+      });
+    }
+
+    // Generate reset token
+    const resetToken = require('crypto').randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    // Update user with reset token
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetExpires;
+    await user.save();
+
+    // TODO: Send email with reset instructions
+    // For now, we'll just return success
+    // In production, you'd integrate with an email service
+
+    logger.auth('Password reset requested', {
+      userId: user._id,
+      userType,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: "Password reset instructions have been sent to your email.",
+      // In development, include the token for testing
+      ...(process.env.NODE_ENV === 'development' && { resetToken })
+    });
+
+  } catch (error) {
+    console.error("Password reset request error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/**
+ * Reset Password for Students and Instructors
+ * Validates token and updates password
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword, userType } = req.body;
+
+    if (!token || !newPassword || !userType) {
+      return res.status(400).json({
+        success: false,
+        message: "Token, new password, and userType are required"
+      });
+    }
+
+    // Validate password strength
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters long"
+      });
+    }
+
+    // Find user with valid reset token
+    let user;
+    if (userType === 'student') {
+      user = await Student.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() }
+      });
+    } else if (userType === 'instructor') {
+      user = await Instructor.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() }
+      });
+    }
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token"
+      });
+    }
+
+    // Update password and clear reset token
+    user.password = newPassword;
+    user.authMethod = 'email'; // Set to email authentication
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    user.failedLoginAttempts = 0; // Reset failed attempts
+    user.accountLockedUntil = null;
+    await user.save();
+
+    logger.auth('Password reset completed', {
+      userId: user._id,
+      userType,
+      ip: req.ip
+    });
+
+    res.json({
+      success: true,
+      message: "Password has been reset successfully. You can now log in with your new password."
+    });
+
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/**
+ * Verify Reset Token for Students and Instructors
+ * Checks if reset token is valid without resetting password
+ */
+export const verifyResetToken = async (req, res) => {
+  try {
+    const { token, userType } = req.body;
+
+    if (!token || !userType) {
+      return res.status(400).json({
+        success: false,
+        message: "Token and userType are required"
+      });
+    }
+
+    // Find user with valid reset token
+    let user;
+    if (userType === 'student') {
+      user = await Student.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() }
+      });
+    } else if (userType === 'instructor') {
+      user = await Instructor.findOne({
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: new Date() }
+      });
+    }
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token"
+      });
+    }
+
+    // Decrypt user data to get email for display
+    let decryptedUser;
+    if (userType === 'student') {
+      decryptedUser = decryptStudentData(user.toObject());
+    } else if (userType === 'instructor') {
+      decryptedUser = decryptInstructorData(user.toObject());
+    }
+
+    res.json({
+      success: true,
+      message: "Reset token is valid",
+      email: decryptedUser.email
+    });
+
+  } catch (error) {
+    console.error("Reset token verification error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error"

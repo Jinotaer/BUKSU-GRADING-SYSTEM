@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const studentSchema = new mongoose.Schema(
   {
     googleId: {
       type: String,
-      required: true, // comes from Google OAuth or temporary for manual registration
-      unique: true,
+      default: null, // Optional for Google OAuth, null for email/password auth
     },
     studid:{
       type: String,
@@ -18,6 +18,10 @@ const studentSchema = new mongoose.Schema(
       unique: true,
       // Removed regex validation since email is encrypted before saving
       // Validation is now handled in the controller before encryption
+    },
+    password: {
+      type: String,
+      default: null, // Optional for Google OAuth users, required for email/password auth
     },
     fullName: {
       type: String,
@@ -47,6 +51,20 @@ const studentSchema = new mongoose.Schema(
     role: {
       type: String,
       default: "Student",
+    },
+    authMethod: {
+      type: String,
+      enum: ["google", "email"],
+      default: "google",
+    },
+    // Password reset fields
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
     // Brute-force protection fields
     failedLoginAttempts: {
@@ -80,6 +98,27 @@ const studentSchema = new mongoose.Schema(
   },
   { collection: "students" }
 );
+
+// Hash password before saving
+studentSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password') || !this.password) return next();
+  
+  try {
+    // Hash password with cost of 12
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Method to check password
+studentSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 // Check if model already exists before creating
 let Student;

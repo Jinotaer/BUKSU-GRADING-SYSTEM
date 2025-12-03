@@ -6,7 +6,10 @@ import {
   logout,
   checkAuthStatus,
   validateEmailDomain,
-  loginWithEmail
+  loginWithEmail,
+  requestPasswordReset,
+  resetPassword,
+  verifyResetToken
 } from "../controller/loginController.js";
 import { 
   verifyGoogleAuthToken, 
@@ -68,6 +71,27 @@ router.post("/logout", universalAuditLogger('LOGOUT', 'AUTHENTICATION'), logout)
  * @access  Public
  */
 router.get("/status", checkAuthStatus);
+
+/**
+ * @route   POST /api/auth/request-password-reset
+ * @desc    Request password reset for students and instructors
+ * @access  Public
+ */
+router.post("/request-password-reset", bruteForceProtection, universalAuditLogger('PASSWORD_RESET_REQUESTED', 'AUTHENTICATION'), requestPasswordReset);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Reset password for students and instructors
+ * @access  Public
+ */
+router.post("/reset-password", universalAuditLogger('PASSWORD_RESET_COMPLETED', 'AUTHENTICATION'), resetPassword);
+
+/**
+ * @route   POST /api/auth/verify-reset-token
+ * @desc    Verify password reset token for students and instructors
+ * @access  Public
+ */
+router.post("/verify-reset-token", verifyResetToken);
 
 /**
  * @route   GET /api/auth/student-only
