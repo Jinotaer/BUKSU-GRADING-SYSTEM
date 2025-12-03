@@ -175,7 +175,7 @@ logger.info('OAuth Configuration:', {
   googleClientSecretConfigured: !!process.env.GOOGLE_CLIENT_SECRET,
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
