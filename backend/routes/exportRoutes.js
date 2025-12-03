@@ -1,7 +1,7 @@
 // routes/exportRoutes.js
 import express from 'express';
 import { exportToGoogleSheets } from '../controller/exportController.js';
-import { exportFinalGrade } from '../controller/exportFinalGradeController.js';
+import { exportFinalGrade } from '../controller/exportfinalgradeController.js';
 import { instructorAuth } from '../middleware/auth.js';
 import { universalAuditLogger } from '../middleware/universalAuditLogger.js';
 
