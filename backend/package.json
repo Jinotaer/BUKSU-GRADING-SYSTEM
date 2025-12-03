@@ -32,8 +32,5 @@
     "pdfkit": "^0.17.2",
     "winston": "^3.18.3",
     "winston-daily-rotate-file": "^5.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.10"
   }
 }
