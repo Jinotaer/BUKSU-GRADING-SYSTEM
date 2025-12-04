@@ -4,19 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: {
-    port: 5001, // Specify your desired port here
-    // host: true, // Optional: allows access from other devices on network
-    // allowedHosts: [
-    //   '.ngrok-free.app',
-    //   '.ngrok.io',
-    //   'localhost'
-    // ],
-    headers: {
-      "Cross-Origin-Opener-Policy": "unsafe-none",
-      "Cross-Origin-Embedder-Policy": "unsafe-none",
-    }
-  },
+server: {
+  host: "0.0.0.0",
+  port: process.env.PORT,
+  headers: {
+    "Cross-Origin-Opener-Policy": "unsafe-none",
+    "Cross-Origin-Embedder-Policy": "unsafe-none"
+  }
+}
+
   plugins: [
     react({
       jsxRuntime: 'automatic',
