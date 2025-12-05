@@ -18,7 +18,7 @@ import {
   ForgotPasswordLink,
 } from "./ui/login";
 
-const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || 6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB;
 
 if (!recaptchaKey) {
   console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');
