@@ -13,7 +13,7 @@ import {
   LoginHeader,
 } from "./ui/adminLogin";
 
-const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || 6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB;
+const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB";
 
 if (!recaptchaKey) {
   console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');

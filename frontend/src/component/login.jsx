@@ -14,11 +14,9 @@ import {
   BrandPanel,
   CaptchaSection,
   ErrorMessage,
-  LoginForm,
-  ForgotPasswordLink,
 } from "./ui/login";
 
-const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || 6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB;
+const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB";
 
 if (!recaptchaKey) {
   console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');
@@ -32,103 +30,11 @@ export default function Login() {
   const [recaptchaValue, setRecaptchaValue] = useState(null);
   const [error, setError] = useState("");
 
-  // Helper function to validate email domains (but not determine user type)
-  const isValidInstitutionalEmail = (email) => {
-    return email.endsWith('@student.buksu.edu.ph') || 
-           email.endsWith('@buksu.edu.ph') ||
-           email.endsWith('@gmail.com'); // For testing
-  };
-
-  // Handle email/password login
-  const handleEmailLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (!recaptchaValue) {
-      setError("Please complete the reCAPTCHA.");
-      return;
-    }
-
-    const email = e.target.email.value;
-    const password = e.target.adminPassword.value;
-
-    if (!isValidInstitutionalEmail(email)) {
-      setError("Please use a valid institutional email address.");
-      return;
-    }
-
-    try {
-      // First, let the backend determine the user type by checking the database
-      const response = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email,
-          password,
-          captchaResponse: recaptchaValue,
-          loginMethod: 'email'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Get the user type from the backend response
-        const userType = data.user.role;
-        
-        // Store authentication data
-        sessionStorage.setItem("accessToken", data.token);
-        sessionStorage.setItem("userType", userType);
-        sessionStorage.setItem("userInfo", JSON.stringify(data.user));
-        
-        if (userType === 'admin') {
-          sessionStorage.setItem("adminInfo", JSON.stringify(data.user));
-        }
-
-        // Navigate based on user type from backend
-        switch (userType) {
-          case 'student':
-            navigate("/student");
-            break;
-          case 'instructor':
-            navigate("/instructor");
-            break;
-          case 'admin':
-            navigate("/admin");
-            break;
-          default:
-            setError("Invalid user type");
-        }
-      } else {
-        // Handle errors
-        if (response.status === 423) {
-          showError(
-            data.message || "Account is temporarily locked due to too many failed login attempts.",
-            "Account Locked"
-          );
-          return;
-        }
-        
-        let errorMessage = data.message || "Login failed.";
-        if (data.remainingAttempts !== undefined && data.remainingAttempts > 0) {
-          errorMessage += ` ${data.remainingAttempts} attempt${data.remainingAttempts > 1 ? 's' : ''} remaining.`;
-        }
-        
-        showError(errorMessage, "Login Failed");
-      }
-    } catch (error) {
-      console.error("Email login error:", error);
-      showError("An error occurred while logging in.", "Login Error");
-    }
-  };
-
   const login = useGoogleLogin({
     onSuccess: async (credentialResponse) => {
-      console.log('Google OAuth success:', credentialResponse);
-      console.log('reCAPTCHA value:', recaptchaValue);
       setError("");
       if (!recaptchaValue) {
-        setError("Please complete the reCAPTCHA verification first.");
+        setError("Please complete the reCAPTCHA.");
         return;
       }
       try {
@@ -144,13 +50,16 @@ export default function Login() {
         const userInfo = await userInfoRes.json();
         const userEmail = userInfo.email;
 
-        // Validate email domain but let backend determine user type
-        if (!isValidInstitutionalEmail(userEmail)) {
-          setError("Please use your institutional email account.");
+        // Check email domain to determine user type
+        const isStudent = userEmail.endsWith('@student.buksu.edu.ph');
+        const isInstructor = userEmail.endsWith('@gmail.com');
+
+        if (!isStudent && !isInstructor) {
+          setError("Please use your Buksu institutional email account.");
           return;
         }
 
-        // Call backend to check registration and get actual user role
+        // Call backend to check registration/approval
         const response = await fetch(
           "http://localhost:5000/api/auth/login",
           {
@@ -158,45 +67,22 @@ export default function Login() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               email: userEmail,
-              captchaResponse: recaptchaValue,
-              loginMethod: 'google'
+              userType: isStudent ? 'student' : 'instructor',
+              captchaResponse: recaptchaValue
             }),
           }
         );
         
-        console.log('Login response status:', response.status);
         const data = await response.json();
-        console.log('Login response data:', data);
         
         if (response.ok) {
-          // Get the actual user type from backend response
-          const userType = data.user.role;
-          
           sessionStorage.setItem("authToken", credentialResponse.access_token);
           sessionStorage.setItem("userInfo", JSON.stringify(data.user));
-          sessionStorage.setItem("accessToken", data.token);
-          sessionStorage.setItem("userType", userType);
+          sessionStorage.setItem("accessToken", data.token); // Use accessToken for consistency
+          sessionStorage.setItem("userType", isStudent ? 'student' : 'instructor');
           
-          if (userType === 'admin') {
-            sessionStorage.setItem("adminInfo", JSON.stringify(data.user));
-          }
-          
-          // Navigate based on user type from backend
-          switch (userType) {
-            case 'student':
-              navigate("/student");
-              break;
-            case 'instructor':
-              navigate("/instructor");
-              break;
-            case 'admin':
-              navigate("/admin");
-              break;
-            default:
-              setError("Invalid user type");
-          }
+          navigate(isStudent ? "/student" : "/instructor");
         } else {
-          console.error('Login failed:', response.status, data);
           // Handle account locked (HTTP 423)
           if (response.status === 423) {
             showError(
@@ -206,7 +92,7 @@ export default function Login() {
             return;
           }
           
-          if (data.message === "Student not registered") {
+          if (data.message === "Student not registered" && isStudent) {
             // Show confirmation dialog before proceeding to registration
             showConfirmDialog(
               "Account Not Found",
@@ -217,16 +103,8 @@ export default function Login() {
             );
             return;
           }
-          if (data.message === "Instructor not registered") {
+          if (data.message === "Instructor not registered" && isInstructor) {
             showError("Please wait for admin invitation to access the system.", "Access Denied");
-            return;
-          }
-          if (data.message === "Admin not registered") {
-            showError("Admin account not found. Please contact system administrator.", "Access Denied");
-            return;
-          }
-          if (data.message && data.message.includes("not registered")) {
-            showError("Account not found. Please contact system administrator.", "Access Denied");
             return;
           }
           if (data.message === "Account not approved yet") {
@@ -245,17 +123,13 @@ export default function Login() {
           
           showError(errorMessage, "Login Failed");
         }
-      } catch (error) {
-        console.error("Google login error:", error);
-        showError("An error occurred while logging in. Please try again.", "Login Error");
+      } catch {
+        showError("An error occurred while logging in.", "Login Error");
       }
     },
-    onError: (error) => {
-      console.error("Google OAuth error:", error);
+    onError: () => {
       showError("Login failed. Please try again.", "Login Failed");
     },
-    flow: 'auth-code', // Use authorization code flow instead of implicit
-    ux_mode: 'popup' // Explicitly set popup mode
   });
 
   const onRecaptchaChange = (value) => setRecaptchaValue(value);
@@ -274,26 +148,17 @@ export default function Login() {
         <LoginFormContainer>
           <LoginWelcomeHeader
             title="Welcome back"
-            subtitle="Sign in using your institutional account"
+            subtitle="Sign in using your institutional Google account"
           />
 
-          {/* Login Form */}
-          <LoginForm onSubmit={handleEmailLogin} disabled={!recaptchaValue} />
-
-          {/* Forgot Password Link */}
-          <ForgotPasswordLink onClick={() => navigate("/forgotPassword")} to="/forgotPassword" />
+          {/* Google Login Button */}
+          <GoogleLoginButton onClick={login} />
 
           {/* Divider */}
           <Divider />
 
-          {/* Google Login Button */}
-          <GoogleLoginButton onClick={() => login()} disabled={!recaptchaValue} />
-          
-          {!recaptchaValue && (
-            <p className="text-sm text-amber-600 text-center">
-              ⚠️ Please complete reCAPTCHA verification to enable login options
-            </p>
-          )}
+          {/* Admin Login Button */}
+          <AdminLoginLink to="/adminLogin" />
 
           {/* reCAPTCHA */}
           <CaptchaSection

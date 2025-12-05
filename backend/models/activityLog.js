@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const activityLogSchema = new mongoose.Schema({
   // Who performed the action (new universal fields)
   userId: {
-    type: mongoose. Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     required: false // Made optional for backward compatibility
   },
   userEmail: {
@@ -17,7 +17,7 @@ const activityLogSchema = new mongoose.Schema({
   },
   // Legacy fields for backward compatibility
   adminId: {
-    type: mongoose. Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin'
   },
   adminEmail: {
@@ -130,8 +130,8 @@ const activityLogSchema = new mongoose.Schema({
   // Timestamps
   timestamp: {
     type: Date,
-    default: Date.now
-    // ✅ REMOVED: index: true - to avoid duplicate with TTL index below
+    default: Date.now,
+    index: true
   }
 }, {
   timestamps: true,
@@ -145,14 +145,14 @@ activityLogSchema.index({ userType: 1, timestamp: -1 }); // New field
 activityLogSchema.index({ action: 1, timestamp: -1 });
 activityLogSchema.index({ category: 1, timestamp: -1 });
 activityLogSchema.index({ ipAddress: 1, timestamp: -1 });
-activityLogSchema. index({ targetType: 1, targetId: 1 });
+activityLogSchema.index({ targetType: 1, targetId: 1 });
 activityLogSchema.index({ success: 1, timestamp: -1 });
 
 // TTL index to automatically delete old logs (optional - keeps logs for 1 year)
 activityLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 31536000 }); // 365 days
 
 // Static method to log activity
-activityLogSchema.statics. logActivity = async function(logData) {
+activityLogSchema.statics.logActivity = async function(logData) {
   try {
     // Handle backward compatibility - populate new fields from legacy fields if needed
     const processedData = { ...logData };
@@ -161,11 +161,11 @@ activityLogSchema.statics. logActivity = async function(logData) {
       processedData.userId = processedData.adminId;
     }
     
-    if (!processedData.userEmail && processedData. adminEmail) {
+    if (!processedData.userEmail && processedData.adminEmail) {
       processedData.userEmail = processedData.adminEmail;
     }
     
-    if (!processedData.userType && processedData. adminId) {
+    if (!processedData.userType && processedData.adminId) {
       processedData.userType = 'admin';
     }
     

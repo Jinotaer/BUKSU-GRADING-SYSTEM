@@ -14,7 +14,7 @@ import {
   updateSectionGradingSchema
 } from "../controller/instructorController.js";
 import { getAllInstructors } from "../controller/adminController.js";
-import { instructorAuth, auth } from "../middleware/auth.js";
+import { verifyGoogleAuthToken, requireRole, auth } from "../middleware/auth.js";
 import { universalAuditLogger } from "../middleware/universalAuditLogger.js";
 
 const router = express.Router();
