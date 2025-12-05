@@ -161,7 +161,7 @@ class AdminAuth {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, captchaResponse }),
+        body: JSON.stringify({ email, password, captchaResponse, loginMethod: 'email' }),
       });
 
       const data = await response.json();

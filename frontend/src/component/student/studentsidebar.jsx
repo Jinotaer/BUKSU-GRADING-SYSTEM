@@ -131,7 +131,7 @@ export function NavbarSimple() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("accessToken");
       await fetch("http://localhost:5000/api/logout", {
         method: "POST",
         headers: {
@@ -140,7 +140,7 @@ export function NavbarSimple() {
         },
         credentials: "include",
       });
-      localStorage.removeItem("token");
+      sessionStorage.clear();
       sessionStorage.clear();
       document.cookie =
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";

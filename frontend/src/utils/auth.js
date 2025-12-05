@@ -42,43 +42,7 @@ export const isAuthenticated = () => {
 };
 
 /**
- * Refresh access token using refresh token
- */
-export const refreshAccessToken = async () => {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new Error("No refresh token available");
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/refresh-token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${refreshToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to refresh token");
-    }
-
-    const data = await response.json();
-    if (data.success && data.accessToken) {
-      saveTokens(data.accessToken, refreshToken);
-      return data.accessToken;
-    } else {
-      throw new Error("Invalid refresh token response");
-    }
-  } catch (error) {
-    console.error("Token refresh failed:", error);
-    clearTokens();
-    throw error;
-  }
-};
-
-/**
- * Make authenticated API request with automatic token refresh
+ * Make authenticated API request
  */
 export const authenticatedFetch = async (url, options = {}) => {
   const accessToken = getAccessToken();
@@ -94,36 +58,17 @@ export const authenticatedFetch = async (url, options = {}) => {
   };
 
   try {
-    // Make the initial request
-    let response = await fetch(url, {
+    // Make the request
+    const response = await fetch(url, {
       ...options,
       headers,
     });
 
-    // If token is expired, try to refresh it
+    // If token is expired or invalid, redirect to login
     if (response.status === 401) {
-      const errorData = await response.json();
-      
-      // Check if it's specifically a token expiration error
-      if (errorData.message === "Token is not valid" || errorData.message?.includes("expired")) {
-        try {
-          const newAccessToken = await refreshAccessToken();
-          
-          // Retry the request with the new token
-          response = await fetch(url, {
-            ...options,
-            headers: {
-              ...options.headers,
-              Authorization: `Bearer ${newAccessToken}`,
-            },
-          });
-        } catch {
-          // If refresh fails, redirect to login
-          clearTokens();
-          window.location.href = "/login";
-          throw new Error("Session expired. Please login again.");
-        }
-      }
+      clearTokens();
+      window.location.href = "/login";
+      throw new Error("Session expired. Please login again.");
     }
 
     return response;

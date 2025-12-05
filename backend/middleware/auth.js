@@ -379,6 +379,25 @@ export const verifyGoogleAuthToken = async (req, res, next) => {
       role: decoded.role
     };
 
+    // For backward compatibility with existing controllers, also set role-specific properties
+    if (decoded.role === "instructor") {
+      req.instructor = {
+        id: decoded.id,
+        _id: decoded.id,
+        email: user.email,
+        role: 'instructor',
+        fullName: user.fullName,
+      };
+    } else if (decoded.role === "student") {
+      req.student = {
+        id: decoded.id,
+        _id: decoded.id,
+        email: user.email,
+        role: 'student',
+        fullName: user.fullName,
+      };
+    }
+
     next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {

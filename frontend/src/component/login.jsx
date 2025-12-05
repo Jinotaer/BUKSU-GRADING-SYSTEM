@@ -68,7 +68,8 @@ export default function Login() {
             body: JSON.stringify({ 
               email: userEmail,
               userType: isStudent ? 'student' : 'instructor',
-              captchaResponse: recaptchaValue
+              captchaResponse: recaptchaValue,
+              loginMethod: 'google'
             }),
           }
         );
@@ -76,11 +77,12 @@ export default function Login() {
         const data = await response.json();
         
         if (response.ok) {
+
           sessionStorage.setItem("authToken", credentialResponse.access_token);
           sessionStorage.setItem("userInfo", JSON.stringify(data.user));
           sessionStorage.setItem("accessToken", data.token); // Use accessToken for consistency
           sessionStorage.setItem("userType", isStudent ? 'student' : 'instructor');
-          
+
           navigate(isStudent ? "/student" : "/instructor");
         } else {
           // Handle account locked (HTTP 423)
