@@ -34,9 +34,9 @@ export default function Login() {
     onSuccess: async (credentialResponse) => {
       setError("");
       if (!recaptchaValue) {
-        setError("Please complete the reCAPTCHA.");
-        return;
-      }
+         setError("Please complete the reCAPTCHA.");
+         return;
+       }
       try {
         // Get user email from Google
         const userInfoRes = await fetch(
