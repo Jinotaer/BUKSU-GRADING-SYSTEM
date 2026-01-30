@@ -157,10 +157,10 @@ export default function Login() {
           <GoogleLoginButton onClick={login} />
 
           {/* Divider */}
-          <Divider />
+          {/* <Divider /> */}
 
           {/* Admin Login Button */}
-          <AdminLoginLink to="/adminLogin" />
+          {/* <AdminLoginLink to="/adminLogin" /> */}
 
           {/* reCAPTCHA */}
           <CaptchaSection

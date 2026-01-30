@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import useGemini from '../../hooks/useGemini';
+import { authenticatedFetch } from '../../utils/auth';
 import { 
   IconSend, 
   IconLoader, 
@@ -10,21 +10,29 @@ import {
   IconBulb,
   IconBook,
   IconCalculator,
-  IconClock
+  IconClock,
+  IconSettings
 } from '@tabler/icons-react';
 
 export default function AIHelper() {
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showContextOptions, setShowContextOptions] = useState(false);
+  const [contextOptions, setContextOptions] = useState({
+    includeGrades: true,
+    includeSchedule: true,
+    includeSubjects: true
+  });
   const [messages, setMessages] = useState([
     { 
       id: 1, 
       role: 'assistant', 
-      text: "Hi! I'm your BukSU Academic Assistant. I can help you understand your grades, explain academic concepts, provide study tips, or answer questions about your coursework. How can I assist you today?",
+      text: "Hi! I'm your BukSU Academic Assistant. I can help you understand your grades, explain academic concepts, provide study tips, or answer questions about your coursework. I have access to your personal academic data to give you specific, personalized assistance. How can I assist you today?",
       timestamp: new Date().toISOString()
     },
   ]);
   const [copied, setCopied] = useState(null);
-  const { generate, loading, error } = useGemini();
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -49,42 +57,60 @@ export default function AIHelper() {
     const typingId = 'typing-' + Date.now();
     const typingMsg = { id: typingId, role: 'assistant', typing: true };
     setMessages((m) => [...m, typingMsg]);
+    
+    setLoading(true);
+    setError(null);
 
     try {
-      // Enhanced prompt with educational context
-      const educationalPrompt = `You are BukSU Academic Assistant, an AI helper for students at Bukidnon State University's grading system. 
+      console.log('Sending AI request with context options:', contextOptions);
       
-      Context: You're helping students with academic-related questions. Please provide helpful, educational responses about:
-      - Grade explanations and academic performance
-      - Study tips and learning strategies
-      - Course content clarification
-      - Academic planning and time management
-      - University policies and procedures
-      
-      Keep responses concise, encouraging, and student-focused.
-      
-      Student question: ${t}`;
+      const response = await authenticatedFetch('http://localhost:5000/api/ai/generate-with-context', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: t,
+          ...contextOptions,
+          maxOutputTokens: 500,
+          temperature: 0.7
+        })
+      });
 
-      const resp = await generate(educationalPrompt, { maxOutputTokens: 500 });
-      const assistantText = resp?.text || 'I apologize, but I couldn\'t process your request. Please try asking again.';
-      const assistantMsg = { 
-        id: Date.now() + 1, 
-        role: 'assistant', 
-        text: assistantText,
-        timestamp: new Date().toISOString()
-      };
-      
-      setMessages((m) => m.map((msg) => (msg.id === typingId ? assistantMsg : msg)));
+      console.log('AI response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('AI response data:', data);
+        
+        const assistantText = data.text || 'I apologize, but I couldn\'t process your request. Please try asking again.';
+        const assistantMsg = { 
+          id: Date.now() + 1, 
+          role: 'assistant', 
+          text: assistantText,
+          timestamp: new Date().toISOString()
+        };
+        
+        setMessages((m) => m.map((msg) => (msg.id === typingId ? assistantMsg : msg)));
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('AI request failed:', response.status, errorData);
+        throw new Error(`Server error: ${errorData.error || 'Unknown error'}`);
+      }
     } catch (err) {
+      console.error('AI generate error', err);
+      setError(err.message);
+      
       const errMsg = { 
         id: Date.now() + 2, 
         role: 'assistant', 
-        text: 'I\'m having trouble connecting right now. Please check your internet connection and try again.',
+        text: 'I\'m having trouble accessing your academic data right now. Please check your connection and try again.',
         timestamp: new Date().toISOString(),
         isError: true
       };
       setMessages((m) => m.map((msg) => (msg.id === typingId ? errMsg : msg)));
-      console.error('AI generate error', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -150,10 +176,17 @@ export default function AIHelper() {
       {/* Compact Chat Actions Header */}
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-300 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-1">
-          {/* <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs text-gray-600 font-medium">Online</span> */}
+          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-xs text-gray-600 font-medium">AI with Academic Data</span>
         </div>
         <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setShowContextOptions(!showContextOptions)}
+            className="p-1 rounded hover:bg-gray-100 transition-colors"
+            title="Context settings"
+          >
+            <IconSettings className="w-3 h-3 text-gray-500" />
+          </button>
           <button
             onClick={exportChat}
             className="p-1 rounded hover:bg-gray-100 transition-colors"
@@ -171,6 +204,42 @@ export default function AIHelper() {
           </button>
         </div>
       </div>
+
+      {/* Context Options Panel */}
+      {showContextOptions && (
+        <div className="px-3 py-2 bg-blue-50 border-b border-blue-200">
+          <div className="text-xs font-semibold text-blue-700 mb-1">AI has access to:</div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={contextOptions.includeGrades}
+                onChange={(e) => setContextOptions(prev => ({ ...prev, includeGrades: e.target.checked }))}
+                className="w-3 h-3"
+              />
+              <span className="text-blue-700">My Grades</span>
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={contextOptions.includeSchedule}
+                onChange={(e) => setContextOptions(prev => ({ ...prev, includeSchedule: e.target.checked }))}
+                className="w-3 h-3"
+              />
+              <span className="text-blue-700">My Schedule</span>
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={contextOptions.includeSubjects}
+                onChange={(e) => setContextOptions(prev => ({ ...prev, includeSubjects: e.target.checked }))}
+                className="w-3 h-3"
+              />
+              <span className="text-blue-700">My Subjects</span>
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Scrollable Messages Container */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-2 py-2 space-y-2 min-h-0" style={{ maxHeight: '350px' }}>

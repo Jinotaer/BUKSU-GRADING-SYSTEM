@@ -37,7 +37,7 @@ export default function AdminLoginForm({ onSubmit }) {
 
       <button
         type="submit"
-        className="w-full px-4 py-3 bg-blue-900 text-white font-semibold rounded-md hover:bg-blue-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2"
+        className="w-full px-4 py-3 bg-blue-900 text-white font-semibold rounded-md hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2 cursor-pointer"
         style={{ backgroundColor: "#091057" }}
       >
         Login

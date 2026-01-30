@@ -44,15 +44,15 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" />} />
-      <Route path="/admin/adminLogin" element={<AdminLogin />} />
-      <Route path="/admin/adminRequestCode" element={<AdminRequestCode />} />
+      <Route path="/admin/admin-login" element={<AdminLogin />} />
+      <Route path="/admin/admin-request-code" element={<AdminRequestCode />} />
       <Route path="/admin/reset-password" element={<AdminResetPassword />} />
-      <Route path="/admin/adminVerifyCode" element={<AdminVerifyCode />} />
+      <Route path="/admin/admin-verify-code" element={<AdminVerifyCode />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/studentRegister" element={<Register />} />
+      <Route path="/student-register" element={<Register />} />
       <Route path="*" element={<Navigate to="/login" />} />
-      <Route path="/adminLogin" element={<AdminLogin />} />
+      <Route path="/admin-login" element={<AdminLogin />} />
 
       {/* Admin routes */}
       <Route

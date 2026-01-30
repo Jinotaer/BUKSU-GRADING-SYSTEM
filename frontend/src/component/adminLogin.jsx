@@ -109,7 +109,7 @@ export default function AdminLogin() {
       {/* Right Panel - Form */}
       <div className="w-full lg:w-[500px] xl:w-[480px] flex flex-col justify-center px-6 py-8 sm:px-8 sm:py-12 lg:px-16 lg:py-12 bg-gray-50 relative">
         {/* Back Arrow */}
-        <BackButton onClick={() => navigate("/login")} />
+        {/* <BackButton onClick={() => navigate("/login")} /> */}
 
         <div className="max-w-md mx-auto mt-8">
           <LoginHeader
@@ -120,7 +120,7 @@ export default function AdminLogin() {
           <AdminLoginForm onSubmit={handleAdminLogin} />
 
           <ForgotPasswordLink
-            onClick={() => navigate("/admin/adminRequestCode")}
+            onClick={() => navigate("/admin/admin-request-code")}
           />
 
           {/* reCAPTCHA */}

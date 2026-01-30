@@ -30,7 +30,7 @@ export default function AdminRequestCode() {
       if (data.ok) {
         setSuccess("A reset code has been sent to your email.");
         e.target.reset();
-        navigate("/admin/adminVerifyCode");
+        navigate("/admin/admin-verify-code");
       } else {
         setError(data.message || "Failed to send reset code.");
       }
@@ -43,7 +43,7 @@ export default function AdminRequestCode() {
   };
 
   return (
-    <AuthLayout onBack={() => navigate("/admin/adminLogin")}>
+    <AuthLayout onBack={() => navigate("/admin/admin-login")}>
       <FormHeader
         title="Request Reset Code"
         subtitle="Enter your admin email to receive a reset code"

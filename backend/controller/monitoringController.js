@@ -517,6 +517,12 @@ export const exportLogs = async (req, res) => {
     // Fixed rows per page
     const rowsPerPage = 10;
 
+    // Generate ONE signature for the entire document (before creating pages)
+    const documentTimestamp = new Date();
+    const documentHash = pdfSigner.createDocumentHash({ logs, timestamp: documentTimestamp });
+    const digitalSignature = pdfSigner.signDocument(documentHash, { totalLogs: logs.length });
+    const displaySig = pdfSigner.addSignatureToPDF(doc, digitalSignature);
+    
     // Only create pages if we have logs
     if (logs.length === 0) {
       // Add first page header
@@ -535,10 +541,7 @@ export const exportLogs = async (req, res) => {
       // Add footer for empty case - use direct positioning
       const footerY = 565; // Fixed Y coordinate for A4 landscape
       
-      // Generate real PDF digital signature for empty case
-      const documentHash = pdfSigner.createDocumentHash({ logs: [], timestamp: new Date() });
-      const digitalSignature = pdfSigner.signDocument(documentHash, { totalLogs: 0 });
-      const displaySig = pdfSigner.addSignatureToPDF(doc, digitalSignature);
+      // Use the same signature generated above (no regeneration)
       
       // Digital signature area - Left side
       doc.fontSize(8)
@@ -625,13 +628,8 @@ export const exportLogs = async (req, res) => {
         // Add footer to current page before adding new page - use direct positioning
         const footerY = 565; // Fixed Y coordinate for A4 landscape
         
-        // Generate real PDF digital signature for page break
-        const documentHash = pdfSigner.createDocumentHash({ logs: logs.slice(0, index), timestamp: new Date() });
-        const digitalSignature = pdfSigner.signDocument(documentHash, { 
-          totalLogs: logs.length, 
-          currentPage: currentPage
-        });
-        const displaySig = pdfSigner.addSignatureToPDF(doc, digitalSignature);
+        // Use the SAME signature for all pages (already generated above)
+        // No regeneration - same signature on every page
         
         // Digital signature area - Left side
         doc.fontSize(8)
@@ -730,19 +728,12 @@ export const exportLogs = async (req, res) => {
     // Add footer to the last page - use direct positioning
     const footerY = 565; // Fixed Y coordinate for A4 landscape
     
-    // Generate real PDF digital signature for final page
-    const documentHash = pdfSigner.createDocumentHash({ logs, timestamp: new Date() });
-    const digitalSignature = pdfSigner.signDocument(documentHash, { 
-      totalLogs: logs.length, 
-      finalPage: true
-    });
-    const displaySig = pdfSigner.addSignatureToPDF(doc, digitalSignature);
-    
-    // Digital signature area - Left side
-      doc.fontSize(8)
-          .font('Helvetica')
-          .fillColor('#000')
-          .text(`BGS - ${displaySig}`, 40, footerY - 25);
+    // Use the SAME signature for the final page (already generated above)
+    // No regeneration - same signature on every page
+    doc.fontSize(8)
+      .font('Helvetica')
+      .fillColor('#000')
+      .text(`BGS - ${displaySig}`, 40, footerY - 25);
     
     // // Signature line
     // doc.moveTo(40, footerY - 5)

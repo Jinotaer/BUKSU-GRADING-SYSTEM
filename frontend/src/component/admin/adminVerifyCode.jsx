@@ -47,7 +47,7 @@ export default function AdminVerifyCode() {
   };
 
   return (
-    <AuthLayout onBack={() => navigate("/admin/adminRequestCode")}>
+    <AuthLayout onBack={() => navigate("/admin/admin-request-code")}>
       <FormHeader
         title="Verify Code"
         subtitle="Enter the 6-digit code sent to your email"

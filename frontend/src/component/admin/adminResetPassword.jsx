@@ -21,7 +21,7 @@ export default function AdminResetPassword() {
   useEffect(() => {
     if (!passcode) {
       setError("Reset code expired. Please request a new one.");
-      const redirect = setTimeout(() => navigate("/admin/adminRequestCode"), 3000);
+      const redirect = setTimeout(() => navigate("/admin/admin-request-code"), 3000);
       return () => clearTimeout(redirect);
     }
     return undefined;
@@ -55,7 +55,7 @@ export default function AdminResetPassword() {
         setSuccess("Password successfully updated!");
         sessionStorage.removeItem("admin_reset_passcode");
         event.target.reset();
-        navigate("/admin/adminLogin");
+        navigate("/admin/admin-login");
       } else {
         setError(response.message || "Failed to reset password.");
       }
@@ -68,7 +68,7 @@ export default function AdminResetPassword() {
   };
 
   return (
-    <AuthLayout onBack={() => navigate("/admin/adminLogin")}>
+    <AuthLayout onBack={() => navigate("/admin/admin-login")}>
       <FormHeader
         title="Reset Password"
         subtitle="Set a new password for your administrator account"
