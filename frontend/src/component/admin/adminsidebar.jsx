@@ -170,7 +170,7 @@ export function NavbarSimple() {
         message: "You have been successfully logged out.",
         type: "success",
       });
-      navigate("/login");
+      navigate("admin-login");
     } catch (error) {
       console.error("Logout error:", error);
       setNotification({

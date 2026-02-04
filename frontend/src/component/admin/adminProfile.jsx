@@ -8,14 +8,12 @@ import {
   ProfileCard,
   PersonalInfoCard,
   AccountInfoCard,
-  ChangePasswordModal,
+  ChangePasswordCard,
 } from "./ui/profile";
 
 export default function AdminProfile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Removed editModalOpened state since admin profile cannot be edited
-  const [passwordModalOpened, setPasswordModalOpened] = useState(false);
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
 
   // Removed editForm state since admin profile is predefined
@@ -28,6 +26,8 @@ export default function AdminProfile() {
   });
 
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   // Fetch admin profile
   const fetchProfile = async () => {
@@ -72,13 +72,17 @@ export default function AdminProfile() {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     
+    // Clear previous messages
+    setPasswordError("");
+    setPasswordSuccess("");
+    
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showAlert("error", "New passwords do not match");
+      setPasswordError("New passwords do not match");
       return;
     }
 
     if (passwordForm.newPassword.length < 8) {
-      showAlert("error", "Password must be at least 8 characters long");
+      setPasswordError("Password must be at least 8 characters long");
       return;
     }
 
@@ -86,16 +90,18 @@ export default function AdminProfile() {
 
     try {
       await adminAuth.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      showAlert("success", "Password changed successfully");
-      setPasswordModalOpened(false);
+      setPasswordSuccess("Password changed successfully");
       setPasswordForm({
         currentPassword: "",
         newPassword: "",
         confirmPassword: ""
       });
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setPasswordSuccess(""), 5000);
     } catch (error) {
       console.error("Error changing password:", error);
-      showAlert("error", error.message || "Failed to change password");
+      setPasswordError(error.message || "Failed to change password");
     } finally {
       setPasswordLoading(false);
     }
@@ -141,30 +147,27 @@ export default function AdminProfile() {
         <PageHeader />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <ProfileCard profile={profile} getStatusColor={getStatusColor} />
+          <ProfileCard 
+            profile={profile} 
+            getStatusColor={getStatusColor}
+          />
 
           {/* Information Cards */}
           <div className="lg:col-span-2 space-y-6">
             <PersonalInfoCard profile={profile} />
             <AccountInfoCard profile={profile} formatDate={formatDate} />
+            
+            {/* Change Password Card */}
+            <ChangePasswordCard
+              passwordForm={passwordForm}
+              passwordLoading={passwordLoading}
+              passwordError={passwordError}
+              passwordSuccess={passwordSuccess}
+              onSubmit={handlePasswordChange}
+              onChange={setPasswordForm}
+            />
           </div>
         </div>
-
-        <ChangePasswordModal
-          show={passwordModalOpened}
-          passwordForm={passwordForm}
-          passwordLoading={passwordLoading}
-          onClose={() => {
-            setPasswordModalOpened(false);
-            setPasswordForm({
-              currentPassword: "",
-              newPassword: "",
-              confirmPassword: "",
-            });
-          }}
-          onSubmit={handlePasswordChange}
-          onChange={setPasswordForm}
-        />
       </div>
     </div>
   );

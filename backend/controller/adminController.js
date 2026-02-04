@@ -282,6 +282,8 @@ export const loginAdmin = async (req, res) => {
 
     // Verify password
     console.log(`🔍 Verifying password for admin ${admin._id}...`);
+    console.log(`🔍 Input password: "${password}"`);
+    console.log(`🔍 Stored password hash: ${admin.password.substring(0, 29)}...`);
     const isPasswordValid = await admin.comparePassword(password);
     console.log(`🔍 Password valid: ${isPasswordValid}`);
     
@@ -1364,6 +1366,112 @@ export const logoutAdmin = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Logout failed"
+    });
+  }
+};
+
+/**
+ * Change admin password
+ * Verifies current password before allowing password change
+ */
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required"
+      });
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters long"
+      });
+    }
+
+    // Get admin from database
+    const admin = await Admin.findById(req.admin.id);
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found"
+      });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, admin.password);
+    if (!isValidPassword) {
+      await logUniversalActivity(
+        req.admin.id,
+        'admin',
+        'PASSWORD_CHANGE_FAILED',
+        {
+          category: 'SECURITY',
+          success: false,
+          description: 'Failed password change attempt - incorrect current password',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect"
+      });
+    }
+
+    // Check if new password is same as current
+    const isSamePassword = await bcrypt.compare(newPassword, admin.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password"
+      });
+    }
+
+    // Update password (pre-save hook will hash it automatically)
+    admin.password = newPassword;
+    await admin.save();
+
+    // Log the activity
+    await logUniversalActivity(
+      req.admin.id,
+      'admin',
+      'PASSWORD_CHANGED',
+      {
+        category: 'SECURITY',
+        success: true,
+        description: 'Admin password changed successfully',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    );
+
+    logger.auth('Admin password changed', {
+      adminId: req.admin.id,
+      email: req.admin.email,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully"
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    logger.error('Admin password change failed', {
+      error: error.message,
+      adminId: req.admin?.id
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password"
     });
   }
 };

@@ -4,4 +4,4 @@ export { LoadingState } from "./LoadingState";
 export { ProfileCard } from "./ProfileCard";
 export { PersonalInfoCard } from "./PersonalInfoCard";
 export { AccountInfoCard } from "./AccountInfoCard";
-export { ChangePasswordModal } from "./ChangePasswordModal";
+export { ChangePasswordCard } from "./ChangePasswordCard";

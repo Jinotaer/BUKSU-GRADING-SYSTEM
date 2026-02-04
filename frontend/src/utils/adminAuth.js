@@ -365,26 +365,26 @@ class AdminAuth {
     }
   }
 
-  // Verify reset passcode
-  async verifyResetCode(passcode) {
-    try {
-      const response = await fetch(`${this.baseURL}/verify-reset-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to verify reset code");
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Verify reset code error:", error);
-      throw error;
+  // Change admin password
+  async changePassword(currentPassword, newPassword) {
+    const accessToken = this.getAccessToken();
+    if (!accessToken) throw new Error("Not authenticated");
+    const response = await fetch(`${this.baseURL}/change-password`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to change password");
     }
+    return await response.json();
   }
 }
 
