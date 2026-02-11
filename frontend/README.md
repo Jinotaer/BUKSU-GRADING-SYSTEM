@@ -1,16 +1,81 @@
-# React + Vite
+# 🖥️ Buksu Grading System - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend application for the Buksu Grading System, built with React and Vite.
 
-Currently, two official plugins are available:
+## 📋 Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+For complete setup instructions, please refer to the [main README](../README.md) in the project root.
 
-## React Compiler
+### Install Dependencies
 
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+### Run Development Server
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run dev
+```
+
+The application will start on **http://localhost:5001**
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+## 🛠️ Tech Stack
+
+- **Vite** - Fast build tool and dev server
+- **React 19** - UI library
+- **React Router DOM** - Client-side routing
+- **Tailwind CSS** - Utility-first CSS framework
+- **Axios** - HTTP client
+- **React Icons & Tabler Icons** - Icon libraries
+- **React Big Calendar** - Calendar component
+- **Recharts** - Charting library
+- **Google OAuth** - Authentication
+- **React Google reCAPTCHA** - Bot protection
+
+## 📁 Project Structure
+
+```
+src/
+├── component/        # React components
+├── hooks/           # Custom React hooks
+├── utils/           # Utility functions
+├── assets/          # Static assets
+├── App.jsx          # Root component
+├── main.jsx         # Entry point
+└── index.css        # Global styles
+```
+
+## 🔧 Configuration
+
+Create a `.env` file in the frontend directory:
+
+```env
+VITE_API_URL=http://localhost:5000
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+VITE_RECAPTCHA_SITE_KEY=your_recaptcha_site_key
+```
+
+## 🚀 Available Scripts
+
+- `npm run dev` - Start development server on port 5001
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm start` - Serve production build
+- `npm run lint` - Run ESLint
+
+## 📚 More Information
+
+For complete documentation, setup guides, and backend information, see the [main README](../README.md).
