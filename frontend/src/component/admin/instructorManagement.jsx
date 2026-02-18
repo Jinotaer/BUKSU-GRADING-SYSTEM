@@ -152,8 +152,13 @@ export default function InstructorManagement() {
         });
         await fetchInstructors();
       } else {
-        const errorData = await res.json();
-        showError(errorData.message || "Failed to send invitation.");
+        // If duplicate, show a specific error
+        if (res.status === 409) {
+          showError("Instructor with this email or ID already exists.");
+        } else {
+          const errorData = await res.json();
+          showError(errorData.message || "Failed to send invitation.");
+        }
       }
     } catch {
       showError("Network error occurred while sending invitation.");

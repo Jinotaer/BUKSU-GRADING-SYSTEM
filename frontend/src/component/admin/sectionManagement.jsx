@@ -132,7 +132,7 @@ export default function SectionManagement() {
 
   // College options
   const collegeOptions = [
-    "College of Technology",
+    "College of Technologies",
     "College of Business",
     "College of Education",
     "College of Arts and Science",

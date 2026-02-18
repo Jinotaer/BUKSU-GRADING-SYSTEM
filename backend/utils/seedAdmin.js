@@ -70,12 +70,14 @@ const seedAdminAccounts = async () => {
         }
       }
 
-      const hashed = await bcrypt.hash(a.password, 12);
+      // NOTE: Do NOT hash the password here. The Admin model's pre-save
+      // middleware already handles hashing. Hashing here would cause a
+      // double-hash, making password comparison always fail.
       const doc = {
         email: a.email,
         firstName: a.firstName,
         lastName: a.lastName,
-        password: hashed,
+        password: a.password, // plain text — will be hashed by pre-save hook
         role: "Admin",
         status: "Active",
         // ...(a.schoolName ? { schoolName: a.schoolName } : {})
@@ -85,7 +87,11 @@ const seedAdminAccounts = async () => {
         // Admin exists, check if needs encryption update
         if (!isEncrypted(existingAdmin.email)) {
           console.log(`🔄 Updating admin ${a.email} to encrypted format...`);
-          const encryptedDoc = encryptAdminData(doc);
+          // For updates via findByIdAndUpdate, pre-save doesn't run,
+          // so we must hash the password manually here.
+          const hashed = await bcrypt.hash(a.password, 12);
+          const updateDoc = { ...doc, password: hashed };
+          const encryptedDoc = encryptAdminData(updateDoc);
           await Admin.findByIdAndUpdate(existingAdmin._id, encryptedDoc);
           updated++;
         } else {
@@ -94,6 +100,7 @@ const seedAdminAccounts = async () => {
         }
       } else {
         // Create new admin with encrypted data
+        // Encrypt everything except password (model pre-save will hash it)
         console.log(`➕ Creating new encrypted admin ${a.email}...`);
         const encryptedDoc = encryptAdminData(doc);
         await Admin.create(encryptedDoc);

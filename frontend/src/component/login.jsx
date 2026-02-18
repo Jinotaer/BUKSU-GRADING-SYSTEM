@@ -100,7 +100,7 @@ export default function Login() {
               "Account Not Found",
               `No account found for ${userEmail}. Would you like to create a new student account with this email?`,
               () => {
-                navigate("/studentRegister", { state: { email: userEmail } });
+                navigate("/student-register", { state: { email: userEmail } });
               }
             );
             return;

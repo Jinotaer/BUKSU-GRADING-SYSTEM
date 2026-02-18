@@ -36,7 +36,7 @@ export function StudentRegister() {
     { value: "College of Public Administration", label: "College of Public Administration" },
     { value: "College of Nursing", label: "College of Nursing" },
     { value: "College of Business", label: "College of Business" },
-    { value: "College of Technology", label: "College of Technology" },
+    { value: "College of Technologies", label: "College of Technologies" },
     { value: "College of Arts and Science", label: "College of Arts and Science" },
     { value: "College of Law", label: "College of Law" },
   ];

@@ -16,7 +16,7 @@ export default function RegistrationHeader({ logoSrc, title, subtitle, loginLink
       </h1>
       <p className="text-gray-600 text-lg">{subtitle}</p>
       {loginLink && (
-        <p className="text-gray-600 text-lg pt-5">
+        <p className="text-gray-600 text-sm pt-5">
           Already registered?{" "}
           <a href={loginLink} className="text-blue-500 hover:underline">
             Login

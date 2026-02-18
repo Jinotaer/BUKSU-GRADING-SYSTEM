@@ -524,6 +524,13 @@ export const inviteInstructor = async (req, res) => {
     });
   } catch (error) {
     console.error("Invite instructor error:", error);
+    // Handle MongoDB duplicate key error (code 11000)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Instructor with this email or ID already exists",
+      });
+    }
     res.status(500).json({
       success: false,
       message: "Internal server error",

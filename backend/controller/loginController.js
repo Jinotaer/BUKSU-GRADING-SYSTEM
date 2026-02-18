@@ -509,9 +509,18 @@ export const loginWithEmail = async (req, res) => {
     if (!userResult) {
       // Record failed attempt for non-existent user
       await handleFailedLogin(email, actualUserType || "unknown").catch(() => {});
+
+      // Return a role-specific message so the frontend can handle each case
+      let notRegisteredMessage = "User not registered";
+      if (actualUserType === 'student') {
+        notRegisteredMessage = "Student not registered";
+      } else if (actualUserType === 'instructor') {
+        notRegisteredMessage = "Instructor not registered";
+      }
+
       return res.status(404).json({
         success: false,
-        message: "User not registered"
+        message: notRegisteredMessage
       });
     }
 
