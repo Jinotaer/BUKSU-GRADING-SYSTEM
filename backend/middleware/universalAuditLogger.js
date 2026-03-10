@@ -1,97 +1,80 @@
 import ActivityLog from '../models/activityLog.js';
 import logger from '../config/logger.js';
+import {
+  createDetailedLogPayload,
+  extractActorFromRequest,
+  writeDetailedActivityLog,
+} from "../utils/activityLogUtils.js";
 
 // Universal logging middleware that works for all user types
 export const universalAuditLogger = (action, category) => {
   return (req, res, next) => {
+    const originalSend = res.send;
     // Store original res.json to intercept response
     const originalJson = res.json;
     const startTime = Date.now();
-    
-    res.json = function(body) {
-      // Determine if the operation was successful
-      const success = res.statusCode < 400 && (!body || body.success !== false);
-      
-      // Extract user info from request (works for admin, instructor, student)
-      let userId, userEmail, userType;
-      
-      if (req.admin) {
-        userId = req.admin.id || req.admin.adminId;
-        userEmail = req.admin.email;
-        userType = 'admin';
-      } else if (req.instructor) {
-        userId = req.instructor.id || req.instructor.instructorId;
-        userEmail = req.instructor.email;
-        userType = 'instructor';
-      } else if (req.student) {
-        userId = req.student.id || req.student.studentId;
-        userEmail = req.student.email;
-        userType = 'student';
-      } else if (req.user) {
-        // Generic user object
-        userId = req.user.id;
-        userEmail = req.user.email;
-        userType = req.user.role || 'unknown';
+
+    const logResponse = (body) => {
+      if (res.locals.__auditLogged) {
+        return;
       }
-      
-      if (userId && userEmail) {
-        // Prepare log data
-        const logData = {
-          userId,
-          userEmail,
-          userType,
-          // Backward compatibility
-          adminId: userType === 'admin' ? userId : null,
-          adminEmail: userType === 'admin' ? userEmail : null,
-          
+      res.locals.__auditLogged = true;
+
+      const success = res.statusCode < 400 && (!body || body.success !== false);
+      const actor = extractActorFromRequest(req, body);
+      const shouldLog =
+        Boolean(actor.userId || actor.userEmail || actor.attemptedEmail) ||
+        action === "LOGIN" ||
+        action.includes("PASSWORD") ||
+        !success;
+
+      if (shouldLog) {
+        const targetInfo = extractTargetInfo(req, body, actor);
+        const logData = createDetailedLogPayload({
+          req,
+          res,
           action,
           category,
-          ipAddress: req.ip || req.connection?.remoteAddress || 'unknown',
-          userAgent: req.get('User-Agent') || 'unknown',
-          description: generateUniversalDescription(action, req, body, success, userType, userEmail),
           success,
-          timestamp: new Date(),
+          description: generateUniversalDescription(action, req, body, success, actor),
+          responseBody: body,
+          errorMessage: !success ? body?.message || body?.error : null,
+          targetInfo,
+          startTime,
           metadata: {
-            method: req.method,
-            url: req.originalUrl,
-            params: req.params,
-            query: req.query,
-            responseTime: Date.now() - startTime,
-            statusCode: res.statusCode,
-            userType
-          }
-        };
-        
-        // Add target information if available
-        const targetInfo = extractTargetInfo(req, body);
-        if (targetInfo) {
-          logData.targetType = targetInfo.targetType;
-          logData.targetId = targetInfo.targetId;
-          logData.targetIdentifier = targetInfo.targetIdentifier;
-        }
-        
-        // Add error message if operation failed
-        if (!success && body?.message) {
-          logData.errorMessage = body.message;
-        }
-        
-        // Log activity asynchronously to avoid blocking the response
-        ActivityLog.logActivity(logData).catch(error => {
-          logger.error('Failed to log user activity:', error);
+            auditCategory: category,
+          },
         });
-        
-        // Also log to Winston for immediate visibility
-        const logLevel = success ? 'info' : 'warn';
-        logger[logLevel](`${userType.toUpperCase()} ${action}`, {
-          userEmail,
-          success,
-          ip: logData.ipAddress,
-          responseTime: logData.metadata.responseTime
+
+        writeDetailedActivityLog(logData, {
+          loggerMessage: `${(actor.userType || actor.attemptedUserType || "anonymous").toUpperCase()} ${action}`,
+        }).catch((error) => {
+          logger.error("Failed to log user activity", {
+            action,
+            error: error.message,
+          });
         });
       }
-      
+    };
+
+    res.json = function(body) {
+      logResponse(body);
       // Call original json method
       return originalJson.call(this, body);
+    };
+
+    res.send = function(body) {
+      let parsedBody = body;
+      if (typeof body === "string") {
+        try {
+          parsedBody = JSON.parse(body);
+        } catch {
+          parsedBody = { rawBody: body };
+        }
+      }
+
+      logResponse(parsedBody);
+      return originalSend.call(this, body);
     };
     
     next();
@@ -99,15 +82,19 @@ export const universalAuditLogger = (action, category) => {
 };
 
 // Generate human-readable description for any user type
-function generateUniversalDescription(action, req, body, success, userType, userEmail) {
+function generateUniversalDescription(action, req, body, success, actor) {
+  const userType = actor.userType || actor.attemptedUserType || "user";
+  const userEmail = actor.userEmail || actor.attemptedEmail || "anonymous";
   const baseDesc = `${userType.charAt(0).toUpperCase() + userType.slice(1)} ${userEmail}`;
+  const loginMethod = req.body?.loginMethod || "default";
+  const failureReason = body?.message || body?.error || "request failed";
   
   switch (action) {
     // Authentication actions
     case 'LOGIN':
       return success ? 
-        `${baseDesc} successfully logged in` : 
-        `${baseDesc} failed to log in`;
+        `${baseDesc} successfully logged in via ${loginMethod}` : 
+        `Failed login attempt for ${baseDesc} via ${loginMethod}: ${failureReason}`;
         
     case 'LOGOUT':
       return `${baseDesc} logged out`;
@@ -118,7 +105,7 @@ function generateUniversalDescription(action, req, body, success, userType, user
     case 'PROFILE_UPDATED':
       return success ? 
         `${baseDesc} updated their profile` : 
-        `${baseDesc} failed to update their profile`;
+        `${baseDesc} failed to update their profile: ${failureReason}`;
     
     // Student specific actions
     case 'STUDENT_REGISTERED':
@@ -138,7 +125,7 @@ function generateUniversalDescription(action, req, body, success, userType, user
     case 'STUDENT_ACTIVITY_SUBMITTED':
       return success ? 
         `Student ${userEmail} submitted activity` : 
-        `Student ${userEmail} failed to submit activity`;
+        `Student ${userEmail} failed to submit activity: ${failureReason}`;
     
     // Instructor specific actions
     case 'INSTRUCTOR_SECTION_ACCESSED':
@@ -147,68 +134,88 @@ function generateUniversalDescription(action, req, body, success, userType, user
     case 'INSTRUCTOR_STUDENT_GRADED':
       return success ? 
         `Instructor ${userEmail} graded student` : 
-        `Instructor ${userEmail} failed to grade student`;
+        `Instructor ${userEmail} failed to grade student: ${failureReason}`;
         
     case 'INSTRUCTOR_ACTIVITY_CREATED':
       return success ? 
         `Instructor ${userEmail} created activity` : 
-        `Instructor ${userEmail} failed to create activity`;
+        `Instructor ${userEmail} failed to create activity: ${failureReason}`;
         
     case 'INSTRUCTOR_GRADE_EXPORTED':
       return success ? 
         `Instructor ${userEmail} exported grades` : 
-        `Instructor ${userEmail} failed to export grades`;
+        `Instructor ${userEmail} failed to export grades: ${failureReason}`;
         
     case 'INSTRUCTOR_SCHEDULE_UPDATED':
       return success ? 
         `Instructor ${userEmail} updated schedule` : 
-        `Instructor ${userEmail} failed to update schedule`;
+        `Instructor ${userEmail} failed to update schedule: ${failureReason}`;
         
     case 'INSTRUCTOR_CALENDAR_SYNCED':
       return success ? 
         `Instructor ${userEmail} synced calendar` : 
-        `Instructor ${userEmail} failed to sync calendar`;
+        `Instructor ${userEmail} failed to sync calendar: ${failureReason}`;
     
     // Admin actions (existing)
     case 'STUDENT_CREATED':
       return success ? 
         `${baseDesc} created student account` : 
-        `${baseDesc} failed to create student account`;
+        `${baseDesc} failed to create student account: ${failureReason}`;
         
     case 'STUDENT_DELETED':
       return success ? 
         `${baseDesc} deleted student account` : 
-        `${baseDesc} failed to delete student account`;
+        `${baseDesc} failed to delete student account: ${failureReason}`;
         
     case 'INSTRUCTOR_INVITED':
       return success ? 
         `${baseDesc} invited new instructor` : 
-        `${baseDesc} failed to invite instructor`;
+        `${baseDesc} failed to invite instructor: ${failureReason}`;
         
     case 'SEMESTER_CREATED':
       return success ? 
         `${baseDesc} created new semester` : 
-        `${baseDesc} failed to create semester`;
+        `${baseDesc} failed to create semester: ${failureReason}`;
         
     case 'SUBJECT_CREATED':
       return success ? 
         `${baseDesc} created new subject` : 
-        `${baseDesc} failed to create subject`;
+        `${baseDesc} failed to create subject: ${failureReason}`;
         
     case 'SECTION_CREATED':
       return success ? 
         `${baseDesc} created new section` : 
-        `${baseDesc} failed to create section`;
+        `${baseDesc} failed to create section: ${failureReason}`;
         
     default:
       return success ? 
         `${baseDesc} performed ${action.toLowerCase().replace(/_/g, ' ')}` : 
-        `${baseDesc} failed to perform ${action.toLowerCase().replace(/_/g, ' ')}`;
+        `${baseDesc} failed to perform ${action.toLowerCase().replace(/_/g, ' ')}: ${failureReason}`;
   }
 }
 
 // Extract target information from request and response (enhanced)
-function extractTargetInfo(req, body) {
+function extractTargetInfo(req, body, actor) {
+  if (
+    (req.originalUrl.includes("/login") ||
+      req.originalUrl.includes("/request-password-reset") ||
+      req.originalUrl.includes("/reset-password")) &&
+    (actor?.attemptedEmail || actor?.userEmail)
+  ) {
+    const actorType = actor?.attemptedUserType || actor?.userType;
+    return {
+      targetType:
+        actorType === "admin"
+          ? "Admin"
+          : actorType === "instructor"
+          ? "Instructor"
+          : actorType === "student"
+          ? "Student"
+          : "System",
+      targetIdentifier: actor?.attemptedEmail || actor?.userEmail,
+    };
+  }
+
   // Check for student operations
   if (req.params.studentId || body?.student?.id) {
     return {
@@ -259,7 +266,7 @@ function extractTargetInfo(req, body) {
     return {
       targetType: 'Profile',
       targetId: req.params.id,
-      targetIdentifier: 'User Profile'
+      targetIdentifier: actor?.userEmail || actor?.attemptedEmail || 'User Profile'
     };
   }
   

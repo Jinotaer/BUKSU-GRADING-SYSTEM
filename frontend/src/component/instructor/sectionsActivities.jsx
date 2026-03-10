@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { InstructorSidebar } from "./instructorSidebar";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
@@ -18,10 +19,19 @@ export default function SectionActivities() {
   const { sectionId } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
+  const cachedSection =
+    getFreshCachedJson("http://localhost:5000/api/instructor/sections")
+      ?.sections?.find((item) => String(item._id) === String(sectionId)) || null;
+  const cachedActivities =
+    getFreshCachedJson(
+      `http://localhost:5000/api/instructor/sections/${sectionId}/activities`
+    )?.activities || [];
 
-  const [section, setSection] = useState(state?.section || null);
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState(state?.section || cachedSection);
+  const [activities, setActivities] = useState(cachedActivities);
+  const [loading, setLoading] = useState(
+    !state?.section && !cachedSection && cachedActivities.length === 0
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("all");
@@ -53,7 +63,7 @@ export default function SectionActivities() {
   useEffect(() => {
     (async () => {
       try {
-        setLoading(true);
+        setLoading(!section && activities.length === 0);
 
         // Ensure section is loaded (for subjectId on create)
         if (!section) {

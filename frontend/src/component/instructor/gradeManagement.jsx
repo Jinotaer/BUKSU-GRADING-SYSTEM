@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { 
@@ -32,23 +33,137 @@ function useToastRefs(notifications) {
   return { showErrorRef: errRef, showSuccessRef: okRef };
 }
 
+const organizeActivitiesByCategory = (allActivities, termFilter = null) => {
+  const filteredActivities = termFilter
+    ? allActivities.filter((activity) => activity.term === termFilter)
+    : allActivities;
+
+  return {
+    classStanding:
+      filteredActivities.filter((activity) => activity.category === "classStanding") || [],
+    laboratory:
+      filteredActivities.filter((activity) => activity.category === "laboratory") || [],
+    majorOutput:
+      filteredActivities.filter((activity) => activity.category === "majorOutput") || [],
+  };
+};
+
+const buildCachedGradeState = () => {
+  const sections =
+    getFreshCachedJson("http://localhost:5000/api/instructor/sections")
+      ?.sections || [];
+  const selectedSection = sections[0] || null;
+
+  if (!selectedSection?._id) {
+    return {
+      sections,
+      selectedSection: null,
+      students: [],
+      activities: organizeActivitiesByCategory([]),
+      allActivitiesUnfiltered: organizeActivitiesByCategory([]),
+    };
+  }
+
+  const cachedActivities =
+    getFreshCachedJson(
+      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/activities`
+    )?.activities || [];
+  const allActivitiesUnfiltered = organizeActivitiesByCategory(cachedActivities);
+  const activities = organizeActivitiesByCategory(cachedActivities);
+  const roster =
+    getFreshCachedJson(
+      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students`
+    )?.students || [];
+
+  const flattenedActivities = [
+    ...activities.classStanding,
+    ...activities.laboratory,
+    ...activities.majorOutput,
+  ];
+
+  const students = roster.map((student) => {
+    const activityScores = flattenedActivities.map((activity) => {
+      const scoreRows =
+        getFreshCachedJson(
+          `http://localhost:5000/api/activityScores/activities/${activity._id}/scores?sectionId=${selectedSection._id}`
+        )?.rows || [];
+      const matchedScore = scoreRows.find(
+        (row) => String(row.studentId) === String(student._id)
+      );
+
+      return {
+        activity_id: activity._id,
+        score:
+          matchedScore?.score === null ||
+          matchedScore?.score === undefined ||
+          matchedScore?.score === ""
+            ? null
+            : Number(matchedScore.score),
+        maxScore: Number(matchedScore?.maxScore ?? activity.maxScore ?? 100),
+      };
+    });
+
+    return { ...student, activityScores };
+  });
+
+  const studentsWithSummaries = students.map((student) => {
+    const getScoreForActivity = (studentData, activity) => {
+      const matchedScore = (studentData.activityScores || []).find(
+        (row) => String(row.activity_id) === String(activity._id)
+      );
+
+      if (
+        !matchedScore ||
+        matchedScore.score === null ||
+        matchedScore.score === undefined ||
+        matchedScore.score === ""
+      ) {
+        return null;
+      }
+
+      return Number(matchedScore.score);
+    };
+
+    const gradingSchemaOrHasLab =
+      selectedSection?.gradingSchema ?? selectedSection?.hasLab ?? false;
+
+    return {
+      ...student,
+      grade: {
+        ...(student.grade || {}),
+        ...calculateStudentFinalSummary(
+          student,
+          allActivitiesUnfiltered,
+          gradingSchemaOrHasLab,
+          getScoreForActivity
+        ),
+      },
+    };
+  });
+
+  return {
+    sections,
+    selectedSection,
+    students: studentsWithSummaries,
+    activities,
+    allActivitiesUnfiltered,
+  };
+};
+
 export default function GradeManagement() {
+  const cachedGradeState = buildCachedGradeState();
   /* ---------- state ---------- */
-  const [sections, setSections] = useState([]);
-  const [selectedSection, setSelectedSection] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [sections, setSections] = useState(cachedGradeState.sections);
+  const [selectedSection, setSelectedSection] = useState(
+    cachedGradeState.selectedSection
+  );
+  const [students, setStudents] = useState(cachedGradeState.students);
   const [_grades, setGrades] = useState({});
-  const [activities, setActivities] = useState({
-    classStanding: [],
-    laboratory: [],
-    majorOutput: [],
-  });
-  const [allActivitiesUnfiltered, setAllActivitiesUnfiltered] = useState({
-    classStanding: [],
-    laboratory: [],
-    majorOutput: [],
-  });
-  const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState(cachedGradeState.activities);
+  const [allActivitiesUnfiltered, setAllActivitiesUnfiltered] = useState(
+    cachedGradeState.allActivitiesUnfiltered
+  );
+  const [loading, setLoading] = useState(!cachedGradeState.selectedSection);
   const [filterTerm, setFilterTerm] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [activeTab, setActiveTab] = useState("classStanding");
@@ -84,7 +199,7 @@ export default function GradeManagement() {
 
   const fetchInstructorSections = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoading(sections.length === 0 && !selectedSection);
       const res = await authenticatedFetch(
         "http://localhost:5000/api/instructor/sections"
       );
@@ -155,7 +270,7 @@ export default function GradeManagement() {
       if (!selectedSection?._id) return;
 
       try {
-        setLoading(true);
+        setLoading(students.length === 0);
 
         // 1) roster
         const studentsRes = await authenticatedFetch(
@@ -327,7 +442,12 @@ export default function GradeManagement() {
       if (!selectedSection?._id) return;
       
       try {
-        setLoading(true);
+        setLoading(
+          students.length === 0 &&
+            activities.classStanding.length === 0 &&
+            activities.laboratory.length === 0 &&
+            activities.majorOutput.length === 0
+        );
         
         // Fetch activities with current term filter
         const result = await fetchActivities(selectedTerm);

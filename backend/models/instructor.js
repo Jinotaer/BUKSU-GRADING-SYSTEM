@@ -28,12 +28,22 @@ const instructorSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    instructorIdHash: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     email: {
       type: String,
       required: true,
       unique: true,
       // Removed regex validation since email is encrypted before saving
       // Validation is now handled in the controller before encryption
+    },
+    emailHash: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
     password: {
       type: String,

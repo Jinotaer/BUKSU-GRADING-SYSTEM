@@ -5,7 +5,7 @@ export default function ErrorMessage({ message }) {
 
   return (
     <div>
-      <p className="text-red-600 text-sm text-center">{message}</p>
+      <p className="text-red-600 text-sm text-center mt-4 p-6">{message}</p>
     </div>
   );
 }

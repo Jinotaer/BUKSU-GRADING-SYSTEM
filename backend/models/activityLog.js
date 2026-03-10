@@ -146,6 +146,8 @@ activityLogSchema.index({ userType: 1, timestamp: -1 }); // New field
 activityLogSchema.index({ action: 1, timestamp: -1 });
 activityLogSchema.index({ category: 1, timestamp: -1 });
 activityLogSchema.index({ ipAddress: 1, timestamp: -1 });
+activityLogSchema.index({ targetIdentifier: 1, timestamp: -1 });
+activityLogSchema.index({ "metadata.requestId": 1 });
 activityLogSchema.index({ targetType: 1, targetId: 1 });
 activityLogSchema.index({ success: 1, timestamp: -1 });
 

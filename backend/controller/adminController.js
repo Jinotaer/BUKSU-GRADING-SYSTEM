@@ -16,6 +16,11 @@ import {
 import { encryptAdminData, encryptInstructorData } from "./encryptionController.js";
 import { decryptAdminData, decryptInstructorData, bulkDecryptUserData } from "./decryptionController.js";
 import { verifyCaptchaResponse } from "../middleware/captchaVerification.js";
+import {
+  buildInstructorLookupFields,
+  normalizeEmail,
+  normalizeIdentifier,
+} from "../utils/userLookup.js";
 
 /**
  * Find admin by decrypting email field
@@ -53,6 +58,88 @@ const findAdminByEmail = async (email) => {
     console.error('💥 Error finding admin by email:', error);
     return null;
   }
+};
+
+const sanitizeInstructorInvitePayload = (payload = {}) => ({
+  instructorid:
+    typeof payload.instructorid === "string" ? payload.instructorid.trim() : "",
+  email: normalizeEmail(payload.email),
+  fullName: typeof payload.fullName === "string" ? payload.fullName.trim() : "",
+  college: typeof payload.college === "string" ? payload.college.trim() : "",
+  department:
+    typeof payload.department === "string" ? payload.department.trim() : "",
+});
+
+const getInstructorDuplicateMessage = (duplicateSource, { email, instructorid }) => {
+  try {
+    const decryptedInstructor = decryptInstructorData(duplicateSource.toObject());
+    const duplicateEmail = normalizeEmail(decryptedInstructor.email) === email;
+    const duplicateId =
+      normalizeIdentifier(decryptedInstructor.instructorid) ===
+      normalizeIdentifier(instructorid);
+
+    if (duplicateEmail && duplicateId) {
+      return "Instructor with this email and ID already exists";
+    }
+
+    if (duplicateEmail) {
+      return "Instructor with this email already exists";
+    }
+
+    if (duplicateId) {
+      return "Instructor with this ID already exists";
+    }
+  } catch (error) {
+    console.warn("Failed to resolve instructor duplicate source:", error.message);
+  }
+
+  return "Instructor with this email or ID already exists";
+};
+
+const getInstructorDuplicateKeyMessage = (error) => {
+  const duplicateFields = Object.keys(error?.keyPattern || {});
+
+  if (duplicateFields.includes("emailHash")) {
+    return "Instructor with this email already exists";
+  }
+
+  if (duplicateFields.includes("instructorIdHash")) {
+    return "Instructor with this ID already exists";
+  }
+
+  return "Instructor with this email or ID already exists";
+};
+
+const findExistingInstructorByIdentity = async ({ email, instructorid }) => {
+  const lookupFields = buildInstructorLookupFields({ email, instructorid });
+
+  const existingInstructor = await Instructor.findOne({
+    $or: [
+      { emailHash: lookupFields.emailHash },
+      { instructorIdHash: lookupFields.instructorIdHash },
+    ],
+  });
+
+  if (existingInstructor) {
+    return existingInstructor;
+  }
+
+  const legacyInstructors = await Instructor.find({
+    $or: [
+      { emailHash: { $exists: false } },
+      { instructorIdHash: { $exists: false } },
+    ],
+  }).select("email instructorid");
+
+  return legacyInstructors.find((legacyInstructor) => {
+    const decryptedInstructor = decryptInstructorData(legacyInstructor.toObject());
+
+    return (
+      normalizeEmail(decryptedInstructor.email) === email ||
+      normalizeIdentifier(decryptedInstructor.instructorid) ===
+        normalizeIdentifier(instructorid)
+    );
+  }) || null;
 };
 
 // Generate JWT token
@@ -385,7 +472,8 @@ export const loginAdmin = async (req, res) => {
 // Invite instructor
 export const inviteInstructor = async (req, res) => {
   try {
-    const { instructorid, email, fullName, college, department } = req.body;
+    const { instructorid, email, fullName, college, department } =
+      sanitizeInstructorInvitePayload(req.body);
     const adminId = req.admin.id; // From auth middleware
 
     // Validate input
@@ -401,18 +489,22 @@ export const inviteInstructor = async (req, res) => {
     if (!email.endsWith("@gmail.com")) {
       return res.status(400).json({
         success: false,
-        message: "Invalid email domain. Must be @buksu.edu.ph",
+        message: "Invalid instructor email domain",
       });
     }
 
     // Check if instructor already exists
-    const existingInstructor = await Instructor.findOne({
-      $or: [{ email }, { instructorid }],
+    const existingInstructor = await findExistingInstructorByIdentity({
+      email,
+      instructorid,
     });
     if (existingInstructor) {
       return res.status(409).json({
         success: false,
-        message: "Instructor with this email or ID already exists",
+        message: getInstructorDuplicateMessage(existingInstructor, {
+          email,
+          instructorid,
+        }),
       });
     }
 
@@ -435,6 +527,7 @@ export const inviteInstructor = async (req, res) => {
       fullName,
       college,
       department,
+      ...buildInstructorLookupFields({ email, instructorid }),
       status: "Active", // Automatically approved when invited by admin - keep unencrypted
       invitedBy: decryptedAdmin.email, // Use decrypted email for audit trails
     };
@@ -498,7 +591,7 @@ export const inviteInstructor = async (req, res) => {
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
         metadata: {
-          instructorId: instructor.instructorid,
+          instructorId: instructorid,
           college,
           department
         }
@@ -528,7 +621,7 @@ export const inviteInstructor = async (req, res) => {
     if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "Instructor with this email or ID already exists",
+        message: getInstructorDuplicateKeyMessage(error),
       });
     }
     res.status(500).json({
@@ -568,7 +661,8 @@ export const inviteMultipleInstructors = async (req, res) => {
     };
 
     for (const instructorData of instructors) {
-      const { instructorid, email, fullName, college, department } = instructorData;
+      const { instructorid, email, fullName, college, department } =
+        sanitizeInstructorInvitePayload(instructorData);
 
       // Validate input
       if (!instructorid || !email || !fullName || !college || !department) {
@@ -583,19 +677,23 @@ export const inviteMultipleInstructors = async (req, res) => {
       if (!email.endsWith("@gmail.com")) {
         results.failed.push({
           data: instructorData,
-          reason: "Invalid email domain. Must be @buksu.edu.ph"
+          reason: "Invalid instructor email domain"
         });
         continue;
       }
 
       // Check if instructor already exists
-      const existingInstructor = await Instructor.findOne({
-        $or: [{ email }, { instructorid }],
+      const existingInstructor = await findExistingInstructorByIdentity({
+        email,
+        instructorid,
       });
       if (existingInstructor) {
         results.failed.push({
           data: instructorData,
-          reason: "Instructor with this email or ID already exists"
+          reason: getInstructorDuplicateMessage(existingInstructor, {
+            email,
+            instructorid,
+          }),
         });
         continue;
       }
@@ -608,6 +706,7 @@ export const inviteMultipleInstructors = async (req, res) => {
           fullName,
           college,
           department,
+          ...buildInstructorLookupFields({ email, instructorid }),
           status: "Active",
           invitedBy: decryptedAdmin.email,
         };
@@ -647,7 +746,7 @@ export const inviteMultipleInstructors = async (req, res) => {
             ipAddress: req.ip,
             userAgent: req.get('User-Agent'),
             metadata: {
-              instructorId: instructor.instructorid,
+              instructorId: instructorid,
               college,
               department
             }
@@ -671,7 +770,10 @@ export const inviteMultipleInstructors = async (req, res) => {
       } catch (error) {
         results.failed.push({
           data: instructorData,
-          reason: error.message || "Failed to create instructor"
+          reason:
+            error.code === 11000
+              ? getInstructorDuplicateKeyMessage(error)
+              : error.message || "Failed to create instructor"
         });
       }
     }
@@ -1080,7 +1182,9 @@ export const getAdminProfile = async (req, res) => {
       admin: {
         id: decryptedAdmin._id,
         email: decryptedAdmin.email,
-        fullName: decryptedAdmin.fullName,
+        fullName:
+          decryptedAdmin.fullName ||
+          `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`.trim(),
         firstName: decryptedAdmin.firstName,
         lastName: decryptedAdmin.lastName,
         role: decryptedAdmin.role,
@@ -1091,6 +1195,117 @@ export const getAdminProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Get admin profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const {
+      firstName: rawFirstName,
+      lastName: rawLastName,
+      email: rawEmail,
+    } = req.body || {};
+
+    const updateData = {};
+
+    if (typeof rawFirstName === "string") {
+      const firstName = rawFirstName.trim();
+      if (!firstName) {
+        return res.status(400).json({
+          success: false,
+          message: "First name is required",
+        });
+      }
+      updateData.firstName = firstName;
+    }
+
+    if (typeof rawLastName === "string") {
+      const lastName = rawLastName.trim();
+      if (!lastName) {
+        return res.status(400).json({
+          success: false,
+          message: "Last name is required",
+        });
+      }
+      updateData.lastName = lastName;
+    }
+
+    if (typeof rawEmail === "string") {
+      const email = rawEmail.trim().toLowerCase();
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      if (!emailPattern.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: "Please enter a valid email address",
+        });
+      }
+
+      const existingAdmin = await findAdminByEmail(email);
+      if (existingAdmin && existingAdmin._id.toString() !== adminId.toString()) {
+        return res.status(409).json({
+          success: false,
+          message: "That email address is already in use",
+        });
+      }
+
+      updateData.email = email;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields provided for update",
+      });
+    }
+
+    const encryptedUpdateData = encryptAdminData(updateData);
+
+    const updatedAdmin = await Admin.findByIdAndUpdate(adminId, encryptedUpdateData, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    const decryptedAdmin = decryptAdminData(updatedAdmin.toObject());
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      admin: {
+        id: decryptedAdmin._id,
+        email: decryptedAdmin.email,
+        fullName:
+          decryptedAdmin.fullName ||
+          `${decryptedAdmin.firstName} ${decryptedAdmin.lastName}`.trim(),
+        firstName: decryptedAdmin.firstName,
+        lastName: decryptedAdmin.lastName,
+        role: updatedAdmin.role,
+        status: updatedAdmin.status,
+        lastLogin: updatedAdmin.lastLogin,
+        createdAt: updatedAdmin.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Update admin profile error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

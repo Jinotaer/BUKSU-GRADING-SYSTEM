@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
 import {
   PageHeader,
@@ -18,8 +19,13 @@ const API_BASE =
   "http://localhost:5000";
 
 export default function SemesterManagement() {
-  const [semesters, setSemesters] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSemestersResponse = getFreshCachedJson(
+    `${API_BASE}/api/admin/semesters`
+  );
+  const cachedSemesters = cachedSemestersResponse?.semesters || [];
+  const hasCachedSemesters = Boolean(cachedSemestersResponse);
+  const [semesters, setSemesters] = useState(cachedSemesters);
+  const [loading, setLoading] = useState(!hasCachedSemesters);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSemester, setSelectedSemester] = useState(null);
@@ -76,12 +82,13 @@ export default function SemesterManagement() {
 
   const fetchSemesters = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoading(!hasCachedSemesters);
 
       // Clean up expired locks first
       try {
         await authenticatedFetch(`${API_BASE}/api/locks/cleanup`, {
           method: "POST",
+          skipCacheInvalidation: true,
         });
         console.log("🧹 Cleaned up expired locks");
       } catch (err) {
@@ -105,7 +112,7 @@ export default function SemesterManagement() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasCachedSemesters]);
 
   useEffect(() => {
     fetchSemesters();

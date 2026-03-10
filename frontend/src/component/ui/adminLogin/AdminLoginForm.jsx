@@ -1,6 +1,13 @@
 import PropTypes from "prop-types";
+import CaptchaSection from "./CaptchaSection";
 
-export default function AdminLoginForm({ onSubmit }) {
+export default function AdminLoginForm({
+  onSubmit,
+  recaptchaKey,
+  onCaptchaChange,
+  onCaptchaExpired,
+  onCaptchaError,
+}) {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div>
@@ -35,6 +42,13 @@ export default function AdminLoginForm({ onSubmit }) {
         />
       </div>
 
+      <CaptchaSection
+        sitekey={recaptchaKey}
+        onChange={onCaptchaChange}
+        onExpired={onCaptchaExpired}
+        onErrored={onCaptchaError}
+      />
+
       <button
         type="submit"
         className="w-full px-4 py-3 bg-blue-900 text-white font-semibold rounded-md hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2 cursor-pointer"
@@ -48,4 +62,8 @@ export default function AdminLoginForm({ onSubmit }) {
 
 AdminLoginForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
+  recaptchaKey: PropTypes.string.isRequired,
+  onCaptchaChange: PropTypes.func.isRequired,
+  onCaptchaExpired: PropTypes.func.isRequired,
+  onCaptchaError: PropTypes.func.isRequired,
 };

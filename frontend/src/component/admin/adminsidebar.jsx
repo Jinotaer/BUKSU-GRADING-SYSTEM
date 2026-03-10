@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import buksuLogo from "../../assets/logo1.png";
+import adminAuth from "../../utils/adminAuth";
 const menuData = [
   {
     link: "/admin",
@@ -151,8 +152,8 @@ export function NavbarSimple() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await fetch("http://localhost:5000/api/logout", {
+      const token = adminAuth.getAccessToken();
+      await fetch("http://localhost:5000/api/admin/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -160,7 +161,10 @@ export function NavbarSimple() {
         },
         credentials: "include",
       });
-      localStorage.removeItem("token");
+      adminAuth.clearTokens();
+      sessionStorage.removeItem("accessToken");
+      sessionStorage.removeItem("userType");
+      sessionStorage.removeItem("adminInfo");
       sessionStorage.clear();
       document.cookie =
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
@@ -170,7 +174,7 @@ export function NavbarSimple() {
         message: "You have been successfully logged out.",
         type: "success",
       });
-      navigate("admin-login");
+      navigate("/admin/admin-login");
     } catch (error) {
       console.error("Logout error:", error);
       setNotification({

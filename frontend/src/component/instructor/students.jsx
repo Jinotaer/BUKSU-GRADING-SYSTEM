@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import Pagination from "../common/Pagination";
@@ -15,11 +16,16 @@ import {
 } from "./ui/students";
 
 export default function SectionsStudentTable() {
-  const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSections =
+    getFreshCachedJson("http://localhost:5000/api/instructor/sections")
+      ?.sections || [];
+  const [sections, setSections] = useState(cachedSections);
+  const [loading, setLoading] = useState(cachedSections.length === 0);
 
   // UI state
-  const [selectedSection, setSelectedSection] = useState(null);
+  const [selectedSection, setSelectedSection] = useState(
+    cachedSections[0] || null
+  );
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Search (for invite modal)
@@ -60,7 +66,7 @@ export default function SectionsStudentTable() {
     setDefault = false,
   } = {}) => {
     try {
-      setLoading(true);
+      setLoading(sections.length === 0);
       const res = await authenticatedFetch(
         "http://localhost:5000/api/instructor/sections"
       );

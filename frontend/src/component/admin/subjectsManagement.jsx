@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
@@ -21,9 +22,18 @@ const API_BASE =
   "http://localhost:5000";
 
 export default function SubjectManagement() {
-  const [subjects, setSubjects] = useState([]);
-  const [semesters, setSemesters] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSubjectsResponse = getFreshCachedJson(
+    `${API_BASE}/api/admin/subjects`
+  );
+  const cachedSemestersResponse = getFreshCachedJson(
+    `${API_BASE}/api/semesters`
+  );
+  const cachedSubjects = cachedSubjectsResponse?.subjects || [];
+  const cachedSemesters = cachedSemestersResponse?.semesters || [];
+  const hasCachedSubjects = Boolean(cachedSubjectsResponse);
+  const [subjects, setSubjects] = useState(cachedSubjects);
+  const [semesters, setSemesters] = useState(cachedSemesters);
+  const [loading, setLoading] = useState(!hasCachedSubjects);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -174,6 +184,7 @@ export default function SubjectManagement() {
           `${API_BASE}/api/locks/cleanup`,
           {
             method: "POST",
+            skipCacheInvalidation: true,
           }
         );
         if (cleanupRes.ok) {
@@ -186,7 +197,7 @@ export default function SubjectManagement() {
 
       console.log("🔄 Fetching subjects from:", `${API_BASE}/api/admin/subjects`);
       console.log("🔐 Authentication check - token exists:", !!localStorage.getItem('token'));
-      setLoading(true);
+      setLoading(!hasCachedSubjects);
       
       const res = await authenticatedFetch(`${API_BASE}/api/admin/subjects`);
       console.log("📡 Fetch subjects response status:", res.status);
@@ -238,7 +249,7 @@ export default function SubjectManagement() {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [hasCachedSubjects, showError]);
 
   const fetchSemesters = async () => {
     try {

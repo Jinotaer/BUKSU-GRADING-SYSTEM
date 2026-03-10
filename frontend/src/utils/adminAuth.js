@@ -1,4 +1,11 @@
 // Admin Authentication Utility
+import {
+  cacheSuccessfulResponse,
+  clearApiCache,
+  getFreshCachedResponse,
+  invalidateApiCache,
+} from "../lib/apiCache.js";
+
 class AdminAuth {
   constructor() {
     this.baseURL = "http://localhost:5000/api/admin";
@@ -28,6 +35,7 @@ class AdminAuth {
     localStorage.removeItem("admin_access_token");
     localStorage.removeItem("admin_refresh_token");
     localStorage.removeItem("admin_user");
+    clearApiCache();
   }
 
   // Check if user is logged in
@@ -106,16 +114,26 @@ class AdminAuth {
       throw new Error("No access token available");
     }
 
+    const { skipCacheInvalidation = false, ...requestOptions } = options;
+    const method = (requestOptions.method || "GET").toUpperCase();
+
     // Add authorization header
     const headers = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...requestOptions.headers,
       Authorization: `Bearer ${accessToken}`,
     };
 
+    if (method === "GET") {
+      const cachedResponse = getFreshCachedResponse(url);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+    }
+
     // Make the API call
     const response = await fetch(url, {
-      ...options,
+      ...requestOptions,
       headers,
     });
 
@@ -133,21 +151,37 @@ class AdminAuth {
 
           // Retry the original request with new token
           const retryResponse = await fetch(url, {
-            ...options,
+            ...requestOptions,
             headers: {
               ...headers,
               Authorization: `Bearer ${newAccessToken}`,
             },
           });
 
+          if (method === "GET" && retryResponse.ok) {
+            await cacheSuccessfulResponse(url, retryResponse);
+          } else if (
+            method !== "GET" &&
+            retryResponse.ok &&
+            !skipCacheInvalidation
+          ) {
+            invalidateApiCache();
+          }
+
           return retryResponse;
         } catch (refreshError) {
           console.error("Token refresh failed:", refreshError);
           this.logout();
-          window.location.href = "/admin/login";
+          window.location.href = "/admin/admin-login";
           throw refreshError;
         }
       }
+    }
+
+    if (method === "GET" && response.ok) {
+      await cacheSuccessfulResponse(url, response);
+    } else if (method !== "GET" && response.ok && !skipCacheInvalidation) {
+      invalidateApiCache();
     }
 
     return response;
@@ -167,6 +201,7 @@ class AdminAuth {
       const data = await response.json();
 
       if (data.success) {
+        clearApiCache();
         // Store tokens and user data
         this.setTokens(data.tokens.accessToken, data.tokens.refreshToken);
         this.setAdminUser(data.admin);
@@ -194,7 +229,7 @@ class AdminAuth {
   logout() {
     this.clearTokens();
     // Redirect to login page
-    window.location.href = "/admin/login";
+    window.location.href = "/admin/admin-login";
   }
 
   // Get admin profile
@@ -211,6 +246,26 @@ class AdminAuth {
       }
     } catch (error) {
       console.error("Get profile error:", error);
+      throw error;
+    }
+  }
+
+  async updateProfile(profileData) {
+    try {
+      const response = await this.apiCall(`${this.baseURL}/profile`, {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        this.setAdminUser(data.admin);
+        return data.admin;
+      }
+
+      throw new Error(data.message || "Failed to update profile");
+    } catch (error) {
+      console.error("Update profile error:", error);
       throw error;
     }
   }
@@ -341,6 +396,26 @@ class AdminAuth {
       return data;
     } catch (error) {
       console.error("Request reset code error:", error);
+      throw error;
+    }
+  }
+
+  async verifyResetCode(passcode) {
+    try {
+      const response = await fetch(`${this.baseURL}/verify-reset-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to verify reset code");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Verify reset code error:", error);
       throw error;
     }
   }

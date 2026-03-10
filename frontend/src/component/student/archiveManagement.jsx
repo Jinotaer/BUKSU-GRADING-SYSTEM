@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import Pagination from "../common/Pagination";
 import { NotificationModal } from "../common/NotificationModals";
 import {
@@ -15,8 +16,13 @@ import {
 
 export default function StudentArchiveManagement() {
   const navigate = useNavigate();
-  const [archivedSections, setArchivedSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedArchivedSectionsResponse = getFreshCachedJson(
+    "http://localhost:5000/api/student/sections?includeArchived=true"
+  );
+  const [archivedSections, setArchivedSections] = useState(
+    cachedArchivedSectionsResponse?.sections || []
+  );
+  const [loading, setLoading] = useState(!cachedArchivedSectionsResponse);
   const [error, setError] = useState("");
 
   // Filters
@@ -41,7 +47,7 @@ export default function StudentArchiveManagement() {
 
   const fetchArchivedSections = async () => {
     try {
-      setLoading(true);
+      setLoading(!cachedArchivedSectionsResponse && archivedSections.length === 0);
       const res = await authenticatedFetch(
         "http://localhost:5000/api/student/sections?includeArchived=true"
       );

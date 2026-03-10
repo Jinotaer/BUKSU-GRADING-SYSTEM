@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   ProfileCard,
   PersonalInfoCard,
@@ -21,18 +22,21 @@ import {
 
 
 export default function StudentProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedProfile =
+    getFreshCachedJson("http://localhost:5000/api/student/profile")?.student ||
+    null;
+  const [profile, setProfile] = useState(cachedProfile);
+  const [loading, setLoading] = useState(!cachedProfile);
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
   // Edit profile form state
   const [editForm, setEditForm] = useState({
-    fullName: "",
-    college: "",
-    course: "",
-    yearLevel: ""
+    fullName: cachedProfile?.fullName || "",
+    college: cachedProfile?.college || "",
+    course: cachedProfile?.course || "",
+    yearLevel: cachedProfile?.yearLevel || ""
   });
 
   // Fetch student profile
@@ -118,10 +122,12 @@ export default function StudentProfile() {
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        <AlertMessage 
-          alert={alert} 
-          onClose={() => setAlert({ show: false, type: "", message: "" })}
-        />
+        {!editModalOpened && (
+          <AlertMessage 
+            alert={alert} 
+            onClose={() => setAlert({ show: false, type: "", message: "" })}
+          />
+        )}
 
         <ProfileHeader onEditClick={() => setEditModalOpened(true)} />
 
@@ -150,6 +156,10 @@ export default function StudentProfile() {
           setEditForm={setEditForm}
           onSubmit={handleProfileUpdate}
           submitting={submitting}
+          alert={alert}
+          onAlertClose={() =>
+            setAlert({ show: false, type: "", message: "" })
+          }
         />
       </div>
     </div>

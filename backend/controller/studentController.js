@@ -2,8 +2,12 @@ import Student from "../models/student.js";
 import Section from "../models/sections.js";
 import Grade from "../models/grades.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { encryptStudentData, encryptField } from "./encryptionController.js";
 import { decryptStudentData, bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
+
+const JWT_SECRET =
+  process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || "your-secret-key";
 
 /**
  * Register a new student
@@ -77,19 +81,37 @@ export const registerStudent = async (req, res) => {
 
     // Decrypt student data for response (don't send encrypted data to client)
     const responseStudent = decryptStudentData(newStudent.toObject());
+    const token = jwt.sign(
+      {
+        id: responseStudent._id,
+        email: responseStudent.email,
+        role: "student",
+        googleId: responseStudent.googleId || null,
+        loginMethod: "google",
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const userData = {
+      id: responseStudent._id,
+      email: responseStudent.email,
+      fullName: responseStudent.fullName,
+      role: responseStudent.role || "Student",
+      status: responseStudent.status,
+      authMethod: responseStudent.authMethod || "google",
+      college: responseStudent.college,
+      course: responseStudent.course,
+      yearLevel: responseStudent.yearLevel,
+      studid: responseStudent.studid,
+    };
 
     res.status(201).json({
       success: true,
       message: "Student registration successful. Your account has been automatically approved.",
-      student: {
-        id: responseStudent._id,
-        email: responseStudent.email,
-        fullName: responseStudent.fullName,
-        college: responseStudent.college,
-        course: responseStudent.course,
-        yearLevel: responseStudent.yearLevel,
-        status: responseStudent.status
-      }
+      student: userData,
+      user: userData,
+      token,
     });
 
   } catch (error) {

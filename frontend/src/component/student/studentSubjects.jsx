@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from '../../utils/auth';
+import { getFreshCachedJson } from '../../lib/apiCache';
 import { NotificationModal } from '../common/NotificationModals';
 import {
   SubjectHeader,
@@ -25,11 +26,14 @@ const semesters = [
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const cachedSectionsResponse = getFreshCachedJson(
+    "http://localhost:5000/api/student/sections"
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState(academicYears[0].value);
   const [selectedSemester, setSelectedSemester] = useState(semesters[0].value);
-  const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [sections, setSections] = useState(cachedSectionsResponse?.sections || []);
+  const [loading, setLoading] = useState(!cachedSectionsResponse);
   const [error, setError] = useState(null);
   
   // Hide modal state
@@ -55,7 +59,7 @@ const StudentDashboard = () => {
 
   const fetchStudentSections = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoading(!cachedSectionsResponse && sections.length === 0);
       setError(null);
       
       // First try to get all sections without filters to see what's available

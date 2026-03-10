@@ -1,5 +1,6 @@
 import React from "react";
 import { IconX, IconDeviceFloppy } from "@tabler/icons-react";
+import { AlertMessage } from "./AlertMessage";
 import { coursesData, getCoursesByCollege } from "./coursesData";
 
 export function EditProfileModal({ 
@@ -8,7 +9,9 @@ export function EditProfileModal({
   editForm, 
   setEditForm, 
   onSubmit, 
-  submitting 
+  submitting,
+  alert,
+  onAlertClose,
 }) {
   if (!isOpen) return null;
 
@@ -24,6 +27,8 @@ export function EditProfileModal({
             <IconX size={20} />
           </button>
         </div>
+
+        <AlertMessage alert={alert} onClose={onAlertClose} />
 
         <form onSubmit={onSubmit}>
           <div className="space-y-4">

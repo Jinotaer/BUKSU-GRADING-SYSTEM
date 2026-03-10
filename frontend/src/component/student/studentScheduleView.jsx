@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavbarSimple } from './studentsidebar';
 import { authenticatedFetch } from '../../utils/auth';
+import { getFreshCachedJson } from '../../lib/apiCache';
 import {
   ScheduleHeader,
   EventTypeFilter,
@@ -15,8 +16,11 @@ import {
 } from './ui/schedules';
 
 export default function StudentScheduleView() {
-  const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSchedulesResponse = getFreshCachedJson(
+    "http://localhost:5000/api/schedule/student/schedules"
+  );
+  const [schedules, setSchedules] = useState(cachedSchedulesResponse?.schedules || []);
+  const [loading, setLoading] = useState(!cachedSchedulesResponse);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -29,6 +33,7 @@ export default function StudentScheduleView() {
 
   const loadSchedules = async () => {
     try {
+      setLoading(!cachedSchedulesResponse && schedules.length === 0);
       const response = await authenticatedFetch('http://localhost:5000/api/schedule/student/schedules');
       if (response.ok) {
         const data = await response.json();

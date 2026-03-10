@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useCallback, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { InstructorSidebar } from "./instructorSidebar";
 import Pagination from "../common/Pagination";
 import {
@@ -15,14 +16,44 @@ export default function ActivityScores() {
   const { sectionId, activityId } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
+  const cachedScoresData = getFreshCachedJson(
+    `http://localhost:5000/api/instructor/activities/${activityId}/scores?sectionId=${sectionId}`
+  );
+  const cachedRows = (Array.isArray(cachedScoresData?.rows)
+    ? cachedScoresData.rows
+    : []
+  )
+    .map((row) => ({
+      studentId: row.studentId,
+      fullName: row.fullName,
+      studid: row.studid,
+      score: row.score ?? "",
+      maxScore: row.maxScore ?? cachedScoresData?.activity?.maxScore ?? 100,
+    }))
+    .sort((a, b) => {
+      const nameOrder = (a.fullName || "").localeCompare(
+        b.fullName || "",
+        undefined,
+        { sensitivity: "base" }
+      );
+      if (nameOrder !== 0) return nameOrder;
+      return (a.studid || "").localeCompare(b.studid || "", undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
 
   // Prefill (fast paint when navigating from Activities page)
-  const [activity, setActivity] = useState(state?.activity || null);
-  const [section, setSection] = useState(state?.section || null);
+  const [activity, setActivity] = useState(
+    state?.activity || cachedScoresData?.activity || null
+  );
+  const [section, setSection] = useState(
+    state?.section || cachedScoresData?.section || null
+  );
 
-  const [rows, setRows] = useState([]);           // [{ studentId, fullName, studid, score, maxScore }]
+  const [rows, setRows] = useState(cachedRows);   // [{ studentId, fullName, studid, score, maxScore }]
   const [rowStatus, setRowStatus] = useState({}); // { [studentId]: { state: "saving"|"success"|"error", message? } }
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedScoresData);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,7 +66,7 @@ export default function ActivityScores() {
     const controller = new AbortController();
     (async () => {
       try {
-        setLoading(true);
+        setLoading(!cachedScoresData && cachedRows.length === 0);
         const res = await authenticatedFetch(
           `http://localhost:5000/api/instructor/activities/${activityId}/scores?sectionId=${sectionId}`,
           { signal: controller.signal }

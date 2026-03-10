@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   GradesHeader,
   GradesFilters,
@@ -11,10 +12,13 @@ import {
 } from "./ui/grades";
 
 const StudentGrades = () => {
+  const cachedGradesResponse = getFreshCachedJson(
+    "http://localhost:5000/api/student/grades?schoolYear=2024-2025&term=1st"
+  );
   const [selectedSemester, setSelectedSemester] = useState("1st");
   const [selectedYear, setSelectedYear] = useState("2024-2025");
-  const [gradesData, setGradesData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [gradesData, setGradesData] = useState(cachedGradesResponse?.grades || []);
+  const [loading, setLoading] = useState(!cachedGradesResponse);
   const [error, setError] = useState("");
 
   const semesters = [
@@ -27,7 +31,7 @@ const StudentGrades = () => {
 
   const fetchGrades = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoading(!cachedGradesResponse && gradesData.length === 0);
       setError("");
       
       const params = new URLSearchParams();

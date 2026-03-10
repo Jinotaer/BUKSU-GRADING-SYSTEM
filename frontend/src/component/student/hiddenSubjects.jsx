@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import Pagination from "../common/Pagination";
 import { NotificationModal } from "../common/NotificationModals";
 import {
@@ -14,8 +15,13 @@ import {
 
 export default function HiddenSubjectsManagement() {
   const navigate = useNavigate();
-  const [hiddenSections, setHiddenSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedHiddenSectionsResponse = getFreshCachedJson(
+    "http://localhost:5000/api/student/sections/hidden"
+  );
+  const [hiddenSections, setHiddenSections] = useState(
+    cachedHiddenSectionsResponse?.sections || []
+  );
+  const [loading, setLoading] = useState(!cachedHiddenSectionsResponse);
   const [error, setError] = useState("");
 
   // Filters
@@ -44,7 +50,7 @@ const semesters = [
 
   const fetchHiddenSections = async () => {
     try {
-      setLoading(true);
+      setLoading(!cachedHiddenSectionsResponse && hiddenSections.length === 0);
       const res = await authenticatedFetch(
         "http://localhost:5000/api/student/sections/hidden"
       );

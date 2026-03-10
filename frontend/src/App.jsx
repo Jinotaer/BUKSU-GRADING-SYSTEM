@@ -49,6 +49,8 @@ export default function App() {
       <Route path="/admin/reset-password" element={<AdminResetPassword />} />
       <Route path="/admin/admin-verify-code" element={<AdminVerifyCode />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/instructor/login" element={<Navigate to="/login" replace />} />
+      <Route path="/student/login" element={<Navigate to="/login" replace />} />
       <Route path="/register" element={<Register />} />
       <Route path="/student-register" element={<Register />} />
       <Route path="*" element={<Navigate to="/login" />} />

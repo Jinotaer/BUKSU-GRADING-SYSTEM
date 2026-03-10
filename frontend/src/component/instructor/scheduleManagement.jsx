@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InstructorSidebar } from './instructorSidebar';
 import { authenticatedFetch } from '../../utils/auth';
+import { getFreshCachedJson } from '../../lib/apiCache';
 import {
   PageHeader,
   CalendarHeader,
@@ -14,10 +15,26 @@ import {
 import { NotificationModal, ConfirmationModal } from '../common/NotificationModals';
 
 export default function ScheduleManagement() {
-  const [schedules, setSchedules] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSchedules =
+    getFreshCachedJson('http://localhost:5000/api/schedule/instructor/schedules')
+      ?.schedules || [];
+  const cachedSections =
+    getFreshCachedJson('http://localhost:5000/api/section/instructor/my-sections')
+      ?.sections || [];
+  const cachedSubjects = [];
+  const cachedSubjectIds = new Set();
+  cachedSections.forEach((section) => {
+    if (section.subject && !cachedSubjectIds.has(section.subject._id)) {
+      cachedSubjectIds.add(section.subject._id);
+      cachedSubjects.push(section.subject);
+    }
+  });
+  const [schedules, setSchedules] = useState(cachedSchedules);
+  const [sections, setSections] = useState(cachedSections);
+  const [subjects, setSubjects] = useState(cachedSubjects);
+  const [loading, setLoading] = useState(
+    cachedSchedules.length === 0 && cachedSections.length === 0
+  );
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [notification, setNotification] = useState({ show: false, title: '', message: '', type: '' });
@@ -50,6 +67,7 @@ export default function ScheduleManagement() {
 
   const loadSchedules = async () => {
     try {
+      setLoading(schedules.length === 0 && sections.length === 0);
       const response = await authenticatedFetch('http://localhost:5000/api/schedule/instructor/schedules');
       if (response.ok) {
         const data = await response.json();

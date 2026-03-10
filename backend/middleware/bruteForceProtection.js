@@ -2,10 +2,18 @@ import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
 import Admin from "../models/admin.js";
 import { decryptAdminData, decryptInstructorData, decryptStudentData } from "../controller/decryptionController.js";
+import { logRequestSecurityEvent } from "../utils/activityLogUtils.js";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 // const LOCK_TIME = 2 * 1000; // 2 seconds in milliseconds
+
+const getTargetType = (userType) => {
+  if (userType === "admin") return "Admin";
+  if (userType === "instructor") return "Instructor";
+  if (userType === "student") return "Student";
+  return "System";
+};
 
 // Helper function to get user model based on type
 const getUserModel = (userType) => {
@@ -152,6 +160,19 @@ export const bruteForceProtection = async (req, res, next) => {
     const { email, userType, password } = req.body;
     
     if (!email) {
+      logRequestSecurityEvent({
+        req,
+        res,
+        action: "SECURITY_VIOLATION",
+        description: "Blocked malformed login request with no email address",
+        statusCode: 400,
+        errorMessage: "Email is required",
+        metadata: {
+          violationType: "missing_email",
+          securityLayer: "brute_force_protection",
+        },
+      }).catch(() => {});
+
       return res.status(400).json({ 
         message: 'Email is required' 
       });
@@ -162,6 +183,26 @@ export const bruteForceProtection = async (req, res, next) => {
     if (!userType && password) {
       inferredUserType = 'admin'; // Admin login has password field
     } else if (!userType) {
+      logRequestSecurityEvent({
+        req,
+        res,
+        action: "SECURITY_VIOLATION",
+        description: `Blocked malformed login request for ${email.toLowerCase()} with no user type`,
+        statusCode: 400,
+        errorMessage: "User type is required",
+        actorOverride: {
+          attemptedEmail: email.toLowerCase(),
+        },
+        targetInfo: {
+          targetType: "System",
+          targetIdentifier: email.toLowerCase(),
+        },
+        metadata: {
+          violationType: "missing_user_type",
+          securityLayer: "brute_force_protection",
+        },
+      }).catch(() => {});
+
       return res.status(400).json({ 
         message: 'User type is required' 
       });
@@ -184,6 +225,29 @@ export const bruteForceProtection = async (req, res, next) => {
         timeMessage = `${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}`;
       }
 
+      logRequestSecurityEvent({
+        req,
+        res,
+        action: "ACCOUNT_LOCKED",
+        description: `Blocked login for locked ${inferredUserType} account ${email.toLowerCase()}`,
+        statusCode: 423,
+        errorMessage: "Account is temporarily locked",
+        actorOverride: {
+          attemptedEmail: email.toLowerCase(),
+          attemptedUserType: inferredUserType,
+        },
+        targetInfo: {
+          targetType: getTargetType(inferredUserType),
+          targetIdentifier: email.toLowerCase(),
+        },
+        metadata: {
+          securityLayer: "brute_force_protection",
+          failedAttempts: accountStatus.failedAttempts,
+          remainingAttempts: accountStatus.remainingAttempts,
+          timeUntilUnlockMs: accountStatus.timeUntilUnlock,
+        },
+      }).catch(() => {});
+
       return res.status(423).json({ 
         message: `Account is temporarily locked due to too many failed login attempts. Please try again in ${timeMessage}.`,
         locked: true,
@@ -198,6 +262,18 @@ export const bruteForceProtection = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Brute force protection error:', error);
+    logRequestSecurityEvent({
+      req,
+      res,
+      action: "SECURITY_VIOLATION",
+      description: "Brute-force protection middleware failed",
+      statusCode: 500,
+      errorMessage: error.message,
+      metadata: {
+        securityLayer: "brute_force_protection",
+      },
+    }).catch(() => {});
+
     res.status(500).json({ 
       message: 'Internal server error during security check' 
     });

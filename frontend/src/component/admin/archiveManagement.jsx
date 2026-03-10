@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import Pagination from "../common/Pagination";
 import {
   PageHeader,
@@ -14,14 +15,18 @@ import {
 
 export default function ArchiveManagement() {
   const [activeTab, setActiveTab] = useState("students");
+  const cachedStudents =
+    getFreshCachedJson(
+      "http://localhost:5000/api/admin/students?includeArchived=true"
+    )?.students || [];
   const [data, setData] = useState({
-    students: [],
+    students: cachedStudents.filter((item) => item.isArchived === true),
     instructors: [],
     semesters: [],
     subjects: [],
     sections: [],
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(cachedStudents.length === 0);
   const [error, setError] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);

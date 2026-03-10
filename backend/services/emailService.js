@@ -85,6 +85,34 @@ class EmailService {
     return this.transporter !== null;
   }
 
+  getFrontendBaseUrl() {
+    const configuredUrl = process.env.FRONTEND_URL || "http://localhost:5001";
+
+    try {
+      const parsedUrl = new URL(configuredUrl);
+
+      if (
+        (parsedUrl.hostname === "localhost" ||
+          parsedUrl.hostname === "127.0.0.1") &&
+        parsedUrl.protocol === "https:"
+      ) {
+        parsedUrl.protocol = "http:";
+      }
+
+      return parsedUrl.toString().replace(/\/$/, "");
+    } catch (error) {
+      const normalizedUrl = configuredUrl.replace(/\/$/, "");
+      if (/^localhost(:\d+)?$/i.test(normalizedUrl)) {
+        return `http://${normalizedUrl}`;
+      }
+      return normalizedUrl || "http://localhost:5001";
+    }
+  }
+
+  getPortalLoginUrl() {
+    return `${this.getFrontendBaseUrl()}/login`;
+  }
+
   // 📩 Send student account status notification (Approved / Rejected)
   async sendAccountStatusNotification(email, status, firstName, lastName) {
     if (!(await this.ensureTransporter())) {
@@ -144,9 +172,7 @@ class EmailService {
       };
     }
 
-    const loginUrl = `${
-      process.env.FRONTEND_URL || "http://localhost:5173"
-    }/instructor/login`;
+    const loginUrl = this.getPortalLoginUrl();
 
     const mailOptions = {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -160,7 +186,7 @@ class EmailService {
           <p><strong>Your account has been automatically approved and is ready to use!</strong></p>
           <p>Please click the link below to access the system:</p>
           <p><a href="${loginUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Access Grading System</a></p>
-          <p>You can log in using your institutional Google account (@buksu.edu.ph).</p>
+          <p>You can log in using your institutional Google account.</p>
           <p>Best regards,<br>BUKSU Grading System Team</p>
         </div>
       `,
@@ -256,9 +282,7 @@ class EmailService {
           
           <p>Please log in to the BUKSU Grading System to view this subject and create sections for your students.</p>
           
-          <p><a href="${
-            process.env.FRONTEND_URL || "http://localhost:5173"
-          }/instructor/login" 
+          <p><a href="${this.getPortalLoginUrl()}" 
              style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Grading System
           </a></p>
@@ -325,9 +349,7 @@ class EmailService {
           
           <p>You can now manage this section, add students, and input grades through the instructor portal.</p>
           
-          <p><a href="${
-            process.env.FRONTEND_URL || "http://localhost:5173"
-          }/instructor/login" 
+          <p><a href="${this.getPortalLoginUrl()}" 
              style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Instructor Portal
           </a></p>
@@ -393,9 +415,7 @@ class EmailService {
           
           <p>Please log in to the BUKSU Grading System to view your enrolled sections and track your academic progress.</p>
           
-          <p><a href="${
-            process.env.FRONTEND_URL || "http://localhost:5173"
-          }/student/login" 
+          <p><a href="${this.getPortalLoginUrl()}" 
              style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
              Access Grading System
           </a></p>

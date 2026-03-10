@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./studentsidebar";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import Pagination from "../common/Pagination";
 import {
   ActivityHeader,
@@ -15,6 +16,80 @@ import {
 const formatPercentage = (num) => {
   // Always round to nearest whole number
   return Math.round(num).toString();
+};
+
+const buildProcessedCategories = (section, activities, allScores) => {
+  const categoryMap = {
+    classStanding: { name: "Class Standing", activities: [], weight: 0 },
+    laboratory: { name: "Laboratory", activities: [], weight: 0 },
+    majorOutput: { name: "Major Output", activities: [], weight: 0 }
+  };
+
+  const gradingSchema = section?.gradingSchema || {};
+  categoryMap.classStanding.weight = gradingSchema.classStanding;
+  categoryMap.laboratory.weight = gradingSchema.laboratory;
+  categoryMap.majorOutput.weight = gradingSchema.majorOutput;
+
+  activities.forEach((activity) => {
+    const category = activity.category || "classStanding";
+    if (!categoryMap[category]) return;
+
+    const activityScores = allScores.find((score) => score.activityId === activity._id);
+    categoryMap[category].activities.push({
+      activity,
+      scores: activityScores?.scores || [],
+    });
+  });
+
+  return Object.entries(categoryMap)
+    .filter(([, data]) => data.activities.length > 0)
+    .map(([, data]) => {
+      const rows = data.activities.map(({ activity, scores }) => {
+        const studentScore = scores.length > 0 ? scores[0] : null;
+        const score = studentScore?.score ?? 0;
+        const maxScore = studentScore?.maxScore ?? activity.maxScore ?? 100;
+        const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+        return {
+          item: activity.title,
+          score: `${score}/${maxScore}`,
+          percentage: `${formatPercentage(percentage)}%`,
+          date: new Date(activity.createdAt).toLocaleDateString(),
+          term: activity.term,
+        };
+      });
+
+      const categoryAverage = rows.length > 0
+        ? rows.reduce((sum, row) => sum + parseFloat(row.percentage), 0) / rows.length
+        : 0;
+
+      return {
+        name: data.name,
+        weightLabel: `Weight: ${data.weight}% of final grade`,
+        percent: categoryAverage,
+        rows,
+      };
+    });
+};
+
+const getCachedStudentSection = (sectionId) => {
+  const candidateUrls = [
+    "http://localhost:5000/api/student/sections",
+    "http://localhost:5000/api/student/sections?includeArchived=true",
+    "http://localhost:5000/api/student/sections/hidden",
+  ];
+
+  for (const url of candidateUrls) {
+    const section = getFreshCachedJson(url)?.sections?.find(
+      (item) => String(item._id) === String(sectionId)
+    );
+
+    if (section) {
+      return section;
+    }
+  }
+
+  return null;
 };
 
 export function GradeBreakdown({ title, subtitle = "Detailed Grade Breakdown", onBack, categories = [] }) {
@@ -168,98 +243,41 @@ export default function StudentActivityScores() {
   const { sectionId } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const cachedSection = state?.section || getCachedStudentSection(sectionId);
+  const cachedActivities =
+    getFreshCachedJson(
+      `http://localhost:5000/api/instructor/sections/${sectionId}/activities`
+    )?.activities || [];
+  const cachedAllScores = cachedActivities.map((activity) => ({
+    activityId: activity._id,
+    activity,
+    scores:
+      getFreshCachedJson(
+        `http://localhost:5000/api/activityScores/activities/${activity._id}/scores?sectionId=${sectionId}`
+      )?.rows || [],
+  }));
+  const cachedCategories = buildProcessedCategories(
+    cachedSection,
+    cachedActivities,
+    cachedAllScores
+  );
+  const [loading, setLoading] = useState(
+    !cachedSection && cachedCategories.length === 0
+  );
   const [error, setError] = useState(null);
-  const [section, setSection] = useState(state?.section || null);
-  const [categories, setCategories] = useState([]);
-
-  // Helper function to get current student ID
-  const getCurrentStudentId = () => {
-    // This should get the current logged-in student's ID
-    // You might get this from localStorage, context, or decode from token
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.id || user._id;
-  };
+  const [section, setSection] = useState(cachedSection);
+  const [categories, setCategories] = useState(cachedCategories);
 
   // Process activities and scores into categories
   const processCategories = React.useCallback((activities, allScores) => {
-    console.log('Processing categories with:', { activities, allScores });
-    
-    const categoryMap = {
-      classStanding: { name: "Class Standing", activities: [], weight: 0 },
-      laboratory: { name: "Laboratory", activities: [], weight: 0 },
-      majorOutput: { name: "Major Output", activities: [], weight: 0 }
-    };
-
-    // Get grading schema weights
-    const gradingSchema = section?.gradingSchema || {};
-    categoryMap.classStanding.weight = gradingSchema.classStanding;
-    categoryMap.laboratory.weight = gradingSchema.laboratory ;
-    categoryMap.majorOutput.weight = gradingSchema.majorOutput;
-
-    const currentStudentId = getCurrentStudentId();
-    console.log('Current student ID:', currentStudentId); 
-
-    // Group activities by category
-    activities.forEach(activity => {
-      const category = activity.category || 'classStanding';
-      if (categoryMap[category]) {
-        const activityScores = allScores.find(s => s.activityId === activity._id);
-        console.log(`Activity ${activity.title} scores:`, activityScores);
-        categoryMap[category].activities.push({
-          activity,
-          scores: activityScores?.scores || []
-        });
-      }
-    });
-
-    // Convert to display format
-    const processedCategories = Object.entries(categoryMap)
-      .filter(([, data]) => data.activities.length > 0) // Only include categories with activities
-      .map(([, data]) => {
-        const rows = data.activities.map(({ activity, scores }) => {
-          console.log(`Processing activity ${activity.title}, scores array:`, scores);
-          
-          // Since students only get their own score, scores array should have 1 item
-          // Backend returns rows: [{ studentId, score, maxScore, ... }]
-          const studentScore = scores.length > 0 ? scores[0] : null;
-          const score = studentScore?.score ?? 0;
-          const maxScore = studentScore?.maxScore ?? activity.maxScore ?? 100;
-          const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
-          
-          console.log(`Score for ${activity.title}:`, { studentScore, score, maxScore, percentage });
-          
-          return {
-            item: activity.title,
-            score: `${score}/${maxScore}`,
-            percentage: `${formatPercentage(percentage)}%`,
-            date: new Date(activity.createdAt).toLocaleDateString(),
-            term: activity.term // Add term to the row data
-          };
-        });
-
-        // Calculate category average
-        const categoryAverage = rows.length > 0 
-          ? rows.reduce((sum, row) => sum + parseFloat(row.percentage), 0) / rows.length
-          : 0;
-
-        return {
-          name: data.name,
-          weightLabel: `Weight: ${data.weight}% of final grade`,
-          percent: categoryAverage,
-          rows
-        };
-      });
-
-    console.log('Processed categories:', processedCategories);
-    setCategories(processedCategories);
+    setCategories(buildProcessedCategories(section, activities, allScores));
   }, [section]);
 
   // Fetch section activities and scores
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
+        setLoading(!section && categories.length === 0);
         setError(null);
 
         // If we don't have section data from navigation state, fetch it

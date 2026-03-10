@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./studentsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   IconCalendarEvent,
   IconBook,
@@ -12,10 +13,24 @@ import UpcomingScheduleSection from "./ui/dashboard/UpcomingScheduleSection";
 import CurrentSubjectsSection from "./ui/dashboard/CurrentSubjectsSection";
 
 const StudentDashboard = () => {
-  const [upcomingSchedules, setUpcomingSchedules] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [archivedCount, setArchivedCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cachedSchedules =
+    getFreshCachedJson("http://localhost:5000/api/schedule/upcoming?limit=3")
+      ?.schedules || [];
+  const cachedSections =
+    getFreshCachedJson("http://localhost:5000/api/student/sections")?.sections ||
+    [];
+  const cachedArchivedSections =
+    getFreshCachedJson(
+      "http://localhost:5000/api/student/sections?includeArchived=true"
+    )?.sections || [];
+  const [upcomingSchedules, setUpcomingSchedules] = useState(cachedSchedules);
+  const [sections, setSections] = useState(cachedSections);
+  const [archivedCount, setArchivedCount] = useState(cachedArchivedSections.length);
+  const [loading, setLoading] = useState(
+    cachedSchedules.length === 0 &&
+      cachedSections.length === 0 &&
+      cachedArchivedSections.length === 0
+  );
 
   useEffect(() => {
     loadDashboardData();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import adminAuth from "../../utils/adminAuth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   AlertMessage,
   PageHeader,
@@ -9,14 +10,23 @@ import {
   PersonalInfoCard,
   AccountInfoCard,
   ChangePasswordCard,
+  EditProfileModal,
 } from "./ui/profile";
 
 export default function AdminProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedProfile =
+    getFreshCachedJson("http://localhost:5000/api/admin/profile")?.admin || null;
+  const [profile, setProfile] = useState(cachedProfile);
+  const [loading, setLoading] = useState(!cachedProfile);
+  const [editModalOpened, setEditModalOpened] = useState(false);
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
 
-  // Removed editForm state since admin profile is predefined
+  const [editForm, setEditForm] = useState({
+    firstName: cachedProfile?.firstName || "",
+    lastName: cachedProfile?.lastName || "",
+    email: cachedProfile?.email || "",
+  });
 
   // Password change form state
   const [passwordForm, setPasswordForm] = useState({
@@ -36,13 +46,17 @@ export default function AdminProfile() {
       if (!adminAuth.isLoggedIn()) {
         showAlert("error", "You are not logged in. Please login first.");
         // Redirect to admin login
-        window.location.href = '/admin/login';
+        window.location.href = "/admin/admin-login";
         return;
       }
 
       const profileData = await adminAuth.getProfile();
       setProfile(profileData);
-      // Removed editForm initialization since admin profile cannot be edited
+      setEditForm({
+        firstName: profileData.firstName || "",
+        lastName: profileData.lastName || "",
+        email: profileData.email || "",
+      });
     } catch (error) {
       console.error("Error fetching profile:", error);
       showAlert("error", error.message || "Failed to fetch profile");
@@ -50,7 +64,7 @@ export default function AdminProfile() {
       // If it's an authentication error, redirect to login
       if (error.message?.includes("token") || error.message?.includes("access")) {
         setTimeout(() => {
-          window.location.href = '/admin/login';
+          window.location.href = "/admin/admin-login";
         }, 2000);
       }
     } finally {
@@ -66,6 +80,59 @@ export default function AdminProfile() {
   const showAlert = (type, message) => {
     setAlert({ show: true, type, message });
     setTimeout(() => setAlert({ show: false, type: "", message: "" }), 5000);
+  };
+
+  const openEditModal = () => {
+    setEditForm({
+      firstName: profile?.firstName || "",
+      lastName: profile?.lastName || "",
+      email: profile?.email || "",
+    });
+    setEditModalOpened(true);
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+
+    const sanitizedForm = {
+      firstName: editForm.firstName.trim(),
+      lastName: editForm.lastName.trim(),
+      email: editForm.email.trim().toLowerCase(),
+    };
+
+    if (!sanitizedForm.firstName) {
+      showAlert("error", "First name is required");
+      return;
+    }
+
+    if (!sanitizedForm.lastName) {
+      showAlert("error", "Last name is required");
+      return;
+    }
+
+    if (!sanitizedForm.email) {
+      showAlert("error", "Email is required");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const updatedProfile = await adminAuth.updateProfile(sanitizedForm);
+      setProfile(updatedProfile);
+      setEditForm({
+        firstName: updatedProfile.firstName || "",
+        lastName: updatedProfile.lastName || "",
+        email: updatedProfile.email || "",
+      });
+      showAlert("success", "Profile updated successfully");
+      setEditModalOpened(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      showAlert("error", error.message || "Failed to update profile");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Handle password change
@@ -139,12 +206,14 @@ export default function AdminProfile() {
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        <AlertMessage
-          alert={alert}
-          onClose={() => setAlert({ show: false, type: "", message: "" })}
-        />
+        {!editModalOpened && (
+          <AlertMessage
+            alert={alert}
+            onClose={() => setAlert({ show: false, type: "", message: "" })}
+          />
+        )}
 
-        <PageHeader />
+        <PageHeader onEditClick={openEditModal} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <ProfileCard 
@@ -168,6 +237,19 @@ export default function AdminProfile() {
             />
           </div>
         </div>
+
+        <EditProfileModal
+          isOpen={editModalOpened}
+          onClose={() => setEditModalOpened(false)}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          onSubmit={handleProfileUpdate}
+          submitting={submitting}
+          alert={alert}
+          onAlertClose={() =>
+            setAlert({ show: false, type: "", message: "" })
+          }
+        />
       </div>
     </div>
   );

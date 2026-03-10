@@ -51,7 +51,7 @@ export function InviteInstructorModal({
               <label className="block text-sm font-medium mb-1">Email</label>
               <input
                 type="email"
-                placeholder="instructor@buksu.edu.ph"
+                placeholder="instructor@gmail.com"
                 value={inviteData.email}
                 onChange={(e) =>
                   onChange({ ...inviteData, email: e.target.value })

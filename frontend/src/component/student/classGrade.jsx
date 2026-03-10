@@ -2,41 +2,57 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IconChevronUp, IconChevronDown, IconArrowLeft } from '@tabler/icons-react';
 import { authenticatedFetch } from '../../utils/auth';
+import { getFreshCachedJson } from '../../lib/apiCache';
 import { NavbarSimple } from './studentsidebar';
 
 const ClassGrade = () => {
   const { subjectId } = useParams();
   const navigate = useNavigate();
+  const cachedClassGradeResponse = getFreshCachedJson(
+    `/api/student/subjects/${subjectId}/grades`
+  );
   const [activities, setActivities] = useState({
-    classStanding: [],
-    laboratory: [],
-    majorOutput: []
+    classStanding:
+      cachedClassGradeResponse?.data?.activities?.filter(
+        (activity) => activity.category === 'classStanding'
+      ) || [],
+    laboratory:
+      cachedClassGradeResponse?.data?.activities?.filter(
+        (activity) => activity.category === 'laboratory'
+      ) || [],
+    majorOutput:
+      cachedClassGradeResponse?.data?.activities?.filter(
+        (activity) => activity.category === 'majorOutput'
+      ) || []
   });
   const [expandedSections, setExpandedSections] = useState({
     classStanding: true,
     laboratory: true,
     majorOutput: true
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedClassGradeResponse);
   const [error, setError] = useState(null);
-  const [subjectInfo, setSubjectInfo] = useState(null);
+  const [subjectInfo, setSubjectInfo] = useState(
+    cachedClassGradeResponse?.data?.subject || null
+  );
 
   const fetchClassGrades = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoading(!cachedClassGradeResponse);
       const response = await authenticatedFetch(`/api/student/subjects/${subjectId}/grades`);
+      const data = await response.json();
       
-      if (response.success) {
+      if (response.ok && data.success) {
         // Group activities by category
         const groupedActivities = {
-          classStanding: response.data.activities.filter(activity => activity.category === 'classStanding'),
-          laboratory: response.data.activities.filter(activity => activity.category === 'laboratory'),
-          majorOutput: response.data.activities.filter(activity => activity.category === 'majorOutput')
+          classStanding: data.data.activities.filter(activity => activity.category === 'classStanding'),
+          laboratory: data.data.activities.filter(activity => activity.category === 'laboratory'),
+          majorOutput: data.data.activities.filter(activity => activity.category === 'majorOutput')
         };
         setActivities(groupedActivities);
-        setSubjectInfo(response.data.subject);
+        setSubjectInfo(data.data.subject);
       } else {
-        setError(response.message || 'Failed to fetch grades');
+        setError(data.message || 'Failed to fetch grades');
       }
     } catch (error) {
       console.error('Error fetching class grades:', error);

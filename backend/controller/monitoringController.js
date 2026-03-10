@@ -34,7 +34,12 @@ export const getActivityLogs = async (req, res) => {
         { userEmail: { $regex: search, $options: 'i' } },
         { action: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { ipAddress: { $regex: search, $options: 'i' } }
+        { ipAddress: { $regex: search, $options: 'i' } },
+        { targetIdentifier: { $regex: search, $options: 'i' } },
+        { "metadata.requestId": { $regex: search, $options: 'i' } },
+        { "metadata.actor.attemptedEmail": { $regex: search, $options: 'i' } },
+        { "metadata.network.origin": { $regex: search, $options: 'i' } },
+        { errorMessage: { $regex: search, $options: 'i' } }
       ];
     }
 

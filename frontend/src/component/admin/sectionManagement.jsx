@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import { useLock, useBatchLockStatus } from "../../hooks/useLock";
@@ -22,12 +23,28 @@ const API_BASE =
 
 export default function SectionManagement() {
   const navigate = useNavigate();
-  const [sections, setSections] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [instructors, setInstructors] = useState([]);
-  const [semesters, setSemesters] = useState([]);
+  const cachedSectionsResponse = getFreshCachedJson(
+    `${API_BASE}/api/admin/sections`
+  );
+  const cachedSubjectsResponse = getFreshCachedJson(
+    `${API_BASE}/api/admin/subjects`
+  );
+  const cachedInstructorsResponse = getFreshCachedJson(
+    `${API_BASE}/api/admin/instructors?limit=12000`
+  );
+  const cachedSemestersResponse = getFreshCachedJson(`${API_BASE}/api/semesters`);
+  const cachedSections = cachedSectionsResponse?.sections || [];
+  const cachedSubjects = cachedSubjectsResponse?.subjects || [];
+  const cachedInstructors = cachedInstructorsResponse?.instructors || [];
+  const cachedSemesters =
+    cachedSemestersResponse?.semesters || cachedSemestersResponse || [];
+  const hasCachedSections = Boolean(cachedSectionsResponse);
+  const [sections, setSections] = useState(cachedSections);
+  const [subjects, setSubjects] = useState(cachedSubjects);
+  const [instructors, setInstructors] = useState(cachedInstructors);
+  const [semesters, setSemesters] = useState(cachedSemesters);
   const [filteredSubjects, setFilteredSubjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasCachedSections);
   const [submitting, setSubmitting] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -91,7 +108,7 @@ export default function SectionManagement() {
   useEffect(() => {
     (async () => {
       try {
-        setLoading(true);
+        setLoading(!hasCachedSections);
         const [secRes, subRes, instRes, semRes] = await Promise.all([
           authenticatedFetch(`${API_BASE}/api/admin/sections`),
           authenticatedFetch(`${API_BASE}/api/admin/subjects`),
@@ -191,6 +208,7 @@ export default function SectionManagement() {
           `${API_BASE}/api/locks/cleanup`,
           {
             method: "POST",
+            skipCacheInvalidation: true,
           }
         );
         if (cleanupRes.ok) {
@@ -201,7 +219,7 @@ export default function SectionManagement() {
         console.error("Cleanup error:", cleanupErr);
       }
 
-      setLoading(true);
+      setLoading(!hasCachedSections);
       const res = await authenticatedFetch(`${API_BASE}/api/admin/sections`);
       if (res.ok) {
         const data = await res.json();
@@ -212,7 +230,7 @@ export default function SectionManagement() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasCachedSections]);
 
   /* ---------- Universal change handlers (smooth typing) ---------- */
   const handleChange = (e) => {
@@ -453,10 +471,29 @@ export default function SectionManagement() {
       return;
     }
 
+    if (!formData.subjectId) {
+      showError("Please select a subject before creating the section");
+      return;
+    }
+
+    if (!formData.instructorId) {
+      showError(
+        instructors.length === 0
+          ? "No instructors are available. Invite an instructor first before creating a section"
+          : "Please select an instructor before creating the section"
+      );
+      return;
+    }
+
+    if (!formData.sectionName.trim()) {
+      showError("Please enter a section code before creating the section");
+      return;
+    }
+
     const payload = {
       subjectId: formData.subjectId,
       instructorId: formData.instructorId,
-      sectionName: formData.sectionName,
+      sectionName: formData.sectionName.trim(),
       schoolYear: selectedSem.schoolYear,
       term: selectedSem.term,
       gradingSchema: {

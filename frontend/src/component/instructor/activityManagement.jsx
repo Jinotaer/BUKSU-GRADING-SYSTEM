@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import Pagination from "../common/Pagination";
@@ -15,14 +16,52 @@ import {
   ActivityForm,
 } from "./ui/activitiesM";
 
+const getCachedActivityState = () => {
+  const sections =
+    getFreshCachedJson("http://localhost:5000/api/instructor/sections")
+      ?.sections || [];
+  const activityMap = new Map();
+
+  sections.forEach((section) => {
+    const cachedActivities =
+      getFreshCachedJson(
+        `http://localhost:5000/api/instructor/sections/${section._id}/activities`
+      )?.activities || [];
+
+    cachedActivities.forEach((activity) => {
+      const id = activity._id || activity.id;
+      if (!id) return;
+
+      if (!activityMap.has(id)) {
+        activityMap.set(id, { ...activity, sectionIds: [section._id] });
+        return;
+      }
+
+      const existing = activityMap.get(id);
+      if (!existing.sectionIds.includes(section._id)) {
+        existing.sectionIds.push(section._id);
+      }
+      activityMap.set(id, existing);
+    });
+  });
+
+  return {
+    sections,
+    activities: Array.from(activityMap.values()),
+  };
+};
+
 export default function ActivityManagement() {
   const navigate = useNavigate();
   const notifications = useNotifications();
   const { showError, showSuccess, showConfirmDialog } = notifications;
+  const cachedState = getCachedActivityState();
 
-  const [activities, setActivities] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activities, setActivities] = useState(cachedState.activities);
+  const [sections, setSections] = useState(cachedState.sections);
+  const [loading, setLoading] = useState(
+    cachedState.sections.length === 0 && cachedState.activities.length === 0
+  );
 
   // filters/search
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +107,7 @@ export default function ActivityManagement() {
 
   const fetchAll = async () => {
     try {
-      setLoading(true);
+      setLoading(sections.length === 0 && activities.length === 0);
 
       // Load instructor's sections
       const secRes = await authenticatedFetch(

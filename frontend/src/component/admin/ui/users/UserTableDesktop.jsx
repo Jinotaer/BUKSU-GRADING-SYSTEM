@@ -4,7 +4,7 @@ import { IconArchive } from "@tabler/icons-react";
 export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
   return (
     <div className="hidden xl:block overflow-x-auto">
-      <table className="min-w-full">
+      <table className="min-w-full table-auto">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -37,7 +37,7 @@ export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
           {users.map((user, index) => (
             <tr
               key={`${user.userType}-${user._id}-${index}`}
-              className="hover:bg-gray-50"
+              className="hover:bg-gray-50 align-top"
             >
               <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-sm truncate max-w-[80px]">
                 {user.id}
@@ -48,10 +48,10 @@ export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
               <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-blue-600 truncate max-w-[150px]">
                 {user.email}
               </td>
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm truncate max-w-[100px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm whitespace-normal break-words min-w-[180px]">
                 {user.college}
               </td>
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm truncate max-w-[100px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm whitespace-normal break-words min-w-[200px]">
                 {user.department}
               </td>
               <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm">

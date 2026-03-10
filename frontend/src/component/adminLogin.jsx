@@ -5,9 +5,7 @@ import landingPageBg from "../assets/landingpage1.png";
 import adminAuth from "../utils/adminAuth";
 import {
   AdminLoginForm,
-  BackButton,
   BrandPanel,
-  CaptchaSection,
   ErrorMessage,
   ForgotPasswordLink,
   LoginHeader,
@@ -18,6 +16,22 @@ const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Ld3NiEsAAAAAIC
 if (!recaptchaKey) {
   console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');
 }
+
+const formatRemainingAttemptsMessage = (message, remainingAttempts) => {
+  const baseMessage = message || "Login failed.";
+
+  if (
+    remainingAttempts === undefined ||
+    remainingAttempts <= 0 ||
+    /attempts?\s+remaining\.?/i.test(baseMessage)
+  ) {
+    return baseMessage;
+  }
+
+  return `${baseMessage} ${remainingAttempts} attempt${
+    remainingAttempts > 1 ? "s" : ""
+  } remaining.`;
+};
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -62,17 +76,12 @@ export default function AdminLogin() {
               "Account is temporarily locked due to too many failed login attempts."
           );
         } else {
-          // Handle other login failures with remaining attempts info
-          let errorMessage = errorData.message || "Login failed.";
-          if (
-            errorData.remainingAttempts !== undefined &&
-            errorData.remainingAttempts > 0
-          ) {
-            errorMessage += ` ${errorData.remainingAttempts} attempt${
-              errorData.remainingAttempts > 1 ? "s" : ""
-            } remaining.`;
-          }
-          setError(errorMessage);
+          setError(
+            formatRemainingAttemptsMessage(
+              errorData.message,
+              errorData.remainingAttempts
+            )
+          );
         }
       } else {
         setError(error.message || "Network error. Please try again.");
@@ -117,19 +126,19 @@ export default function AdminLogin() {
             subtitle="Enter Credentials to Manage System"
           />
 
-          <AdminLoginForm onSubmit={handleAdminLogin} />
+          <AdminLoginForm
+            onSubmit={handleAdminLogin}
+            recaptchaKey={recaptchaKey}
+            onCaptchaChange={handleCaptchaChange}
+            onCaptchaExpired={handleCaptchaExpired}
+            onCaptchaError={handleCaptchaError}
+          />
 
+      
           <ForgotPasswordLink
             onClick={() => navigate("/admin/admin-request-code")}
           />
 
-          {/* reCAPTCHA */}
-          <CaptchaSection
-            sitekey={recaptchaKey}
-            onChange={handleCaptchaChange}
-            onExpired={handleCaptchaExpired}
-            onErrored={handleCaptchaError}
-          />
 
           <ErrorMessage message={error} />
         </div>

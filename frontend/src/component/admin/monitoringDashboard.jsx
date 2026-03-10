@@ -5,6 +5,7 @@ import {
 } from '@tabler/icons-react';
 import { NavbarSimple } from './adminsidebar';
 import { authenticatedFetch } from '../../utils/auth';
+import { getFreshCachedJson } from '../../lib/apiCache';
 
 // Import separated components
 import MonitoringFilters from './ui/monitoring/MonitoringFilters';
@@ -13,15 +14,18 @@ import ActivityLogs from './ui/monitoring/ActivityLogs';
 
 
 const MonitoringDashboard = () => {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialLogsUrl =
+    "http://localhost:5000/api/monitoring/logs?page=1&limit=20";
+  const cachedLogsData = getFreshCachedJson(initialLogsUrl)?.data || null;
+  const [logs, setLogs] = useState(cachedLogsData?.logs || []);
+  const [loading, setLoading] = useState(!cachedLogsData);
   const [error, setError] = useState('');
   
   // Pagination states
   const [logsPagination, setLogsPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalLogs: 0,
+    currentPage: cachedLogsData?.pagination?.currentPage || 1,
+    totalPages: cachedLogsData?.pagination?.totalPages || 1,
+    totalLogs: cachedLogsData?.pagination?.totalLogs || 0,
     itemsPerPage: 20
   });
   const [filters, setFilters] = useState({
@@ -150,7 +154,6 @@ const MonitoringDashboard = () => {
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-bold text-[#1E3A5F]">Activity Logs</h1>
@@ -172,7 +175,6 @@ const MonitoringDashboard = () => {
             </div>
           </div>
 
-          {/* Filters */}
           <MonitoringFilters filters={filters} setFilters={handleFilterChange} />
         </div>
 
@@ -182,7 +184,6 @@ const MonitoringDashboard = () => {
           </div>
         )}
 
-        {/* Activity Logs Content */}
         <ActivityLogs 
           logs={logs} 
           loading={loading} 

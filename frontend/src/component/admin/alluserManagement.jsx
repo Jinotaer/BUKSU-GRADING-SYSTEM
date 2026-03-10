@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { useAuthenticatedQuery } from "../../hooks/useAuthenticatedQuery";
 import Pagination from "../common/Pagination";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
@@ -14,85 +16,67 @@ import {
   UserCardMobile,
 } from "./ui/users";
 
+const mapStudentToUser = (student) => ({
+  id: student.studid || student._id,
+  _id: student._id,
+  name: student.fullName,
+  email: student.email,
+  college: student.college,
+  department: student.course,
+  role: "Student",
+  userType: "student",
+  status: student.status,
+  originalData: student,
+});
+
+const mapInstructorToUser = (instructor) => ({
+  id: instructor.instructorid || instructor._id,
+  _id: instructor._id,
+  name: instructor.fullName,
+  email: instructor.email,
+  college: instructor.college,
+  department: instructor.department,
+  role: "Instructor",
+  userType: "instructor",
+  status: instructor.status,
+  originalData: instructor,
+});
+
 export default function AllUserManagement() {
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isMutating, setIsMutating] = useState(false);
 
   const notifications = useNotifications();
   const { showError, showSuccess, showConfirmDialog, hideConfirmDialog } =
     notifications;
+  const queryClient = useQueryClient();
 
-  const fetchAllUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [studentsRes, instructorsRes] = await Promise.all([
-        authenticatedFetch("http://localhost:5000/api/admin/students?limit=12000"),
-        authenticatedFetch("http://localhost:5000/api/admin/instructors?limit=12000"),
-      ]);
+  const { data, isLoading, error } = useAuthenticatedQuery({
+    queryKey: ["admin", "all-users"],
+    url: "http://localhost:5000/api/admin/students?limit=12000",
+    select: (studentsData) => studentsData,
+  });
+  const {
+    data: instructorsData,
+    isLoading: isInstructorsLoading,
+    error: instructorsError,
+  } = useAuthenticatedQuery({
+    queryKey: ["admin", "instructors", "all"],
+    url: "http://localhost:5000/api/admin/instructors?limit=12000",
+  });
 
-      let allUsers = [];
+  const users = useMemo(() => {
+    const students = (data?.students || []).map(mapStudentToUser);
+    const instructors = (instructorsData?.instructors || []).map(
+      mapInstructorToUser
+    );
+    return [...students, ...instructors];
+  }, [data?.students, instructorsData?.instructors]);
 
-      if (studentsRes.ok) {
-        const studentsData = await studentsRes.json();
-        const students = (studentsData.students || []).map((student) => ({
-          id: student.studid || student._id,
-          _id: student._id,
-          name: student.fullName,
-          email: student.email,
-          college: student.college,
-          department: student.course,
-          role: "Student",
-          userType: "student",
-          status: student.status,
-          originalData: student,
-        }));
-        allUsers = [...allUsers, ...students];
-      }
-
-      if (instructorsRes.ok) {
-        const instructorsData = await instructorsRes.json();
-        const instructors = (instructorsData.instructors || []).map(
-          (instructor) => ({
-            id: instructor.instructorid || instructor._id,
-            _id: instructor._id,
-            name: instructor.fullName,
-            email: instructor.email,
-            college: instructor.college,
-            department: instructor.department,
-            role: "Instructor",
-            userType: "instructor",
-            status: instructor.status,
-            originalData: instructor,
-          })
-        );
-        allUsers = [...allUsers, ...instructors];
-      }
-
-      setUsers(allUsers);
-      setFilteredUsers(allUsers);
-
-      if (!studentsRes.ok && !instructorsRes.ok) {
-        showError("Failed to fetch users");
-      }
-    } catch (err) {
-      showError("There was an error processing your request.");
-      console.error("Error fetching users:", err);
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    fetchAllUsers();
-  }, [fetchAllUsers]);
-
-  useEffect(() => {
+  const filteredUsers = useMemo(() => {
     let filtered = users;
 
     if (roleFilter !== "All") {
@@ -113,10 +97,9 @@ export default function AllUserManagement() {
       );
     }
 
-    setFilteredUsers(filtered);
-  }, [searchTerm, roleFilter, users]);
+    return filtered;
+  }, [roleFilter, searchTerm, users]);
 
-  // Reset to page 1 when search term or role filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, roleFilter]);
@@ -143,7 +126,7 @@ export default function AllUserManagement() {
         ? `http://localhost:5000/api/admin/instructors/${id}/archive`
         : `http://localhost:5000/api/admin/students/${id}/archive`;
 
-    const user = users.find((u) => (u._id || u.id) === id);
+    const user = users.find((item) => (item._id || item.id) === id);
     const userName = user?.fullName || user?.name || "this user";
 
     showConfirmDialog(
@@ -151,14 +134,38 @@ export default function AllUserManagement() {
       `Are you sure you want to archive "${userName}"? They will be hidden from normal operations but can be restored later.`,
       async () => {
         try {
-          setLoading(true);
+          setIsMutating(true);
           const res = await authenticatedFetch(endpoint, { method: "PUT" });
 
           if (res.ok) {
-            setUsers((prev) => prev.filter((u) => (u._id || u.id) !== id));
-            setFilteredUsers((prev) =>
-              prev.filter((u) => (u._id || u.id) !== id)
-            );
+            if (type === "instructor") {
+              queryClient.setQueryData(
+                ["admin", "instructors", "all"],
+                (previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        instructors: (previous.instructors || []).filter(
+                          (item) => (item._id || item.id) !== id
+                        ),
+                      }
+                    : previous
+              );
+            } else {
+              queryClient.setQueryData(
+                ["admin", "students", "approved"],
+                (previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        students: (previous.students || []).filter(
+                          (item) => (item._id || item.id) !== id
+                        ),
+                      }
+                    : previous
+              );
+            }
+
             hideConfirmDialog();
             setTimeout(() => {
               showSuccess(`${type} archived successfully!`);
@@ -177,7 +184,7 @@ export default function AllUserManagement() {
           }, 100);
           console.error(`Archive ${type} error:`, err);
         } finally {
-          setLoading(false);
+          setIsMutating(false);
         }
       }
     );
@@ -204,6 +211,8 @@ export default function AllUserManagement() {
     );
   };
 
+  const combinedError = error || instructorsError;
+
   return (
     <NotificationProvider notifications={notifications}>
       <div className="flex min-h-screen bg-[#E8EDF2]">
@@ -212,8 +221,12 @@ export default function AllUserManagement() {
           <div className="max-w-full mx-auto">
             <PageHeader />
 
-            {loading ? (
+            {isLoading || isInstructorsLoading || isMutating ? (
               <LoadingSpinner />
+            ) : combinedError ? (
+              <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border-2 border-gray-200 text-red-500">
+                {combinedError.message || "Failed to fetch users"}
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border-2 border-gray-200">
                 <SearchAndFilters
@@ -225,9 +238,7 @@ export default function AllUserManagement() {
                 />
 
                 {paginatedUsers.length === 0 ? (
-                  <EmptyState
-                    hasFilters={searchTerm || roleFilter !== "All"}
-                  />
+                  <EmptyState hasFilters={searchTerm || roleFilter !== "All"} />
                 ) : (
                   <>
                     <UserTableDesktop

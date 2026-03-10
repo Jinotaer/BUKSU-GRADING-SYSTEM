@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   IconUser,
   IconSchool,
@@ -6,7 +6,6 @@ import {
   IconBook,
 } from "@tabler/icons-react";
 import { NavbarSimple } from "./adminsidebar";
-import { authenticatedFetch } from "../../utils/auth";
 import {
   StatCard,
   QuickActionsSection,
@@ -15,60 +14,34 @@ import {
   LoadingState,
   ErrorMessage,
 } from "./ui/dashboard";
+import { useAuthenticatedQuery } from "../../hooks/useAuthenticatedQuery";
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
+  const { data, isLoading, error } = useAuthenticatedQuery({
+    queryKey: ["admin", "dashboard"],
+    url: "http://localhost:5000/api/admin/dashboard/stats",
+  });
+
+  const stats = data?.stats || {
     students: { total: 0, approved: 0 },
     instructors: { total: 0, active: 0, invited: 0 },
     subjects: { total: 0 },
     semesters: { total: 0 },
-  });
-  const [recentActivities, setRecentActivities] = useState({
+  };
+  const recentActivities = data?.recentActivities || {
     students: [],
     instructors: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Fetch dashboard stats
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await authenticatedFetch(
-          "http://localhost:5000/api/admin/dashboard/stats"
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setStats(data.stats);
-            setRecentActivities(data.recentActivities);
-          } else {
-            setError(data.message || "Failed to fetch dashboard stats");
-          }
-        } else {
-          const errorData = await res.json();
-          setError(errorData.message || "Failed to fetch dashboard stats");
-        }
-      } catch (err) {
-        setError("Error fetching dashboard stats");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStats();
-  }, []);
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
       <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-20 mt-10">
         <DashboardHeader />
-        {loading ? (
+        {isLoading ? (
           <LoadingState />
         ) : error ? (
-          <ErrorMessage message={error} />
+          <ErrorMessage message={error.message || "Failed to fetch dashboard stats"} />
         ) : (
           <>
             {/* Top cards */}

@@ -53,10 +53,10 @@ export function UserCardMobile({ users, onArchive, getStatusBadge }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <div>
+                <div className="whitespace-normal break-words">
                   <span className="font-medium">College:</span> {user.college}
                 </div>
-                <div>
+                <div className="whitespace-normal break-words">
                   <span className="font-medium">Dept:</span> {user.department}
                 </div>
               </div>

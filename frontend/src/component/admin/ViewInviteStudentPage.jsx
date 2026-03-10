@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import Pagination from "../common/Pagination";
@@ -19,9 +20,16 @@ export default function ViewInviteStudentPage() {
   const { sectionId } = useParams();
   // const navigate = useNavigate();
 
-  const [sectionDetails, setSectionDetails] = useState(null);
-  const [invitedStudents, setInvitedStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const sectionDetailsUrl = `http://localhost:5000/api/admin/sections/${sectionId}`;
+  const sectionStudentsUrl = `http://localhost:5000/api/admin/sections/${sectionId}/students`;
+  const cachedSectionDetails = getFreshCachedJson(sectionDetailsUrl)?.section || null;
+  const cachedInvitedStudents =
+    getFreshCachedJson(sectionStudentsUrl)?.students || [];
+  const [sectionDetails, setSectionDetails] = useState(cachedSectionDetails);
+  const [invitedStudents, setInvitedStudents] = useState(cachedInvitedStudents);
+  const [loading, setLoading] = useState(
+    !cachedSectionDetails && cachedInvitedStudents.length === 0
+  );
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);

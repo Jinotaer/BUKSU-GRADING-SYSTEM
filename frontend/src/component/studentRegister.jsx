@@ -1,6 +1,7 @@
 import buksuLogo from "../assets/buksu-logo-D6kBo6NY.png";
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { saveTokens } from "../utils/auth";
 import {
   RegistrationHeader,
   FormField,
@@ -83,10 +84,27 @@ export function StudentRegister() {
 
       const data = await response.json();
       if (response.ok) {
-        setSuccess(data.message || "Registration successful! Your account has been automatically approved.");
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
+        if (data.token) {
+          saveTokens(data.token);
+          sessionStorage.setItem(
+            "userInfo",
+            JSON.stringify(data.user || data.student || {})
+          );
+          sessionStorage.setItem("userType", "student");
+          setSuccess(
+            data.message ||
+              "Registration successful! Redirecting to your dashboard..."
+          );
+          navigate("/student", { replace: true });
+        } else {
+          setSuccess(
+            data.message ||
+              "Registration successful! Your account has been automatically approved."
+          );
+          setTimeout(() => {
+            navigate("/");
+          }, 2000);
+        }
       } else {
         setError(data.message || "Registration failed.");
       }

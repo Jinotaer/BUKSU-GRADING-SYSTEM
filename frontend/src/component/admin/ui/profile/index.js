@@ -5,3 +5,4 @@ export { ProfileCard } from "./ProfileCard";
 export { PersonalInfoCard } from "./PersonalInfoCard";
 export { AccountInfoCard } from "./AccountInfoCard";
 export { ChangePasswordCard } from "./ChangePasswordCard";
+export { EditProfileModal } from "./EditProfileModal";

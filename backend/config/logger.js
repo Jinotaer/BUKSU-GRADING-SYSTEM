@@ -35,11 +35,32 @@ const format = winston.format.combine(
 );
 
 // Console format (colorized for development)
+const formatConsoleMetadata = (info) => {
+  const metadata = { ...info };
+  delete metadata.level;
+  delete metadata.message;
+  delete metadata.timestamp;
+  delete metadata.stack;
+
+  if (Object.keys(metadata).length === 0) {
+    return "";
+  }
+
+  try {
+    return ` ${JSON.stringify(metadata)}`;
+  } catch {
+    return " [metadata_unserializable]";
+  }
+};
+
 const consoleFormat = winston.format.combine(
   winston.format.colorize({ all: true }),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(
-    (info) => `${info.timestamp} [${info.level}]: ${info.message}${info.stack ? '\n' + info.stack : ''}`
+    (info) =>
+      `${info.timestamp} [${info.level}]: ${info.message}${formatConsoleMetadata(info)}${
+        info.stack ? '\n' + info.stack : ''
+      }`
   )
 );
 

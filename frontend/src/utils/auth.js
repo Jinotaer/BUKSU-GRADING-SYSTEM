@@ -1,5 +1,9 @@
-// Authentication utility functions
-const API_BASE_URL = "http://localhost:5000";
+import {
+  cacheSuccessfulResponse,
+  clearApiCache,
+  getFreshCachedResponse,
+  invalidateApiCache,
+} from "../lib/apiCache.js";
 
 /**
  * Get token from sessionStorage
@@ -32,6 +36,7 @@ export const saveTokens = (accessToken, refreshToken) => {
 export const clearTokens = () => {
   sessionStorage.removeItem("accessToken");
   sessionStorage.removeItem("refreshToken");
+  clearApiCache();
 };
 
 /**
@@ -51,16 +56,26 @@ export const authenticatedFetch = async (url, options = {}) => {
     throw new Error("No access token available");
   }
 
+  const { skipCacheInvalidation = false, ...requestOptions } = options;
+  const method = (requestOptions.method || "GET").toUpperCase();
+
   // Add Authorization header
   const headers = {
-    ...options.headers,
+    ...requestOptions.headers,
     Authorization: `Bearer ${accessToken}`,
   };
 
   try {
+    if (method === "GET") {
+      const cachedResponse = getFreshCachedResponse(url);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+    }
+
     // Make the request
     const response = await fetch(url, {
-      ...options,
+      ...requestOptions,
       headers,
     });
 
@@ -69,6 +84,12 @@ export const authenticatedFetch = async (url, options = {}) => {
       clearTokens();
       window.location.href = "/login";
       throw new Error("Session expired. Please login again.");
+    }
+
+    if (method === "GET" && response.ok) {
+      await cacheSuccessfulResponse(url, response);
+    } else if (method !== "GET" && response.ok && !skipCacheInvalidation) {
+      invalidateApiCache();
     }
 
     return response;

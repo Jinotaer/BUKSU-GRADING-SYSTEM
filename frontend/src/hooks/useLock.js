@@ -98,6 +98,7 @@ export const useLock = (defaultType, defaultId) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(target),
+            skipCacheInvalidation: true,
           });
           if (!res.ok) {
             lockAcquiredRef.current = false;
@@ -128,6 +129,7 @@ export const useLock = (defaultType, defaultId) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(target),
+          skipCacheInvalidation: true,
         });
         const data = await res.json().catch(() => ({}));
 
@@ -191,6 +193,7 @@ export const useLock = (defaultType, defaultId) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(target),
+          skipCacheInvalidation: true,
         });
       } catch {
         // swallow release failures (best-effort)
@@ -318,6 +321,7 @@ export const useBatchLockStatus = (resourceType, resourceIds = []) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        skipCacheInvalidation: true,
       });
 
       const data = await res.json().catch(() => ({ locks: {} }));

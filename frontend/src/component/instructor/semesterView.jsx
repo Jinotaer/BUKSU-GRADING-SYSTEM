@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   PageHeader,
   ErrorMessage,
@@ -10,10 +11,14 @@ import {
 } from "./ui/semesterView";
 
 export default function SemesterView() {
-  const [semesters, setSemesters] = useState([]);
-  const [selectedSemester, setSelectedSemester] = useState(null);
+  const cachedSemesters =
+    getFreshCachedJson("http://localhost:5000/api/semesters")?.semesters || [];
+  const [semesters, setSemesters] = useState(cachedSemesters);
+  const [selectedSemester, setSelectedSemester] = useState(
+    cachedSemesters[0] || null
+  );
   const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cachedSemesters.length === 0);
   const [error, setError] = useState("");
 
   useEffect(() => {

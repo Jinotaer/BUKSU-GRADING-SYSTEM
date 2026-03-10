@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
 import {
@@ -20,8 +21,11 @@ import {
 export default function MySections() {
   const navigate = useNavigate();
   const notifications = useNotifications();
-  const [myAssignedSections, setMyAssignedSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cachedSections =
+    getFreshCachedJson("http://localhost:5000/api/instructor/sections")
+      ?.sections || [];
+  const [myAssignedSections, setMyAssignedSections] = useState(cachedSections);
+  const [loading, setLoading] = useState(cachedSections.length === 0);
   const [error, setError] = useState("");
 
   // Modals & actions

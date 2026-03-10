@@ -113,6 +113,15 @@ export function SectionForm({
           placeholder="Select Instructor"
           required
         />
+        {(!instructors || instructors.length === 0) ? (
+          <p className="text-xs text-orange-600 mt-1">
+            No instructors available. Invite an instructor first before creating a section.
+          </p>
+        ) : !formData.instructorId ? (
+          <p className="text-xs text-gray-500 mt-1">
+            Please choose the instructor who will handle this section.
+          </p>
+        ) : null}
       </div>
 
       <div>

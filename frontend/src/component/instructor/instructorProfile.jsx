@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { InstructorSidebar } from "./instructorSidebar";
 import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 import {
   Alert,
   PageHeader,
@@ -14,17 +15,20 @@ import {
 } from "./ui/profile";
 
 export default function InstructorProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedProfile =
+    getFreshCachedJson("http://localhost:5000/api/instructor/profile")
+      ?.instructor || null;
+  const [profile, setProfile] = useState(cachedProfile);
+  const [loading, setLoading] = useState(!cachedProfile);
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [alert, setAlert] = useState({ show: false, type: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
   // Edit profile form state
   const [editForm, setEditForm] = useState({
-    fullName: "",
-    college: "",
-    department: ""
+    fullName: cachedProfile?.fullName || "",
+    college: cachedProfile?.college || "",
+    department: cachedProfile?.department || ""
   });
 
   // Fetch instructor profile

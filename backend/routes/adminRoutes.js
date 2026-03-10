@@ -11,6 +11,7 @@ import {
   deleteStudent,
   getDashboardStats,
   getAdminProfile,
+  updateAdminProfile,
   requestResetPassword,
   verifyResetCode,
   resetPassword,
@@ -71,6 +72,7 @@ router.use(adminAuth); // Apply admin authentication to all routes below
 
 // Admin profile routes
 router.get('/profile', universalAuditLogger('PROFILE_VIEWED', 'PROFILE_MANAGEMENT'), getAdminProfile);
+router.put('/profile', universalAuditLogger('PROFILE_UPDATED', 'PROFILE_MANAGEMENT'), updateAdminProfile);
 router.post('/logout', universalAuditLogger('LOGOUT', 'AUTHENTICATION'), logoutAdmin);
 router.put('/change-password', universalAuditLogger('PASSWORD_CHANGED', 'SECURITY'), changePassword);
 
