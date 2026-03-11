@@ -136,7 +136,16 @@ export const getAllSections = async (req, res) => {
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
     
-    res.json({ success: true, sections });
+    // Decrypt instructor data before sending response
+    const decryptedSections = sections.map(section => {
+      const sectionObj = section.toObject();
+      if (sectionObj.instructor) {
+        sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
+      }
+      return sectionObj;
+    });
+    
+    res.json({ success: true, sections: decryptedSections });
   } catch (err) {
     console.error("getAllSections:", err);
     res.status(500).json({ message: "Server error" });
@@ -723,6 +732,29 @@ export const unarchiveSection = async (req, res) => {
         success: false,
         message: "Section is not archived",
       });
+    }
+
+    // Check if the assigned instructor is still active before allowing unarchive
+    const instructor = await Instructor.findById(section.instructor);
+    if (instructor) {
+      if (instructor.isArchived) {
+        const instructorData = decryptInstructorData(instructor.toObject());
+        const instructorName = instructorData.fullName || instructorData.email || "the assigned instructor";
+        return res.status(400).json({
+          success: false,
+          message: `Cannot unarchive section: The assigned instructor (${instructorName}) is currently archived. Please assign an active instructor or unarchive the instructor first.`,
+          section: { sectionName: section.sectionName },
+        });
+      }
+      if (instructor.status !== 'Active') {
+        const instructorData = decryptInstructorData(instructor.toObject());
+        const instructorName = instructorData.fullName || instructorData.email || "the assigned instructor";
+        return res.status(400).json({
+          success: false,
+          message: `Cannot unarchive section: The assigned instructor (${instructorName}) is currently inactive. Please assign an active instructor first.`,
+          section: { sectionName: section.sectionName },
+        });
+      }
     }
 
     section.isArchived = false;

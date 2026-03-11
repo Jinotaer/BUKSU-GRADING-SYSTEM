@@ -1388,13 +1388,16 @@ export const archiveStudent = async (req, res) => {
     student.archivedBy = adminEmail;
     await student.save();
 
+    // Decrypt student data for readable response
+    const decryptedStudent = bulkDecryptUserData([student.toObject()], 'student')[0];
+
     res.status(200).json({
       success: true,
       message: "Student archived successfully",
       student: {
         id: student._id,
-        email: student.email,
-        fullName: student.fullName,
+        email: decryptedStudent.email,
+        fullName: decryptedStudent.fullName,
         isArchived: student.isArchived,
         archivedAt: student.archivedAt,
         archivedBy: student.archivedBy,
@@ -1434,13 +1437,16 @@ export const unarchiveStudent = async (req, res) => {
     student.archivedBy = null;
     await student.save();
 
+    // Decrypt student data for readable response
+    const decryptedStudent = bulkDecryptUserData([student.toObject()], 'student')[0];
+
     res.status(200).json({
       success: true,
       message: "Student unarchived successfully",
       student: {
         id: student._id,
-        email: student.email,
-        fullName: student.fullName,
+        email: decryptedStudent.email,
+        fullName: decryptedStudent.fullName,
         isArchived: student.isArchived,
       },
     });
@@ -1479,13 +1485,16 @@ export const archiveInstructor = async (req, res) => {
     instructor.archivedBy = adminEmail;
     await instructor.save();
 
+    // Decrypt instructor data for readable response
+    const decryptedInstructor = decryptInstructorData(instructor.toObject());
+
     res.status(200).json({
       success: true,
       message: "Instructor archived successfully",
       instructor: {
         id: instructor._id,
-        email: instructor.email,
-        fullName: instructor.fullName,
+        email: decryptedInstructor.email,
+        fullName: decryptedInstructor.fullName,
         isArchived: instructor.isArchived,
         archivedAt: instructor.archivedAt,
         archivedBy: instructor.archivedBy,
@@ -1525,13 +1534,16 @@ export const unarchiveInstructor = async (req, res) => {
     instructor.archivedBy = null;
     await instructor.save();
 
+    // Decrypt instructor data for readable response
+    const decryptedInstructor = decryptInstructorData(instructor.toObject());
+
     res.status(200).json({
       success: true,
       message: "Instructor unarchived successfully",
       instructor: {
         id: instructor._id,
-        email: instructor.email,
-        fullName: instructor.fullName,
+        email: decryptedInstructor.email,
+        fullName: decryptedInstructor.fullName,
         isArchived: instructor.isArchived,
       },
     });

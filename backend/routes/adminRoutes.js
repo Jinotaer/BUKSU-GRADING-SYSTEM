@@ -99,7 +99,7 @@ router.get('/semesters', universalAuditLogger('SEMESTER_VIEWED', 'ACADEMIC_MANAG
 router.post('/semesters', universalAuditLogger('SEMESTER_CREATED', 'ACADEMIC_MANAGEMENT'), addSemester);
 router.put('/semesters/:id', requireLock('semester'), universalAuditLogger('SEMESTER_UPDATED', 'ACADEMIC_MANAGEMENT'), updateSemester);
 router.delete('/semesters/:id', requireLock('semester'), universalAuditLogger('SEMESTER_DELETED', 'ACADEMIC_MANAGEMENT'), deleteSemester);
-router.put('/semesters/:id/archive', requireLock('semester'), universalAuditLogger('SEMESTER_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSemester);
+router.put('/semesters/:id/archive', universalAuditLogger('SEMESTER_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSemester);
 router.put('/semesters/:id/unarchive', universalAuditLogger('SEMESTER_UNARCHIVED', 'ACADEMIC_MANAGEMENT'), unarchiveSemester);
 
 // Subject management
@@ -108,7 +108,7 @@ router.post('/subjects', universalAuditLogger('SUBJECT_CREATED', 'ACADEMIC_MANAG
 router.put('/subjects/:id', requireLock('subject'), universalAuditLogger('SUBJECT_UPDATED', 'ACADEMIC_MANAGEMENT'), updateSubject);
 router.delete('/subjects/:id', requireLock('subject'), universalAuditLogger('SUBJECT_DELETED', 'ACADEMIC_MANAGEMENT'), deleteSubject);
 router.post('/subjects/:subjectId/assign-instructor', universalAuditLogger('SUBJECT_UPDATED', 'ACADEMIC_MANAGEMENT'), assignInstructorToSubject);
-router.put('/subjects/:id/archive', requireLock('subject'), universalAuditLogger('SUBJECT_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSubject);
+router.put('/subjects/:id/archive', universalAuditLogger('SUBJECT_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSubject);
 router.put('/subjects/:id/unarchive', universalAuditLogger('SUBJECT_UNARCHIVED', 'ACADEMIC_MANAGEMENT'), unarchiveSubject);
 
 // Section management  
@@ -120,7 +120,7 @@ router.delete('/sections/:id', requireLock('section'), universalAuditLogger('SEC
 router.post('/sections/:id/invite-students', universalAuditLogger('SECTION_UPDATED', 'ACADEMIC_MANAGEMENT'), inviteStudentsToSection);
 router.get('/sections/:id/students', universalAuditLogger('SECTION_STUDENTS_VIEWED', 'ACADEMIC_MANAGEMENT'), getSectionStudents);
 router.delete('/sections/:id/remove-student', universalAuditLogger('SECTION_UPDATED', 'ACADEMIC_MANAGEMENT'), removeStudentFromSection);
-router.put('/sections/:id/archive', requireLock('section'), universalAuditLogger('SECTION_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSection);
+router.put('/sections/:id/archive', universalAuditLogger('SECTION_ARCHIVED', 'ACADEMIC_MANAGEMENT'), archiveSection);
 router.put('/sections/:id/unarchive', universalAuditLogger('SECTION_UNARCHIVED', 'ACADEMIC_MANAGEMENT'), unarchiveSection);
 
 export default router;

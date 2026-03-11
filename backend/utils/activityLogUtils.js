@@ -128,6 +128,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
   const actor = {
     userId: undefined,
     userEmail: undefined,
+    userName: undefined,
     userType: undefined,
     attemptedEmail: undefined,
     attemptedUserType: undefined,
@@ -136,6 +137,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
   if (req.admin) {
     actor.userId = req.admin.id || req.admin.adminId || req.admin._id;
     actor.userEmail = req.admin.email;
+    actor.userName = req.admin.fullName;
     actor.userType = "admin";
   } else if (req.instructor) {
     actor.userId =
@@ -248,6 +250,7 @@ export const buildRequestMetadata = (
     actor: {
       authenticatedUserId: actor.userId || null,
       authenticatedEmail: actor.userEmail || null,
+      authenticatedName: actor.userName || null,
       authenticatedUserType: actor.userType || null,
       attemptedEmail: actor.attemptedEmail || null,
       attemptedUserType: actor.attemptedUserType || null,

@@ -85,7 +85,8 @@ export const universalAuditLogger = (action, category) => {
 function generateUniversalDescription(action, req, body, success, actor) {
   const userType = actor.userType || actor.attemptedUserType || "user";
   const userEmail = actor.userEmail || actor.attemptedEmail || "anonymous";
-  const baseDesc = `${userType.charAt(0).toUpperCase() + userType.slice(1)} ${userEmail}`;
+  const displayName = actor.userName || userEmail;
+  const baseDesc = `${userType.charAt(0).toUpperCase() + userType.slice(1)} ${displayName}`;
   const loginMethod = req.body?.loginMethod || "default";
   const failureReason = body?.message || body?.error || "request failed";
   
@@ -230,7 +231,7 @@ function extractTargetInfo(req, body, actor) {
     return {
       targetType: 'Instructor',
       targetId: req.params.instructorId || body.instructor.id,
-      targetIdentifier: body?.instructor?.email || body?.deletedInstructor?.email || 'Unknown'
+      targetIdentifier: body?.instructor?.fullName || body?.instructor?.email || body?.deletedInstructor?.email || 'Unknown'
     };
   }
   
@@ -239,7 +240,7 @@ function extractTargetInfo(req, body, actor) {
     return {
       targetType: 'Section',
       targetId: req.params.sectionId || req.params.id,
-      targetIdentifier: body?.section?.name || 'Unknown'
+      targetIdentifier: body?.section?.sectionName || body?.section?.name || 'Unknown'
     };
   }
   
@@ -284,7 +285,7 @@ function extractTargetInfo(req, body, actor) {
     return {
       targetType: 'Semester',
       targetId: req.params.id,
-      targetIdentifier: body?.semester?.name || 'Unknown'
+      targetIdentifier: body?.semester?.schoolYear || body?.semester?.name || 'Unknown'
     };
   }
   
@@ -293,7 +294,7 @@ function extractTargetInfo(req, body, actor) {
     return {
       targetType: 'Subject',
       targetId: req.params.id,
-      targetIdentifier: body?.subject?.name || 'Unknown'
+      targetIdentifier: body?.subject?.subjectName || body?.subject?.subjectCode || body?.subject?.name || 'Unknown'
     };
   }
   

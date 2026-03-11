@@ -14,6 +14,14 @@ export function ArchiveItem({ item, type, onArchive, onUnarchive }) {
   };
 
   const getItemSubtitle = () => {
+    // For sections: show subject code and school year/term
+    if (item.subject?.subjectCode) {
+      const parts = [item.subject.subjectCode];
+      if (item.subject?.subjectName) parts.push(`- ${item.subject.subjectName}`);
+      if (item.schoolYear) parts.push(`| ${item.schoolYear}`);
+      if (item.term) parts.push(`- ${item.term}`);
+      return parts.join(' ');
+    }
     return (
       item.email ||
       item.subjectCode ||
