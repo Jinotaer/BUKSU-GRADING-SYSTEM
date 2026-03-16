@@ -1,5 +1,10 @@
 import React from "react";
-import { IconCalendarEvent, IconEdit, IconArchive } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconEdit,
+  IconArchive,
+  IconCheck,
+} from "@tabler/icons-react";
 
 export function SemesterCard({
   semester,
@@ -7,9 +12,11 @@ export function SemesterCard({
   lockedBy,
   onEdit,
   onArchive,
+  onSetActive,
 }) {
   const id = semester._id || semester.id;
   const locked = isLocked(id);
+  const isActive = semester.isActive === true;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -23,6 +30,11 @@ export function SemesterCard({
               {semester.schoolYear}
             </h3>
             <p className="text-gray-600 text-sm">{semester.term} Semester</p>
+            {isActive && (
+              <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                Current Active Term
+              </span>
+            )}
           </div>
         </div>
 
@@ -47,6 +59,24 @@ export function SemesterCard({
             title={locked ? `Locked by ${lockedBy(id)}` : "Edit semester"}
           >
             <IconEdit size={16} />
+          </button>
+          <button
+            onClick={() => onSetActive(id)}
+            disabled={locked || isActive}
+            className={`p-2 rounded-lg transition-colors ${
+              locked || isActive
+                ? "text-gray-300 cursor-not-allowed bg-gray-50"
+                : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"
+            }`}
+            title={
+              isActive
+                ? "Already current active term"
+                : locked
+                ? `Locked by ${lockedBy(id)}`
+                : "Set as current active term"
+            }
+          >
+            <IconCheck size={16} />
           </button>
           <button
             onClick={() => onArchive(id)}

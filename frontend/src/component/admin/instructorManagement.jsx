@@ -91,6 +91,7 @@ export default function InstructorManagement() {
   const handleInvite = async (event) => {
     event.preventDefault();
 
+    // D010
     const payload = {
       instructorid: inviteData.instructorid.trim(),
       email: normalizeLookupValue(inviteData.email),
@@ -204,11 +205,11 @@ export default function InstructorManagement() {
               (previous) =>
                 previous
                   ? {
-                      ...previous,
-                      instructors: (previous.instructors || []).filter(
-                        (item) => (item._id || item.id) !== id
-                      ),
-                    }
+                    ...previous,
+                    instructors: (previous.instructors || []).filter(
+                      (item) => (item._id || item.id) !== id
+                    ),
+                  }
                   : previous
             );
             queryClient.invalidateQueries({ queryKey: ["admin", "all-users"] });

@@ -106,9 +106,9 @@ export const createSection = async (req, res) => {
     const { subjectId, instructorId, schoolYear, term, gradingSchema } = req.body;
     const sectionName = normalizeSectionName(req.body?.sectionName);
     const sectionCode = buildSectionCode(sectionName);
-    
+
     console.log('Creating section with data:', { subjectId, instructorId, sectionName, schoolYear, term });
-    
+
     // For admin requests, instructorId is provided in the body
     // For instructor requests, use the authenticated user's ID
     const finalInstructorId = instructorId || req.user.user._id;
@@ -150,16 +150,16 @@ export const createSection = async (req, res) => {
     if (!instructor) return res.status(404).json({ message: "Instructor not found" });
 
     // Check uniqueness: same subject+instructor+sectionName in same sy/term
-    const existing = await Section.findOne({ 
-      subject: subjectId, 
-      instructor: finalInstructorId, 
-      schoolYear, 
+    const existing = await Section.findOne({
+      subject: subjectId,
+      instructor: finalInstructorId,
+      schoolYear,
       term,
       sectionName,
     });
     if (existing) {
-      return res.status(400).json({ 
-        message: "A section with this name already exists for this subject and instructor in this term" 
+      return res.status(400).json({
+        message: "A section with this name already exists for this subject and instructor in this term"
       });
     }
 
@@ -201,14 +201,14 @@ export const createSection = async (req, res) => {
 
       // Determine who created the section (admin or self-assignment)
       const createdBy = instructorId ? "Admin" : "Self-assigned";
-      
+
       await emailService.sendSectionAssignmentNotification(
         decryptedInstructor.email,
         decryptedInstructor.fullName,
         sectionDetails,
         createdBy
       );
-      
+
       console.log(`📧 Section assignment email sent to ${decryptedInstructor.email}`);
     } catch (emailError) {
       console.error("❌ Error sending section assignment email:", emailError);
@@ -225,7 +225,7 @@ export const createSection = async (req, res) => {
     console.error("Error stack:", err.stack);
     console.error("Error code:", err.code);
     console.error("Full error:", err);
-    
+
     if (err.code === 11000 && err.keyPattern?.sectionCode) {
       return res.status(400).json({
         message:
@@ -234,13 +234,13 @@ export const createSection = async (req, res) => {
     }
 
     if (err.code === 11000) {
-      return res.status(400).json({ 
-        message: "A section with these details already exists. Please use different section details." 
+      return res.status(400).json({
+        message: "A section with these details already exists. Please use different section details."
       });
     }
-    
-    res.status(500).json({ 
-      message: "Server error", 
+
+    res.status(500).json({
+      message: "Server error",
       error: err.message,
       details: err.code ? `Error code: ${err.code}` : undefined
     });
@@ -250,17 +250,17 @@ export const createSection = async (req, res) => {
 export const getAllSections = async (req, res) => {
   try {
     const { includeArchived = false } = req.query;
-    
+
     const filter = {};
     if (includeArchived !== 'true') {
       filter.isArchived = { $ne: true };
     }
-    
+
     const sections = await Section.find(filter)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
-    
+
     res.json({ success: true, sections: formatSectionListResponse(sections) });
   } catch (err) {
     console.error("getAllSections:", err);
@@ -273,24 +273,24 @@ export const getInstructorSections = async (req, res) => {
     // Handle both old and new auth middleware patterns
     const instructorId = req.instructor?.id || req.user?.user?._id || req.user?._id;
     const { includeArchived = false } = req.query;
-    
+
     if (!instructorId) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Instructor authentication required" 
+      return res.status(401).json({
+        success: false,
+        message: "Instructor authentication required"
       });
     }
-    
+
     const filter = { instructor: instructorId };
     if (includeArchived !== 'true') {
       filter.isArchived = { $ne: true };
     }
-    
+
     const sections = await Section.find(filter)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
-    
+
     res.json({ success: true, sections: formatSectionListResponse(sections) });
   } catch (err) {
     console.error("getInstructorSections:", err);
@@ -301,27 +301,27 @@ export const getInstructorSections = async (req, res) => {
 export const getSectionById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const section = await Section.findById(id)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department")
       .populate("students", "studid fullName email yearLevel course");
-    
+
     if (!section) {
       return res.status(404).json({ message: "Section not found" });
     }
-    
+
     // Decrypt student and instructor data
     const sectionObj = section.toObject();
-    
+
     if (sectionObj.students && sectionObj.students.length > 0) {
       sectionObj.students = bulkDecryptUserData(sectionObj.students, 'student');
     }
-    
+
     if (sectionObj.instructor) {
       sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
     }
-    
+
     if (typeof sectionObj.archivedBy === "string") {
       sectionObj.archivedBy = safeDecrypt(sectionObj.archivedBy);
     }
@@ -375,7 +375,7 @@ export const getSubjectsWithMultipleInstructors = async (req, res) => {
   } catch (err) {
     console.error("getSubjectsWithMultipleInstructors:", err);
     res.status(500).json({ message: "Server error" });
-    }
+  }
 };
 
 export const updateSection = async (req, res) => {
@@ -411,7 +411,7 @@ export const updateSection = async (req, res) => {
     if (subjectId) {
       const subject = await Subject.findById(subjectId);
       if (!subject) return res.status(404).json({ message: "Subject not found" });
-      
+
       // For instructor requests, verify subject assignment
       if (!isAdminRequest && subject.assignedInstructor.toString() !== req.user.user._id.toString()) {
         return res.status(403).json({ message: "You can only assign subjects that are assigned to you" });
@@ -449,24 +449,24 @@ export const updateSection = async (req, res) => {
 
     // Check uniqueness if changing key fields
     if (subjectId || sectionName || schoolYear || term) {
-      const existing = await Section.findOne({ 
-        subject: subjectId || section.subject, 
+      const existing = await Section.findOne({
+        subject: subjectId || section.subject,
         instructor: finalInstructorId,
-        schoolYear: schoolYear || section.schoolYear, 
+        schoolYear: schoolYear || section.schoolYear,
         term: term || section.term,
         sectionName: sectionName || section.sectionName,
         _id: { $ne: id }
       });
       if (existing) {
-        return res.status(400).json({ 
-          message: "A section with this name already exists for this subject and instructor in this term" 
+        return res.status(400).json({
+          message: "A section with this name already exists for this subject and instructor in this term"
         });
       }
     }
 
     // Check if grading schema is being updated
     const gradingSchemaChanged = gradingSchema && JSON.stringify(gradingSchema) !== JSON.stringify(section.gradingSchema);
-    
+
     // Check if school year changed
     const schoolYearChanged = schoolYear && schoolYear !== section.schoolYear;
     const oldSchoolYear = section.schoolYear;
@@ -484,7 +484,7 @@ export const updateSection = async (req, res) => {
       },
       { new: true, runValidators: true }
     ).populate("instructor", "fullName email college department")
-     .populate("subject", "subjectCode subjectName units college department");
+      .populate("subject", "subjectCode subjectName units college department");
 
     // If school year changed, update activities for THIS SECTION ONLY
     // We do this by finding activities that were created for this section's schedule
@@ -493,7 +493,7 @@ export const updateSection = async (req, res) => {
       const Schedule = (await import("../models/schedule.js")).default;
       const schedules = await Schedule.find({ section: id });
       const scheduleIds = schedules.map(s => s._id);
-      
+
       if (scheduleIds.length > 0) {
         // Update activities tied to this section's schedules
         const updateResult = await Activity.updateMany(
@@ -505,7 +505,7 @@ export const updateSection = async (req, res) => {
             $set: { schoolYear: schoolYear }
           }
         );
-        
+
         console.log(`[sectionController] Updated ${updateResult.modifiedCount} activities from ${oldSchoolYear} to ${schoolYear} for section ${updatedSection.sectionName}`);
       }
     }
@@ -523,7 +523,7 @@ export const updateSection = async (req, res) => {
           console.error('[sectionController] Error recalculating grades after schema change:', err);
         });
     }
-    
+
     // If school year changed, recalculate grades for students
     if (schoolYearChanged && updatedSection.students.length > 0) {
       calculateAndUpdateAllGradesInSection(id, finalInstructorId)
@@ -619,7 +619,7 @@ export const inviteStudentsToSection = async (req, res) => {
     const section = await Section.findById(id)
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName units college department");
-      
+
     if (!section) {
       return res.status(404).json({ message: "Section not found" });
     }
@@ -631,7 +631,7 @@ export const inviteStudentsToSection = async (req, res) => {
     }
 
     // Add students to the section if they're not already enrolled
-    const newStudentIds = studentIds.filter(studentId => 
+    const newStudentIds = studentIds.filter(studentId =>
       !section.students.includes(studentId)
     );
 
@@ -647,7 +647,7 @@ export const inviteStudentsToSection = async (req, res) => {
     const plainStudents = students.map(s => s.toObject());
     const decryptedStudents = bulkDecryptUserData(plainStudents, 'student');
     console.log('📧 Sending emails to students:', decryptedStudents.map(s => s.email));
-    
+
     // Decrypt instructor data
     const decryptedInstructor = decryptInstructorData(section.instructor.toObject());
 
@@ -672,7 +672,7 @@ export const inviteStudentsToSection = async (req, res) => {
           schoolYear: section.schoolYear,
           term: section.term
         };
-        
+
         emailPromises.push(
           emailService.sendSectionInvitation(
             student.email,
@@ -685,9 +685,9 @@ export const inviteStudentsToSection = async (req, res) => {
         studentsWithoutEmail.push(student);
       }
     }
-    
+
     if (studentsWithoutEmail.length > 0) {
-      console.warn(`⚠️ ${studentsWithoutEmail.length} student(s) have no email address:`, 
+      console.warn(`⚠️ ${studentsWithoutEmail.length} student(s) have no email address:`,
         studentsWithoutEmail.map(s => `${s.firstName} ${s.lastName} (${s.studid})`).join(', ')
       );
     }
@@ -727,7 +727,7 @@ export const getSectionStudents = async (req, res) => {
       .populate("students", "studid fullName email yearLevel course createdAt")
       .populate("subject", "subjectCode subjectName")
       .populate("instructor", "fullName email");
-      
+
     if (!section) {
       return res.status(404).json({ message: "Section not found" });
     }
@@ -739,7 +739,7 @@ export const getSectionStudents = async (req, res) => {
     );
 
     // Decrypt instructor data
-    const decryptedInstructor = section.instructor ? 
+    const decryptedInstructor = section.instructor ?
       decryptInstructorData(section.instructor.toObject()) : null;
 
     // Format student data with invite date
@@ -753,8 +753,8 @@ export const getSectionStudents = async (req, res) => {
       inviteDate: student.createdAt // Using createdAt as a proxy for invite date
     }));
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       students: studentsWithInviteDate,
       section: {
         _id: section._id,
@@ -792,18 +792,18 @@ export const removeStudentFromSection = async (req, res) => {
     }
 
     // Remove student from section
-    section.students = section.students.filter(student => 
+    section.students = section.students.filter(student =>
       student.toString() !== studentId.toString()
     );
-    
+
     await section.save();
 
     // Get student details for confirmation
     const student = await Student.findById(studentId);
     const studentName = student ? student.fullName : 'Student';
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${studentName} has been removed from the section successfully`,
       remainingStudents: section.students.length
     });
@@ -908,16 +908,17 @@ export const unarchiveSection = async (req, res) => {
       });
     }
 
-    const assignedInstructor = await Instructor.findById(section.instructor).select(
+    const assignedInstructor = section.instructor ? await Instructor.findById(section.instructor).select(
       "status isArchived"
-    );
+    ) : null;
 
+    let warningMessage = null;
+
+    //D069-2
     if (!assignedInstructor || assignedInstructor.isArchived || assignedInstructor.status !== "Active") {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot unarchive section: The assigned instructor is inactive/archived. Please assign an active instructor first.",
-      });
+      // Auto-unassign feature
+      section.instructor = null;
+      warningMessage = "Section successfully unarchived, but marked as Unassigned because the previous instructor is no longer active. Please assign a new instructor.";
     }
 
     section.isArchived = false;
@@ -931,7 +932,8 @@ export const unarchiveSection = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Section unarchived successfully",
+      message: warningMessage || "Section unarchived successfully",
+      warning: warningMessage ? true : false,
       section: {
         id: populatedSection._id,
         sectionName: populatedSection.sectionName,
