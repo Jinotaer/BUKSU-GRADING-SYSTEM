@@ -20,15 +20,20 @@ export default function AdminRequestCode() {
     setError("");
     setSuccess("");
 
- 
-
     const email = e.target.adminEmail.value;
 
     try {
       setLoading(true);
       const data = await adminAuth.requestResetCode(email);
+
+      sessionStorage.removeItem("admin_reset_passcode");
+      sessionStorage.removeItem("admin_reset_request_id");
+
       if (data.ok) {
-        setSuccess("A reset code has been sent to your email.");
+        setSuccess(data.message || "Reset code sent to your admin email.");
+        if (data.canProceed && data.resetRequestId) {
+          sessionStorage.setItem("admin_reset_request_id", data.resetRequestId);
+        }
         e.target.reset();
         navigate("/admin/admin-verify-code");
       } else {

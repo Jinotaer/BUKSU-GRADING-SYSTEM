@@ -38,10 +38,15 @@ export function SubjectForm({
             value={formData.subjectCode}
             onChange={onChange}
             autoComplete="off"
+            pattern="[A-Za-z0-9 -]+"
+            title="Subject Code can only contain alphanumeric characters, spaces, or hyphens."
             className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none text-sm sm:text-base transition-shadow hover:border-gray-400"
             placeholder="e.g. CS101"
             required
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Use letters, numbers, spaces, or hyphens only.
+          </p>
         </div>
 
         <div>

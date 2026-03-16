@@ -8,6 +8,11 @@ import Instructor from "../models/instructor.js";
 import googleCalendarService from "../services/googleCalendarService.js";
 import emailService from "../services/emailService.js";
 import { bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
+import {
+  buildActivityTitleRegex,
+  getSectionScheduleIds,
+  normalizeActivityTitle,
+} from "../utils/activityQueryUtils.js";
 
 // Safely get the current instructor id from the request, regardless of shape
 const getInstructorId = (req) =>
@@ -105,6 +110,24 @@ export const createActivity = async (req, res) => {
     const termMapping = { "1st": "Midterm", "2nd": "Finalterm", Summer: "Summer" };
     // Use term from request body if provided, otherwise map from section term
     const activityTerm = term || termMapping[section.term] || section.term;
+    const normalizedTitle = normalizeActivityTitle(title);
+
+    const sectionScheduleIds = await getSectionScheduleIds(sectionId);
+    const duplicateActivity = sectionScheduleIds.length
+      ? await Activity.findOne({
+          schedule: { $in: sectionScheduleIds },
+          term: activityTerm,
+          isActive: true,
+          title: buildActivityTitleRegex(normalizedTitle),
+        })
+      : null;
+
+    if (duplicateActivity) {
+      return res.status(400).json({
+        success: false,
+        message: `An activity titled "${normalizedTitle}" already exists for this section in ${activityTerm}.`,
+      });
+    }
 
     // Ensure Semester exists for (schoolYear, term as stored on Section)
     let semester = await Semester.findOne({
@@ -118,7 +141,7 @@ export const createActivity = async (req, res) => {
 
     // Create schedule first
     const scheduleData = {
-      title,
+      title: normalizedTitle,
       description: description || "",
       eventType: eventType || 'quiz',
       startDateTime: startObj,
@@ -139,7 +162,7 @@ export const createActivity = async (req, res) => {
 
       if (instructorWithTokens && instructorWithTokens.googleCalendarConnected) {
         const calendarEventData = {
-          title: `${title} - ${section.subject.subjectCode}`,
+          title: `${normalizedTitle} - ${section.subject.subjectCode}`,
           description: `${description || ''}\n\nSection: ${section.sectionName}\nType: ${(eventType || 'quiz').toUpperCase()}`,
           startDateTime: normalizedStart,
           endDateTime: normalizedEnd,
@@ -169,7 +192,7 @@ export const createActivity = async (req, res) => {
 
     // Create activity with schedule reference
     const activity = new Activity({
-      title,
+      title: normalizedTitle,
       description: description || "",
       notes: notes || "",
       category,
@@ -206,7 +229,7 @@ export const createActivity = async (req, res) => {
 
       if (sectionWithStudents && sectionWithStudents.students && sectionWithStudents.students.length > 0) {
         const scheduleDetails = {
-          title,
+          title: normalizedTitle,
           eventType: eventType || 'quiz',
           startDateTime: startObj,
           endDateTime: endObj,
@@ -296,12 +319,10 @@ export const getSectionActivities = async (req, res) => {
       return res.status(404).json({ success: false, message: "Section not found" });
     }
 
-    // Fetch all active activities for this section's subject and school year
-    // Activities are tied to subject + schoolYear, so they persist across term changes
-    // but should match the section's current schoolYear
+    const scheduleIds = await getSectionScheduleIds(sectionId);
+
     const activities = await Activity.find({
-      subject: section.subject,
-      schoolYear: section.schoolYear,
+      schedule: { $in: scheduleIds },
       isActive: true,
     })
     .populate('schedule')
@@ -394,9 +415,41 @@ export const updateActivity = async (req, res) => {
       }
     }
 
+    const currentSchedule =
+      activity.schedule?.section
+        ? activity.schedule
+        : await Schedule.findById(activity.schedule).select("section");
+
+    if (!currentSchedule?.section) {
+      return res.status(400).json({
+        success: false,
+        message: "Activity schedule is missing its section reference",
+      });
+    }
+
+    const nextTitle = title ? normalizeActivityTitle(title) : activity.title;
+    const nextTerm = term || activity.term;
+    const sectionScheduleIds = await getSectionScheduleIds(currentSchedule.section);
+    const duplicateActivity = sectionScheduleIds.length
+      ? await Activity.findOne({
+          _id: { $ne: activity._id },
+          schedule: { $in: sectionScheduleIds },
+          term: nextTerm,
+          isActive: true,
+          title: buildActivityTitleRegex(nextTitle),
+        })
+      : null;
+
+    if (duplicateActivity) {
+      return res.status(400).json({
+        success: false,
+        message: `An activity titled "${nextTitle}" already exists for this section in ${nextTerm}.`,
+      });
+    }
+
     // Update activity fields
     const activityUpdateData = {};
-    if (title) activityUpdateData.title = title;
+    if (title) activityUpdateData.title = nextTitle;
     if (description !== undefined) activityUpdateData.description = description;
     if (notes !== undefined) activityUpdateData.notes = notes;
     if (category) activityUpdateData.category = category;
@@ -413,7 +466,7 @@ export const updateActivity = async (req, res) => {
       const schedule = await Schedule.findById(activity.schedule);
       if (schedule) {
         const scheduleUpdateData = {};
-        if (title) scheduleUpdateData.title = title;
+        if (title) scheduleUpdateData.title = nextTitle;
         if (description !== undefined) scheduleUpdateData.description = description;
         if (notes !== undefined) scheduleUpdateData.notes = notes;
         if (eventType) scheduleUpdateData.eventType = eventType;
@@ -438,7 +491,7 @@ export const updateActivity = async (req, res) => {
             const formattedEnd = normalizedEndUpdate || (schedule.endDateTime instanceof Date ? schedule.endDateTime.toISOString().replace(/\.\d{3}Z$/, '') : schedule.endDateTime);
 
             const calendarEventData = {
-              title: `${title || schedule.title} - ${subject.subjectCode}`,
+              title: `${nextTitle || schedule.title} - ${subject.subjectCode}`,
               description: `${description || schedule.description || ''}\n\nSection: ${section.sectionName}\nType: ${(eventType || schedule.eventType).toUpperCase()}`,
               startDateTime: formattedStart,
               endDateTime: formattedEnd,

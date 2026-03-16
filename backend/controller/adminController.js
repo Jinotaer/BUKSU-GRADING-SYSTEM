@@ -148,6 +148,18 @@ const generateToken = (payload, secret, expiresIn) => {
 };
 const PASSCODE_TTL = 1000 * 60 * 15; // 15 minutes
 const BCRYPT_ROUNDS = 12;
+const RESET_REQUEST_ID_PATTERN = /^[a-f0-9]{24}$/i;
+
+const findResetRequestById = async (resetRequestId) => {
+  const normalizedId =
+    typeof resetRequestId === "string" ? resetRequestId.trim() : "";
+
+  if (!RESET_REQUEST_ID_PATTERN.test(normalizedId)) {
+    return null;
+  }
+
+  return AdminReset.findById(normalizedId);
+};
 
 // Helper: Generate numeric 6-digit passcode
 function generatePasscode(length = 6) {
@@ -159,11 +171,24 @@ function generatePasscode(length = 6) {
 // Request reset code
 export const requestResetPassword = async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email required" });
+    const email = normalizeEmail(req.body?.email);
+
+    if (!email) {
+      return res.status(400).json({
+        ok: false,
+        canProceed: false,
+        message: "Email required",
+      });
+    }
 
     const admin = await findAdminByEmail(email);
-    if (!admin) return res.json({ ok: true }); // hide existence
+    if (!admin) {
+      return res.status(404).json({
+        ok: false,
+        canProceed: false,
+        message: "Email not registered as admin",
+      });
+    }
 
     // Decrypt admin data for email sending
     const decryptedAdmin = decryptAdminData(admin.toObject());
@@ -192,33 +217,72 @@ export const requestResetPassword = async (req, res) => {
     if (!emailResult?.success) {
       await AdminReset.deleteOne({ _id: resetRecord._id });
       return res.status(500).json({
-        error: emailResult?.message || "Failed to send reset code email",
+        ok: false,
+        canProceed: false,
+        message: emailResult?.message || "Failed to send reset code email",
       });
     }
 
-    return res.json({ ok: true, message: "Reset code sent to email" });
+    return res.json({
+      ok: true,
+      canProceed: true,
+      resetRequestId: resetRecord._id,
+      message: "Reset code sent to your admin email",
+    });
   } catch (error) {
     console.error("Error requesting reset:", error);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      ok: false,
+      canProceed: false,
+      message: "Server error",
+    });
   }
 };
 
 // reset password using verified passcode
 export const resetPassword = async (req, res) => {
   try {
-    const { passcode, newPassword } = req.body;
+    const { passcode, newPassword, resetRequestId } = req.body;
 
-    if (!passcode || !newPassword) {
+    if (!passcode || !newPassword || !resetRequestId) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const resetRecord = await AdminReset.findOne({}).sort({ createdAt: -1 });
+    const resetRecord = await findResetRequestById(resetRequestId);
     if (!resetRecord) {
-      return res.status(400).json({ success: false, message: "No reset request found" });
+      return res.status(400).json({
+        success: false,
+        message: "Reset request not found or expired",
+      });
+    }
+
+    if (resetRecord.isUsed) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset code has already been used",
+      });
+    }
+
+    if (resetRecord.hasExceededAttempts()) {
+      await AdminReset.deleteOne({ _id: resetRecord._id });
+      return res.status(400).json({
+        success: false,
+        message: "Too many invalid attempts. Please request a new code.",
+      });
     }
 
     const isValid = await bcrypt.compare(passcode, resetRecord.passcodeHash);
     if (!isValid) {
+      await resetRecord.incrementAttempts();
+
+      if (resetRecord.hasExceededAttempts()) {
+        await AdminReset.deleteOne({ _id: resetRecord._id });
+        return res.status(400).json({
+          success: false,
+          message: "Too many invalid attempts. Please request a new code.",
+        });
+      }
+
       return res.status(400).json({ success: false, message: "Invalid code" });
     }
 
@@ -235,6 +299,7 @@ export const resetPassword = async (req, res) => {
 
     admin.password = newPassword;
     await admin.save();
+    await resetRecord.markAsUsed();
     await AdminReset.deleteMany({ adminId: admin._id });
 
     return res.json({ success: true, message: "Password successfully updated" });
@@ -246,20 +311,45 @@ export const resetPassword = async (req, res) => {
 
 export const verifyResetCode = async (req, res) => {
   try {
-    const { passcode } = req.body;
-    if (!passcode)
-      return res.status(400).json({ message: "Code required" });
+    const { passcode, resetRequestId } = req.body;
+    if (!passcode || !resetRequestId) {
+      return res.status(400).json({ message: "Code and reset request are required" });
+    }
 
-    const reset = await AdminReset.findOne({}).sort({ createdAt: -1 }); // latest code
-    if (!reset)
-      return res.status(400).json({ message: "No reset request found" });
+    const reset = await findResetRequestById(resetRequestId);
+    if (!reset) {
+      return res.status(400).json({ message: "Reset request not found or expired" });
+    }
+
+    if (reset.isUsed) {
+      return res.status(400).json({ message: "Reset code has already been used" });
+    }
+
+    if (reset.hasExceededAttempts()) {
+      await AdminReset.deleteOne({ _id: reset._id });
+      return res.status(400).json({
+        message: "Too many invalid attempts. Please request a new code.",
+      });
+    }
 
     const isValid = await bcrypt.compare(passcode, reset.passcodeHash);
-    if (!isValid)
-      return res.status(400).json({ message: "Invalid code" });
+    if (!isValid) {
+      await reset.incrementAttempts();
 
-    if (reset.expiresAt < new Date())
+      if (reset.hasExceededAttempts()) {
+        await AdminReset.deleteOne({ _id: reset._id });
+        return res.status(400).json({
+          message: "Too many invalid attempts. Please request a new code.",
+        });
+      }
+
+      return res.status(400).json({ message: "Invalid code" });
+    }
+
+    if (reset.expiresAt < new Date()) {
+      await AdminReset.deleteOne({ _id: reset._id });
       return res.status(400).json({ message: "Code expired" });
+    }
 
     res.json({ ok: true, message: "Code verified successfully" });
   } catch (err) {
@@ -1205,6 +1295,7 @@ export const getAdminProfile = async (req, res) => {
 export const updateAdminProfile = async (req, res) => {
   try {
     const adminId = req.admin.id;
+    const namePattern = /^[A-Za-z ]+$/;
     const {
       firstName: rawFirstName,
       lastName: rawLastName,
@@ -1221,6 +1312,14 @@ export const updateAdminProfile = async (req, res) => {
           message: "First name is required",
         });
       }
+
+      if (!namePattern.test(firstName)) {
+        return res.status(400).json({
+          success: false,
+          message: "First name must contain only letters and spaces",
+        });
+      }
+
       updateData.firstName = firstName;
     }
 
@@ -1232,6 +1331,14 @@ export const updateAdminProfile = async (req, res) => {
           message: "Last name is required",
         });
       }
+
+      if (!namePattern.test(lastName)) {
+        return res.status(400).json({
+          success: false,
+          message: "Last name must contain only letters and spaces",
+        });
+      }
+
       updateData.lastName = lastName;
     }
 

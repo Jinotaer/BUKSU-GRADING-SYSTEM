@@ -3,6 +3,7 @@ import Activity from "../models/activity.js";
 import ActivityScore from "../models/activityScore.js";
 import Grade from "../models/grades.js";
 import Section from "../models/sections.js";
+import { getSectionScheduleIds } from "./activityQueryUtils.js";
 
 /**
  * Round number up if decimal is .5 or higher
@@ -317,14 +318,11 @@ export const calculateAndUpdateGrade = async (studentId, sectionId, instructorId
       throw new Error('Student is not enrolled in this section');
     }
 
-    // Get all active activities for this section
-    // Note: Activity.term stores "Midterm"/"Finalterm" (grading period), not semester term
-    const activityQuery = {
-      subject: section.subject._id,
-      schoolYear: section.schoolYear,
+    const scheduleIds = await getSectionScheduleIds(sectionId);
+    const activities = await Activity.find({
+      schedule: { $in: scheduleIds },
       isActive: true,
-    };
-    const activities = await Activity.find(activityQuery).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1 });
 
     // Group activities by category and grading period (Midterm/Finalterm)
     const midtermActivities = activities.filter(a => a.term === 'Midterm');

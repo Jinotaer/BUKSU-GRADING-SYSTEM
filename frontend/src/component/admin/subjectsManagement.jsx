@@ -21,6 +21,25 @@ const API_BASE =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
   "http://localhost:5000";
 
+const SUBJECT_CODE_PATTERN = /^[A-Za-z0-9 -]+$/;
+
+const normalizeSubjectCode = (subjectCode) =>
+  typeof subjectCode === "string" ? subjectCode.trim() : "";
+
+const getSubjectCodeValidationMessage = (subjectCode) => {
+  const normalizedSubjectCode = normalizeSubjectCode(subjectCode);
+
+  if (!normalizedSubjectCode) {
+    return "Subject code is required";
+  }
+
+  if (!SUBJECT_CODE_PATTERN.test(normalizedSubjectCode)) {
+    return "Subject Code can only contain alphanumeric characters, spaces, or hyphens.";
+  }
+
+  return "";
+};
+
 export default function SubjectManagement() {
   const cachedSubjectsResponse = getFreshCachedJson(
     `${API_BASE}/api/admin/subjects`
@@ -352,6 +371,16 @@ export default function SubjectManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const normalizedSubjectCode = normalizeSubjectCode(formData.subjectCode);
+    const subjectCodeValidationMessage =
+      getSubjectCodeValidationMessage(normalizedSubjectCode);
+
+    if (subjectCodeValidationMessage) {
+      showError(subjectCodeValidationMessage);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -363,6 +392,7 @@ export default function SubjectManagement() {
 
       const requestData = {
         ...formData,
+        subjectCode: normalizedSubjectCode,
         units: parseInt(formData.units, 10),
       };
 

@@ -91,6 +91,7 @@ const activitySchema = new mongoose.Schema(
 // Index for efficient queries
 activitySchema.index({ subject: 1, instructor: 1 });
 activitySchema.index({ semester: 1, schoolYear: 1, term: 1 });
+activitySchema.index({ schedule: 1, term: 1, isActive: 1 });
 
 const Activity = mongoose.model("Activity", activitySchema);
 

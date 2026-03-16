@@ -134,10 +134,15 @@ export function SectionForm({
           value={formData.sectionName}
           onChange={onChange}
           autoComplete="off"
-          placeholder="e.g., BSCS 1A, BSIT 2B"
+          placeholder="e.g., T67"
+          pattern="[A-Za-z0-9 -]+"
+          title="Section Name can only contain alphanumeric characters, hyphens, and spaces."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none"
           required
         />
+        <p className="text-xs text-gray-500 mt-1">
+          Use letters, numbers, spaces, or hyphens only.
+        </p>
       </div>
 
       {/* Grading Schema */}

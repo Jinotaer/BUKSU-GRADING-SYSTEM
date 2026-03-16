@@ -21,6 +21,28 @@ const API_BASE =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
   "http://localhost:5000";
 
+const SECTION_NAME_PATTERN = /^[A-Za-z0-9 -]+$/;
+
+const normalizeSectionName = (sectionName) =>
+  typeof sectionName === "string" ? sectionName.trim() : "";
+
+const getSectionNameValidationMessage = (sectionName) => {
+  const normalizedSectionName = normalizeSectionName(sectionName);
+
+  if (!normalizedSectionName) {
+    return "Please enter a section code before creating the section";
+  }
+
+  if (!SECTION_NAME_PATTERN.test(normalizedSectionName)) {
+    return "Section Name can only contain alphanumeric characters, hyphens, and spaces.";
+  }
+
+  return "";
+};
+
+const buildSectionCode = (sectionName) =>
+  normalizeSectionName(sectionName).replace(/\s+/g, " ").toUpperCase();
+
 export default function SectionManagement() {
   const navigate = useNavigate();
   const cachedSectionsResponse = getFreshCachedJson(
@@ -485,15 +507,48 @@ export default function SectionManagement() {
       return;
     }
 
-    if (!formData.sectionName.trim()) {
-      showError("Please enter a section code before creating the section");
+    const normalizedSectionName = normalizeSectionName(formData.sectionName);
+    const sectionNameValidationMessage =
+      getSectionNameValidationMessage(normalizedSectionName);
+
+    if (sectionNameValidationMessage) {
+      showError(sectionNameValidationMessage);
+      return;
+    }
+
+    const sectionCode = buildSectionCode(normalizedSectionName);
+    const hasDuplicateSectionCode = sections.some((section) => {
+      if (selectedSection?._id && String(section._id) === String(selectedSection._id)) {
+        return false;
+      }
+
+      const existingSubjectId = section.subject?._id || section.subject;
+      if (String(existingSubjectId) !== String(formData.subjectId)) {
+        return false;
+      }
+
+      if (section.schoolYear !== selectedSem.schoolYear || section.term !== selectedSem.term) {
+        return false;
+      }
+
+      const existingSectionCode = buildSectionCode(
+        section.sectionCode || section.sectionName || ""
+      );
+
+      return existingSectionCode === sectionCode;
+    });
+
+    if (hasDuplicateSectionCode) {
+      showError(
+        "Section code already exists for this subject in the selected term. Please use a different section code."
+      );
       return;
     }
 
     const payload = {
       subjectId: formData.subjectId,
       instructorId: formData.instructorId,
-      sectionName: formData.sectionName.trim(),
+      sectionName: normalizedSectionName,
       schoolYear: selectedSem.schoolYear,
       term: selectedSem.term,
       gradingSchema: {

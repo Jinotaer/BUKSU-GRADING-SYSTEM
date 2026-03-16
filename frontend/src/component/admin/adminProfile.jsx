@@ -14,6 +14,8 @@ import {
 } from "./ui/profile";
 
 export default function AdminProfile() {
+  const namePattern = /^[A-Za-z ]+$/;
+
   const cachedProfile =
     getFreshCachedJson("http://localhost:5000/api/admin/profile")?.admin || null;
   const [profile, setProfile] = useState(cachedProfile);
@@ -105,8 +107,18 @@ export default function AdminProfile() {
       return;
     }
 
+    if (!namePattern.test(sanitizedForm.firstName)) {
+      showAlert("error", "First name must contain only letters and spaces");
+      return;
+    }
+
     if (!sanitizedForm.lastName) {
       showAlert("error", "Last name is required");
+      return;
+    }
+
+    if (!namePattern.test(sanitizedForm.lastName)) {
+      showAlert("error", "Last name must contain only letters and spaces");
       return;
     }
 

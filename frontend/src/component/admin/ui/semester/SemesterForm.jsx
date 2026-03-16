@@ -27,6 +27,9 @@ export function SemesterForm({
           options={schoolYearOptions}
           required
         />
+        <p className="mt-2 text-xs text-gray-500">
+          Format: YYYY-YYYY, for example 2027-2028.
+        </p>
       </div>
 
       <div>

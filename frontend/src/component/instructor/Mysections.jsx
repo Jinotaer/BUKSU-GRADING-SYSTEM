@@ -69,7 +69,8 @@ export default function MySections() {
     try {
       setLoading(true);
       const res = await authenticatedFetch(
-        "http://localhost:5000/api/instructor/sections"
+        "http://localhost:5000/api/instructor/sections",
+        { bypassCache: true }
       );
       if (res.ok) {
         const data = await res.json();

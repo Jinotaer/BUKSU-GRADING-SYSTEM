@@ -18,6 +18,25 @@ const API_BASE =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
   "http://localhost:5000";
 
+const SCHOOL_YEAR_PATTERN = /^(\d{4})-(\d{4})$/;
+
+const normalizeSchoolYear = (schoolYear) =>
+  typeof schoolYear === "string" ? schoolYear.trim() : "";
+
+const getSchoolYearValidationMessage = (schoolYear) => {
+  const match = normalizeSchoolYear(schoolYear).match(SCHOOL_YEAR_PATTERN);
+
+  if (!match) {
+    return 'School year must use the "YYYY-YYYY" format.';
+  }
+
+  if (Number(match[2]) !== Number(match[1]) + 1) {
+    return "School year must use consecutive years, for example 2027-2028.";
+  }
+
+  return "";
+};
+
 export default function SemesterManagement() {
   const cachedSemestersResponse = getFreshCachedJson(
     `${API_BASE}/api/admin/semesters`
@@ -120,16 +139,27 @@ export default function SemesterManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const normalizedSchoolYear = normalizeSchoolYear(formData.schoolYear);
+    const schoolYearValidationMessage =
+      getSchoolYearValidationMessage(normalizedSchoolYear);
+
+    if (schoolYearValidationMessage) {
+      showNotification("error", "Validation Error", schoolYearValidationMessage);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const url = selectedSemester
         ? `${API_BASE}/api/admin/semesters/${selectedSemester._id}`
         : `${API_BASE}/api/admin/semesters`;
       const method = selectedSemester ? "PUT" : "POST";
+      const payload = { ...formData, schoolYear: normalizedSchoolYear };
       const res = await authenticatedFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         // await fetchSemesters();

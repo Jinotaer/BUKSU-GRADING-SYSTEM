@@ -56,7 +56,11 @@ export const authenticatedFetch = async (url, options = {}) => {
     throw new Error("No access token available");
   }
 
-  const { skipCacheInvalidation = false, ...requestOptions } = options;
+  const {
+    skipCacheInvalidation = false,
+    bypassCache = false,
+    ...requestOptions
+  } = options;
   const method = (requestOptions.method || "GET").toUpperCase();
 
   // Add Authorization header
@@ -66,7 +70,7 @@ export const authenticatedFetch = async (url, options = {}) => {
   };
 
   try {
-    if (method === "GET") {
+    if (method === "GET" && !bypassCache) {
       const cachedResponse = getFreshCachedResponse(url);
       if (cachedResponse) {
         return cachedResponse;

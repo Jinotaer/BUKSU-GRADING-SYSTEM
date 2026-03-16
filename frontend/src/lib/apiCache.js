@@ -22,6 +22,30 @@ const resolveRequestUrl = (url) => {
   }
 };
 
+const getActiveAuthScope = () => {
+  if (typeof window === "undefined") {
+    return "anonymous";
+  }
+
+  try {
+    const sessionToken =
+      window.sessionStorage?.getItem("accessToken") ||
+      window.sessionStorage?.getItem("sessionToken") ||
+      "";
+    const adminToken = window.localStorage?.getItem("admin_access_token") || "";
+    const userType = window.sessionStorage?.getItem("userType") || "anonymous";
+    const token = adminToken || sessionToken;
+
+    if (!token) {
+      return userType;
+    }
+
+    return `${userType}:${token.slice(0, 16)}`;
+  } catch (error) {
+    return "anonymous";
+  }
+};
+
 const createCachedResponse = (cachedPayload) => ({
   ok: cachedPayload.ok,
   status: cachedPayload.status,
@@ -45,6 +69,7 @@ const createCachedResponse = (cachedPayload) => ({
 
 export const getApiCacheKey = (url) => [
   API_CACHE_KEY_ROOT,
+  getActiveAuthScope(),
   resolveRequestUrl(url),
 ];
 

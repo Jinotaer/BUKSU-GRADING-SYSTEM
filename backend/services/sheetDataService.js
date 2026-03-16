@@ -7,6 +7,7 @@ import { HttpError } from '../utils/googleSheetsHelpers.js';
 import { percentToGrade, computeScoresByStudent, avgFor } from '../utils/gradeUtils.js';
 import { getFinalEquivalentGrade } from '../utils/gradeCalculator.js';
 import { bulkDecryptUserData, decryptInstructorData } from '../controller/decryptionController.js';
+import { getSectionScheduleIds } from '../utils/activityQueryUtils.js';
 
 export const toActivityTerm = (sectionTerm) => {
   const mapping = { '1st': 'First', '2nd': 'Second', Summer: 'Summer' };
@@ -48,10 +49,11 @@ export const authorizeInstructor = (section, instructorId) => {
 
 export const loadActivities = async (section, termFilter) => {
   try {
-    if (!section?.subject?._id) return [];
+    if (!section?._id) return [];
+
+    const scheduleIds = await getSectionScheduleIds(section._id);
     const query = {
-      subject: section.subject._id,
-      schoolYear: section.schoolYear,
+      schedule: { $in: scheduleIds },
       isActive: true,
     };
     

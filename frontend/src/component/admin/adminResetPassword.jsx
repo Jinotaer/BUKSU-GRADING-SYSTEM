@@ -35,8 +35,9 @@ export default function AdminResetPassword() {
     const newPassword = event.target.newPassword.value;
     const confirmPassword = event.target.confirmPassword.value;
     const storedPasscode = sessionStorage.getItem("admin_reset_passcode");
+    const resetRequestId = sessionStorage.getItem("admin_reset_request_id");
 
-    if (!storedPasscode) {
+    if (!storedPasscode || !resetRequestId) {
       setError("Reset code not found. Please request a new one.");
       setPasscode("");
       return;
@@ -49,11 +50,16 @@ export default function AdminResetPassword() {
 
     try {
       setLoading(true);
-      const response = await adminAuth.resetPassword(storedPasscode, newPassword);
+      const response = await adminAuth.resetPassword(
+        storedPasscode,
+        newPassword,
+        resetRequestId
+      );
 
       if (response.success || response.ok) {
         setSuccess("Password successfully updated!");
         sessionStorage.removeItem("admin_reset_passcode");
+        sessionStorage.removeItem("admin_reset_request_id");
         event.target.reset();
         navigate("/admin/admin-login");
       } else {

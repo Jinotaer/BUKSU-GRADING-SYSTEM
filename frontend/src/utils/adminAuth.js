@@ -114,7 +114,11 @@ class AdminAuth {
       throw new Error("No access token available");
     }
 
-    const { skipCacheInvalidation = false, ...requestOptions } = options;
+    const {
+      skipCacheInvalidation = false,
+      bypassCache = false,
+      ...requestOptions
+    } = options;
     const method = (requestOptions.method || "GET").toUpperCase();
 
     // Add authorization header
@@ -124,7 +128,7 @@ class AdminAuth {
       Authorization: `Bearer ${accessToken}`,
     };
 
-    if (method === "GET") {
+    if (method === "GET" && !bypassCache) {
       const cachedResponse = getFreshCachedResponse(url);
       if (cachedResponse) {
         return cachedResponse;
@@ -400,12 +404,12 @@ class AdminAuth {
     }
   }
 
-  async verifyResetCode(passcode) {
+  async verifyResetCode(passcode, resetRequestId) {
     try {
       const response = await fetch(`${this.baseURL}/verify-reset-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode }),
+        body: JSON.stringify({ passcode, resetRequestId }),
       });
 
       const data = await response.json();
@@ -420,12 +424,12 @@ class AdminAuth {
     }
   }
 
-  async resetPassword(passcode, newPassword) {
+  async resetPassword(passcode, newPassword, resetRequestId) {
     try {
       const response = await fetch(`${this.baseURL}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode, newPassword }),
+        body: JSON.stringify({ passcode, newPassword, resetRequestId }),
       });
 
       const data = await response.json();

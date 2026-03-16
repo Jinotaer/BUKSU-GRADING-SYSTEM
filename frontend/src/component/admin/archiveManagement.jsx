@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import { authenticatedFetch } from "../../utils/auth";
 import { getFreshCachedJson } from "../../lib/apiCache";
+import { useLock } from "../../hooks/useLock";
 import Pagination from "../common/Pagination";
 import {
   PageHeader,
@@ -12,6 +13,8 @@ import {
   ArchiveItem,
   EmptyState,
 } from "./ui/archive";
+
+const LOCK_REQUIRED_TYPES = new Set(["semesters", "subjects", "sections"]);
 
 export default function ArchiveManagement() {
   const [activeTab, setActiveTab] = useState("students");
@@ -31,6 +34,7 @@ export default function ArchiveManagement() {
   const [showArchived, setShowArchived] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const { acquireLock, releaseLock } = useLock();
 
   const fetchData = useCallback(async (type) => {
     setLoading(true);
@@ -86,8 +90,17 @@ export default function ArchiveManagement() {
 
   const archiveItem = useCallback(
     async (type, id) => {
+      let lockAcquired = false;
       try {
         const pluralType = type.endsWith("s") ? type : `${type}s`;
+        if (LOCK_REQUIRED_TYPES.has(pluralType)) {
+          lockAcquired = await acquireLock(id, pluralType.slice(0, -1));
+          if (!lockAcquired) {
+            setError(`Unable to acquire a lock for ${type}. Please try again.`);
+            return;
+          }
+        }
+
         const response = await authenticatedFetch(
           `http://localhost:5000/api/admin/${pluralType}/${id}/archive`,
           { method: "PUT" }
@@ -101,9 +114,14 @@ export default function ArchiveManagement() {
         }
       } catch (err) {
         setError(`Error archiving ${type}: ${err.message}`);
+      } finally {
+        const pluralType = type.endsWith("s") ? type : `${type}s`;
+        if (lockAcquired && LOCK_REQUIRED_TYPES.has(pluralType)) {
+          await releaseLock(id, pluralType.slice(0, -1));
+        }
       }
     },
-    [activeTab, fetchData]
+    [acquireLock, activeTab, fetchData, releaseLock]
   );
 
   const unarchiveItem = useCallback(

@@ -1,11 +1,40 @@
 // models/Section.js
 import mongoose from "mongoose";
 
+const SECTION_NAME_PATTERN = /^[A-Za-z0-9 -]+$/;
+const normalizeSectionCode = (value) =>
+  typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").toUpperCase()
+    : "";
+
+const isValidSectionName = (sectionName) => {
+  if (typeof sectionName !== "string") {
+    return false;
+  }
+
+  const normalizedSectionName = sectionName.trim();
+  return Boolean(normalizedSectionName) && SECTION_NAME_PATTERN.test(normalizedSectionName);
+};
+
 const sectionSchema = new mongoose.Schema({
   subject: { type: mongoose.Schema.Types.ObjectId, ref: "Subject", required: true },
   instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor", required: true },
-  sectionName: { type: String, required: true }, // e.g., "BSCS 1A"
-  sectionCode: { type: String, default: '' }, // e.g., "BSCS-1A"
+  sectionName: {
+    type: String,
+    required: true,
+    trim: true,
+    validate: {
+      validator: isValidSectionName,
+      message:
+        "Section Name can only contain alphanumeric characters, hyphens, and spaces.",
+    },
+  }, // e.g., "BSCS 1A"
+  sectionCode: {
+    type: String,
+    trim: true,
+    default: "",
+    set: normalizeSectionCode,
+  }, // e.g., "BSCS-1A"
   schoolYear: { type: String, required: true },
   term: { type: String, required: true, enum: ["1st", "2nd", "Summer"] },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }], // optional
@@ -45,6 +74,15 @@ const sectionSchema = new mongoose.Schema({
 });
 
 sectionSchema.index({ subject: 1, instructor: 1, schoolYear: 1, term: 1, sectionName: 1 }, { unique: true });
+sectionSchema.index(
+  { subject: 1, schoolYear: 1, term: 1, sectionCode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sectionCode: { $type: "string", $ne: "" },
+    },
+  }
+);
 
 // Check if model already exists before creating
 let Section;

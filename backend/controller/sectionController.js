@@ -6,11 +6,106 @@ import Student from "../models/student.js";
 import Activity from "../models/activity.js";
 import emailService from "../services/emailService.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
-import { bulkDecryptUserData, decryptInstructorData } from "./decryptionController.js";
+import {
+  bulkDecryptUserData,
+  decryptInstructorData,
+  safeDecrypt,
+} from "./decryptionController.js";
+
+const formatDecryptedInstructor = (instructor) => {
+  if (!instructor || typeof instructor !== "object") {
+    return instructor || null;
+  }
+
+  const instructorObject =
+    typeof instructor.toObject === "function" ? instructor.toObject() : instructor;
+
+  return decryptInstructorData(instructorObject);
+};
+
+const formatSectionResponse = (section) => {
+  if (!section) {
+    return section;
+  }
+
+  const sectionObject =
+    typeof section.toObject === "function" ? section.toObject() : { ...section };
+
+  if (
+    sectionObject.instructor &&
+    typeof sectionObject.instructor === "object" &&
+    !Array.isArray(sectionObject.instructor)
+  ) {
+    sectionObject.instructor = formatDecryptedInstructor(sectionObject.instructor);
+  }
+
+  if (typeof sectionObject.archivedBy === "string") {
+    sectionObject.archivedBy = safeDecrypt(sectionObject.archivedBy);
+  }
+
+  if (!sectionObject.sectionCode && sectionObject.sectionName) {
+    sectionObject.sectionCode = buildSectionCode(sectionObject.sectionName);
+  }
+
+  return sectionObject;
+};
+
+const formatSectionListResponse = (sections = []) =>
+  sections.map((section) => formatSectionResponse(section));
+
+const SECTION_NAME_PATTERN = /^[A-Za-z0-9 -]+$/;
+
+const normalizeSectionName = (sectionName) =>
+  typeof sectionName === "string" ? sectionName.trim() : "";
+
+const getSectionNameValidationMessage = (sectionName) => {
+  const normalizedSectionName = normalizeSectionName(sectionName);
+
+  if (!normalizedSectionName) {
+    return "Section name is required";
+  }
+
+  if (!SECTION_NAME_PATTERN.test(normalizedSectionName)) {
+    return "Section Name can only contain alphanumeric characters, hyphens, and spaces.";
+  }
+
+  return "";
+};
+
+const buildSectionCode = (sectionName) =>
+  normalizeSectionName(sectionName).replace(/\s+/g, " ").toUpperCase();
+
+const findDuplicateSectionCode = async ({
+  subjectId,
+  schoolYear,
+  term,
+  sectionCode,
+  sectionName,
+  excludeId,
+}) => {
+  const query = {
+    subject: subjectId,
+    schoolYear,
+    term,
+    _id: excludeId ? { $ne: excludeId } : undefined,
+    $or: [
+      { sectionCode },
+      { sectionCode: { $in: ["", null] }, sectionName },
+    ],
+  };
+
+  if (!excludeId) {
+    delete query._id;
+  }
+
+  return Section.findOne(query);
+};
 
 export const createSection = async (req, res) => {
   try {
-    const { subjectId, instructorId, sectionName, schoolYear, term, gradingSchema } = req.body;
+    const { subjectId, instructorId, schoolYear, term, gradingSchema } = req.body;
+    const sectionName = normalizeSectionName(req.body?.sectionName);
+    const sectionCode = buildSectionCode(sectionName);
     
     console.log('Creating section with data:', { subjectId, instructorId, sectionName, schoolYear, term });
     
@@ -20,6 +115,25 @@ export const createSection = async (req, res) => {
 
     if (!subjectId || !sectionName || !schoolYear || !term) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const sectionNameValidationMessage = getSectionNameValidationMessage(sectionName);
+    if (sectionNameValidationMessage) {
+      return res.status(400).json({ message: sectionNameValidationMessage });
+    }
+
+    const duplicateSectionCode = await findDuplicateSectionCode({
+      subjectId,
+      schoolYear,
+      term,
+      sectionCode,
+      sectionName,
+    });
+    if (duplicateSectionCode) {
+      return res.status(400).json({
+        message:
+          "Section code already exists for this subject in the selected term. Please use a different section code.",
+      });
     }
 
     const subject = await Subject.findById(subjectId);
@@ -41,7 +155,7 @@ export const createSection = async (req, res) => {
       instructor: finalInstructorId, 
       schoolYear, 
       term,
-      sectionName: sectionName
+      sectionName,
     });
     if (existing) {
       return res.status(400).json({ 
@@ -53,6 +167,7 @@ export const createSection = async (req, res) => {
       subject: subjectId,
       instructor: finalInstructorId,
       sectionName,
+      sectionCode,
       schoolYear,
       term,
       gradingSchema: gradingSchema || {
@@ -100,7 +215,10 @@ export const createSection = async (req, res) => {
       // Don't fail the request if email fails
     }
 
-    res.status(201).json({ success: true, section: populatedSection });
+    res.status(201).json({
+      success: true,
+      section: formatSectionResponse(populatedSection),
+    });
   } catch (err) {
     console.error("createSection Error Details:");
     console.error("Error message:", err.message);
@@ -108,6 +226,13 @@ export const createSection = async (req, res) => {
     console.error("Error code:", err.code);
     console.error("Full error:", err);
     
+    if (err.code === 11000 && err.keyPattern?.sectionCode) {
+      return res.status(400).json({
+        message:
+          "Section code already exists for this subject in the selected term. Please use a different section code.",
+      });
+    }
+
     if (err.code === 11000) {
       return res.status(400).json({ 
         message: "A section with these details already exists. Please use different section details." 
@@ -136,7 +261,7 @@ export const getAllSections = async (req, res) => {
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
     
-    res.json({ success: true, sections });
+    res.json({ success: true, sections: formatSectionListResponse(sections) });
   } catch (err) {
     console.error("getAllSections:", err);
     res.status(500).json({ message: "Server error" });
@@ -166,7 +291,7 @@ export const getInstructorSections = async (req, res) => {
       .populate("subject", "subjectCode subjectName units college department")
       .sort({ createdAt: -1 });
     
-    res.json({ success: true, sections });
+    res.json({ success: true, sections: formatSectionListResponse(sections) });
   } catch (err) {
     console.error("getInstructorSections:", err);
     res.status(500).json({ message: "Server error" });
@@ -197,6 +322,10 @@ export const getSectionById = async (req, res) => {
       sectionObj.instructor = decryptInstructorData(sectionObj.instructor);
     }
     
+    if (typeof sectionObj.archivedBy === "string") {
+      sectionObj.archivedBy = safeDecrypt(sectionObj.archivedBy);
+    }
+
     res.json({ success: true, section: sectionObj });
   } catch (err) {
     console.error("getSectionById:", err);
@@ -252,10 +381,23 @@ export const getSubjectsWithMultipleInstructors = async (req, res) => {
 export const updateSection = async (req, res) => {
   try {
     const { id } = req.params;
-    const { subjectId, instructorId, sectionName, schoolYear, term, gradingSchema } = req.body;
+    const {
+      subjectId,
+      instructorId,
+      schoolYear,
+      term,
+      gradingSchema,
+    } = req.body;
+    const hasSectionName = Object.prototype.hasOwnProperty.call(req.body, "sectionName");
+    const sectionName = hasSectionName
+      ? normalizeSectionName(req.body.sectionName)
+      : undefined;
 
     const section = await Section.findById(id);
     if (!section) return res.status(404).json({ message: "Section not found" });
+
+    const nextSectionName = hasSectionName ? sectionName : section.sectionName;
+    const sectionCode = buildSectionCode(nextSectionName);
 
     // Check if this is an admin request (has instructorId) or instructor request
     const isAdminRequest = !!instructorId;
@@ -280,6 +422,29 @@ export const updateSection = async (req, res) => {
     if (instructorId) {
       const instructor = await Instructor.findById(instructorId);
       if (!instructor) return res.status(404).json({ message: "Instructor not found" });
+    }
+
+    if (subjectId || hasSectionName || schoolYear || term) {
+      const sectionNameValidationMessage = getSectionNameValidationMessage(sectionName);
+      if (hasSectionName && sectionNameValidationMessage) {
+        return res.status(400).json({ message: sectionNameValidationMessage });
+      }
+
+      const duplicateSectionCode = await findDuplicateSectionCode({
+        subjectId: subjectId || section.subject,
+        schoolYear: schoolYear || section.schoolYear,
+        term: term || section.term,
+        sectionCode,
+        sectionName: nextSectionName,
+        excludeId: id,
+      });
+
+      if (duplicateSectionCode) {
+        return res.status(400).json({
+          message:
+            "Section code already exists for this subject in the selected term. Please use a different section code.",
+        });
+      }
     }
 
     // Check uniqueness if changing key fields
@@ -311,7 +476,8 @@ export const updateSection = async (req, res) => {
       {
         ...(subjectId && { subject: subjectId }),
         ...(instructorId && { instructor: instructorId }), // Admin can change instructor
-        ...(sectionName && { sectionName }),
+        ...(hasSectionName && { sectionName }),
+        sectionCode,
         ...(schoolYear && { schoolYear }),
         ...(term && { term }),
         ...(gradingSchema && { gradingSchema }),
@@ -369,9 +535,17 @@ export const updateSection = async (req, res) => {
         });
     }
 
-    res.json({ success: true, section: updatedSection });
+    res.json({ success: true, section: formatSectionResponse(updatedSection) });
   } catch (err) {
     console.error("updateSection:", err);
+
+    if (err.code === 11000 && err.keyPattern?.sectionCode) {
+      return res.status(400).json({
+        message:
+          "Section code already exists for this subject in the selected term. Please use a different section code.",
+      });
+    }
+
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -397,7 +571,7 @@ export const getSectionsBySubject = async (req, res) => {
     const sections = await Section.find({ subject: subjectId })
       .populate("instructor", "fullName email college department")
       .populate("subject", "subjectCode subjectName");
-    res.json(sections);
+    res.json(formatSectionListResponse(sections));
   } catch (err) {
     console.error("getSectionsBySubject:", err);
     res.status(500).json({ message: "Server error" });
@@ -523,11 +697,20 @@ export const inviteStudentsToSection = async (req, res) => {
       .populate("subject", "subjectCode subjectName units college department")
       .populate("students", "studid firstName lastName email");
 
-    res.json({ 
-      success: true, 
+    const updatedSectionObject = formatSectionResponse(updatedSection);
+
+    if (updatedSectionObject.students?.length > 0) {
+      updatedSectionObject.students = bulkDecryptUserData(
+        updatedSectionObject.students,
+        "student"
+      );
+    }
+
+    res.json({
+      success: true,
       message: `Successfully added ${newStudentIds.length} students to the section and sent email invitations`,
-      section: updatedSection,
-      invitedStudents: newStudentIds
+      section: updatedSectionObject,
+      invitedStudents: newStudentIds,
     });
   } catch (err) {
     console.error("inviteStudentsToSection:", err);
@@ -722,6 +905,18 @@ export const unarchiveSection = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Section is not archived",
+      });
+    }
+
+    const assignedInstructor = await Instructor.findById(section.instructor).select(
+      "status isArchived"
+    );
+
+    if (!assignedInstructor || assignedInstructor.isArchived || assignedInstructor.status !== "Active") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot unarchive section: The assigned instructor is inactive/archived. Please assign an active instructor first.",
       });
     }
 

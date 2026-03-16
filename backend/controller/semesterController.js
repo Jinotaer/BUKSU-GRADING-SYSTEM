@@ -5,10 +5,38 @@ import Subject from "../models/subjects.js";
 import Activity from "../models/activity.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
+const SCHOOL_YEAR_PATTERN = /^(\d{4})-(\d{4})$/;
+
+const normalizeSchoolYear = (schoolYear) =>
+  typeof schoolYear === "string" ? schoolYear.trim() : "";
+
+const getSchoolYearValidationMessage = (schoolYear) => {
+  const match = normalizeSchoolYear(schoolYear).match(SCHOOL_YEAR_PATTERN);
+
+  if (!match) {
+    return 'School year must use the "YYYY-YYYY" format.';
+  }
+
+  const startYear = Number(match[1]);
+  const endYear = Number(match[2]);
+
+  if (endYear !== startYear + 1) {
+    return "School year must use consecutive years, for example 2027-2028.";
+  }
+
+  return null;
+};
+
 export const addSemester = async (req, res) => {
   try {
-    const { schoolYear, term } = req.body;
+    const schoolYear = normalizeSchoolYear(req.body?.schoolYear);
+    const { term } = req.body;
     if (!schoolYear || !term) return res.status(400).json({ message: "schoolYear and term are required" });
+
+    const schoolYearValidationMessage = getSchoolYearValidationMessage(schoolYear);
+    if (schoolYearValidationMessage) {
+      return res.status(400).json({ message: schoolYearValidationMessage });
+    }
 
     const exists = await Semester.findOne({ schoolYear, term });
     if (exists) return res.status(400).json({ message: "Semester already exists" });
@@ -41,10 +69,16 @@ export const listSemesters = async (req, res) => {
 export const updateSemester = async (req, res) => {
   try {
     const { id } = req.params;
-    const { schoolYear, term } = req.body;
+    const schoolYear = normalizeSchoolYear(req.body?.schoolYear);
+    const { term } = req.body;
 
     if (!schoolYear || !term) {
       return res.status(400).json({ message: "schoolYear and term are required" });
+    }
+
+    const schoolYearValidationMessage = getSchoolYearValidationMessage(schoolYear);
+    if (schoolYearValidationMessage) {
+      return res.status(400).json({ message: schoolYearValidationMessage });
     }
 
     // Check if another semester exists with the same schoolYear and term

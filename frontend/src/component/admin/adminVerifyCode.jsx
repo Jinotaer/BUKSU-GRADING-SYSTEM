@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminAuth from "../../utils/adminAuth";
 import {
@@ -15,20 +15,34 @@ export default function AdminVerifyCode() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const resetRequestId = sessionStorage.getItem("admin_reset_request_id");
+    if (!resetRequestId) {
+      setError("Request a new reset code before verifying.");
+    }
+  }, []);
+
   const handleVerifyCode = async (event) => {
     event.preventDefault();
     setError("");
     setSuccess("");
 
     const passcode = event.target.passcode.value.trim();
+    const resetRequestId = sessionStorage.getItem("admin_reset_request_id");
+
     if (!passcode) {
       setError("Please enter the code sent to your email.");
       return;
     }
 
+    if (!resetRequestId) {
+      setError("Request a new reset code before verifying.");
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await adminAuth.verifyResetCode(passcode);
+      const data = await adminAuth.verifyResetCode(passcode, resetRequestId);
 
       if (data.ok || data.success) {
         sessionStorage.setItem("admin_reset_passcode", passcode);

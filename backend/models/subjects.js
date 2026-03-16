@@ -1,8 +1,28 @@
 // models/Subject.js
 import mongoose from "mongoose";
 
+const SUBJECT_CODE_PATTERN = /^[A-Za-z0-9 -]+$/;
+
+const isValidSubjectCode = (subjectCode) => {
+  if (typeof subjectCode !== "string") {
+    return false;
+  }
+
+  const normalizedSubjectCode = subjectCode.trim();
+  return Boolean(normalizedSubjectCode) && SUBJECT_CODE_PATTERN.test(normalizedSubjectCode);
+};
+
 const subjectSchema = new mongoose.Schema({
-  subjectCode: { type: String, required: true },
+  subjectCode: {
+    type: String,
+    required: true,
+    trim: true,
+    validate: {
+      validator: isValidSubjectCode,
+      message:
+        "Subject Code can only contain alphanumeric characters, spaces, or hyphens.",
+    },
+  },
   subjectName: { type: String, required: true },
   units: { type: Number, required: true },
   college: { type: String, required: true },

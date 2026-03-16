@@ -8,12 +8,38 @@ import emailService from "../services/emailService.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 import { decryptInstructorData, decryptAdminData } from "./decryptionController.js";
 
+const SUBJECT_CODE_PATTERN = /^[A-Za-z0-9 -]+$/;
+
+const normalizeSubjectCode = (subjectCode) =>
+  typeof subjectCode === "string" ? subjectCode.trim() : "";
+
+const getSubjectCodeValidationMessage = (subjectCode) => {
+  const normalizedSubjectCode = normalizeSubjectCode(subjectCode);
+
+  if (!normalizedSubjectCode) {
+    return "Subject code is required";
+  }
+
+  if (!SUBJECT_CODE_PATTERN.test(normalizedSubjectCode)) {
+    return "Subject Code can only contain alphanumeric characters, spaces, or hyphens.";
+  }
+
+  return "";
+};
+
 export const addSubject = async (req, res) => {
   try {
-    const { subjectCode, subjectName, units, college, department, semester, instructorId } = req.body;
+    const { subjectName, units, college, department, semester, instructorId } = req.body;
+    const subjectCode = normalizeSubjectCode(req.body?.subjectCode);
     if (!subjectCode || !subjectName || !units || !college || !department || !semester) {
       return res.status(400).json({ message: "All fields are required" });
     }
+
+    const subjectCodeError = getSubjectCodeValidationMessage(subjectCode);
+    if (subjectCodeError) {
+      return res.status(400).json({ message: subjectCodeError });
+    }
+
 
     const semesterExists = await Semester.findById(semester);
     if (!semesterExists) return res.status(404).json({ message: "Semester not found" });
@@ -94,12 +120,29 @@ export const addMultipleSubjects = async (req, res) => {
     };
 
     for (const subjectData of subjects) {
-      const { subjectCode, subjectName, units, college, department, semester, instructorId } = subjectData;
+      const {
+        subjectName,
+        units,
+        college,
+        department,
+        semester,
+        instructorId,
+      } = subjectData;
+      const subjectCode = normalizeSubjectCode(subjectData?.subjectCode);
 
       if (!subjectCode || !subjectName || !units || !college || !department || !semester) {
         results.failed.push({
           data: subjectData,
           reason: "All fields are required (subjectCode, subjectName, units, college, department, semester)"
+        });
+        continue;
+      }
+
+      const subjectCodeValidationMessage = getSubjectCodeValidationMessage(subjectCode);
+      if (subjectCodeValidationMessage) {
+        results.failed.push({
+          data: subjectData,
+          reason: subjectCodeValidationMessage,
         });
         continue;
       }
@@ -316,7 +359,8 @@ export const getAssignedSubjects = async (req, res) => {
 export const updateSubject = async (req, res) => {
   try {
     const { id } = req.params;
-    const { subjectCode, subjectName, units, college, department, semester, instructorId } = req.body;
+    const { subjectName, units, college, department, semester, instructorId } = req.body;
+    const subjectCode = normalizeSubjectCode(req.body?.subjectCode);
 
     console.log("🔄 UPDATE SUBJECT - Received request:");
     console.log("📋 Subject ID:", id);
@@ -325,6 +369,12 @@ export const updateSubject = async (req, res) => {
     if (!subjectCode || !subjectName || !units || !college || !department || !semester) {
       console.log("❌ Missing required fields");
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const subjectCodeValidationMessage = getSubjectCodeValidationMessage(subjectCode);
+    if (subjectCodeValidationMessage) {
+      console.log("Invalid subject code format");
+      return res.status(400).json({ message: subjectCodeValidationMessage });
     }
 
     const semesterExists = await Semester.findById(semester);

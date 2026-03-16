@@ -12,6 +12,8 @@ export function EditProfileModal({
   alert,
   onAlertClose,
 }) {
+  const sanitizeNameInput = (value) => value.replace(/[^A-Za-z ]/g, "");
+
   if (!isOpen) return null;
 
   return (
@@ -40,10 +42,15 @@ export function EditProfileModal({
                 type="text"
                 value={editForm.firstName}
                 onChange={(e) =>
-                  setEditForm({ ...editForm, firstName: e.target.value })
+                  setEditForm({
+                    ...editForm,
+                    firstName: sanitizeNameInput(e.target.value),
+                  })
                 }
                 placeholder="Enter first name"
                 required
+                pattern="[A-Za-z ]+"
+                title="First name must contain only letters and spaces"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -56,10 +63,15 @@ export function EditProfileModal({
                 type="text"
                 value={editForm.lastName}
                 onChange={(e) =>
-                  setEditForm({ ...editForm, lastName: e.target.value })
+                  setEditForm({
+                    ...editForm,
+                    lastName: sanitizeNameInput(e.target.value),
+                  })
                 }
                 placeholder="Enter last name"
                 required
+                pattern="[A-Za-z ]+"
+                title="Last name must contain only letters and spaces"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
