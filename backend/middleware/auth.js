@@ -70,6 +70,19 @@ const denyWithSecurityLog = (
   return res.status(status).json(responseBody);
 };
 
+const denyArchivedStudentSession = (req, res, decodedUserId) =>
+  denyWithSecurityLog(req, res, {
+    status: 401,
+    message: "Student account has been archived. Session terminated. Please login again.",
+    code: "SESSION_TERMINATED",
+    userType: "student",
+    metadata: {
+      authFailureReason: "student_archived",
+      decodedUserId,
+      sessionInvalidated: true,
+    },
+  });
+
 // Admin authentication middleware
 export const adminAuth = async (req, res, next) => {
   try {
@@ -297,6 +310,10 @@ export const studentAuth = async (req, res, next) => {
       });
     }
 
+    if (student.isArchived) {
+      return denyArchivedStudentSession(req, res, decoded.id);
+    }
+
     if (student.status !== 'Approved') {
       return denyWithSecurityLog(req, res, {
         status: 401,
@@ -445,7 +462,25 @@ export const auth = async (req, res, next) => {
     } else if (isInstructorToken && decoded.role === 'student') {
       console.log('🔐 [AUTH] Authenticated as STUDENT:', decoded.id);
       const student = await Student.findById(decoded.id);
-      if (!student || student.status !== 'Approved') {
+      if (!student) {
+        console.log('🔐 [AUTH] Student not found or unapproved');
+        return denyWithSecurityLog(req, res, {
+          status: 401,
+          message: 'Invalid or unapproved account',
+          userType: 'student',
+          metadata: {
+            authFailureReason: 'invalid_or_unapproved_account',
+            authLayer: 'general_auth',
+            decodedUserId: decoded.id,
+          },
+        });
+      }
+
+      if (student.isArchived) {
+        return denyArchivedStudentSession(req, res, decoded.id);
+      }
+
+      if (student.status !== 'Approved') {
         console.log('🔐 [AUTH] Student not found or unapproved');
         return denyWithSecurityLog(req, res, {
           status: 401,
@@ -556,6 +591,10 @@ export const verifyGoogleAuthToken = async (req, res, next) => {
     }
 
     // Check if user is still active/approved
+    if (decoded.role === "student" && user.isArchived) {
+      return denyArchivedStudentSession(req, res, decoded.id);
+    }
+
     if (decoded.role === "student" && user.status !== "Approved") {
       return denyWithSecurityLog(req, res, {
         status: 401,
