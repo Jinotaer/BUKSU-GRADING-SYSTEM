@@ -12,7 +12,7 @@ export function UserCardMobile({ users, onArchive, getStatusBadge }) {
           <div className="flex flex-col gap-3">
             <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start gap-2">
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm truncate">
+                <h3 className="font-semibold text-gray-900 text-sm whitespace-normal break-words">
                   {user.name}
                 </h3>
                 <div className="flex flex-wrap gap-1 mt-1">

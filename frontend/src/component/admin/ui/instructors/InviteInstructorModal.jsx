@@ -29,7 +29,7 @@ export function InviteInstructorModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md mx-4 shadow-lg">
         <h2 className="text-lg font-semibold mb-4">Invite Instructor</h2>
         <form onSubmit={onSubmit}>
@@ -51,7 +51,7 @@ export function InviteInstructorModal({
               <label className="block text-sm font-medium mb-1">Email</label>
               <input
                 type="email"
-                placeholder="instructor@gmail.com"
+                placeholder="instructor@buksu.edu.ph"
                 value={inviteData.email}
                 onChange={(e) =>
                   onChange({ ...inviteData, email: e.target.value })
@@ -59,6 +59,9 @@ export function InviteInstructorModal({
                 required
                 className="w-full px-3 py-2 border rounded-md text-sm bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Accepted domains: @gmail.com, @buksu.edu.ph, @student.buksu.edu.ph
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavbarSimple } from "./adminsidebar";
 import adminAuth from "../../utils/adminAuth";
 import { getFreshCachedJson } from "../../lib/apiCache";
+import { getAdminPasswordValidationMessage } from "../../utils/adminPasswordValidation";
 import {
   AlertMessage,
   PageHeader,
@@ -160,8 +161,10 @@ export default function AdminProfile() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters long");
+    const passwordValidationMessage =
+      getAdminPasswordValidationMessage(passwordForm.newPassword);
+    if (passwordValidationMessage) {
+      setPasswordError(passwordValidationMessage);
       return;
     }
 

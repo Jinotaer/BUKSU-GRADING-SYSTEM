@@ -17,6 +17,8 @@ import {
 } from "./ui/login";
 
 const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Ld3NiEsAAAAAICG9oNYX77QFtEQhtqODzPIONoB";
+const STUDENT_EMAIL_DOMAIN = "@student.buksu.edu.ph";
+const DIRECT_INSTRUCTOR_EMAIL_DOMAINS = ["@gmail.com", "@buksu.edu.ph"];
 
 if (!recaptchaKey) {
   console.error('VITE_RECAPTCHA_SITE_KEY environment variable is not set');
@@ -48,16 +50,27 @@ export default function Login() {
           }
         );
         const userInfo = await userInfoRes.json();
-        const userEmail = userInfo.email;
+        const userEmail = userInfo.email?.trim().toLowerCase();
+
+        if (!userEmail) {
+          showError("Unable to read your Google account email.", "Login Failed");
+          return;
+        }
 
         // Check email domain to determine user type
-        const isStudent = userEmail.endsWith('@student.buksu.edu.ph');
-        const isInstructor = userEmail.endsWith('@gmail.com');
+        const isStudentDomain = userEmail.endsWith(STUDENT_EMAIL_DOMAIN);
+        const isInstructorDomain = DIRECT_INSTRUCTOR_EMAIL_DOMAINS.some((domain) =>
+          userEmail.endsWith(domain)
+        );
 
-        if (!isStudent && !isInstructor) {
+        if (!isStudentDomain && !isInstructorDomain) {
           setError("Please use your Buksu institutional email account.");
           return;
         }
+
+        // Let the backend resolve ambiguous @student.buksu.edu.ph logins so
+        // invited instructors using that domain can still be matched correctly.
+        const requestedUserType = isInstructorDomain ? "instructor" : undefined;
 
         // Call backend to check registration/approval
         const response = await fetch(
@@ -67,7 +80,7 @@ export default function Login() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               email: userEmail,
-              userType: isStudent ? 'student' : 'instructor',
+              ...(requestedUserType ? { userType: requestedUserType } : {}),
               captchaResponse: recaptchaValue,
               loginMethod: 'google'
             }),
@@ -77,13 +90,17 @@ export default function Login() {
         const data = await response.json();
         
         if (response.ok) {
+          const normalizedResponseRole =
+            typeof data.user?.role === "string" ? data.user.role.toLowerCase() : "";
+          const resolvedUserType =
+            normalizedResponseRole || requestedUserType || "student";
 
           sessionStorage.setItem("authToken", credentialResponse.access_token);
           sessionStorage.setItem("userInfo", JSON.stringify(data.user));
           sessionStorage.setItem("accessToken", data.token); // Use accessToken for consistency
-          sessionStorage.setItem("userType", isStudent ? 'student' : 'instructor');
+          sessionStorage.setItem("userType", resolvedUserType);
 
-          navigate(isStudent ? "/student" : "/instructor");
+          navigate(resolvedUserType === "student" ? "/student" : "/instructor");
         } else {
           // Handle account locked (HTTP 423)
           if (response.status === 423) {
@@ -94,7 +111,11 @@ export default function Login() {
             return;
           }
           
-          if (data.message === "Student not registered" && isStudent) {
+          if (
+            isStudentDomain &&
+            (data.message === "Student not registered" ||
+              data.message === "User not registered")
+          ) {
             // Show confirmation dialog before proceeding to registration
             showConfirmDialog(
               "Account Not Found",
@@ -105,7 +126,7 @@ export default function Login() {
             );
             return;
           }
-          if (data.message === "Instructor not registered" && isInstructor) {
+          if (data.message === "Instructor not registered" && requestedUserType === "instructor") {
             showError("Please wait for admin invitation to access the system.", "Access Denied");
             return;
           }
@@ -148,30 +169,41 @@ export default function Login() {
 
         {/* Right Panel - Login Form */}
         <LoginFormContainer>
-          <LoginWelcomeHeader
-            title="Welcome back"
-            subtitle="Sign in using your institutional Google account"
-          />
+          <div className="w-full max-w-[304px] mx-auto">
+            <LoginWelcomeHeader
+              title="Welcome back"
+              subtitle="Sign in using your institutional Google account"
+            />
 
-          {/* Google Login Button */}
-          <GoogleLoginButton onClick={login} />
+            {/* reCAPTCHA */}
+            <div className="mb-4 sm:mb-6">
+              <span className="block text-sm font-medium text-gray-700 mb-2">
+                Verification:
+              </span>
+              <CaptchaSection
+                sitekey={recaptchaKey}
+                onChange={onRecaptchaChange}
+                onExpired={() => setRecaptchaValue(null)}
+                onErrored={() => setRecaptchaValue(null)}
+                alignment="center"
+              />
+            </div>
 
-          {/* Divider */}
-          {/* <Divider /> */}
+            {/* Google Login Button */}
+            <GoogleLoginButton
+              onClick={login}
+              disabled={!recaptchaValue}
+            />
 
-          {/* Admin Login Button */}
-          {/* <AdminLoginLink to="/adminLogin" /> */}
+            {/* Divider */}
+            {/* <Divider /> */}
 
-          {/* reCAPTCHA */}
-          <CaptchaSection
-            sitekey={recaptchaKey}
-            onChange={onRecaptchaChange}
-            onExpired={() => {}}
-            onErrored={() => {}}
-          />
+            {/* Admin Login Button */}
+            {/* <AdminLoginLink to="/adminLogin" /> */}
 
-          {/* Error message */}
-          <ErrorMessage message={error} />
+            {/* Error message */}
+            <ErrorMessage message={error} />
+          </div>
         </LoginFormContainer>
       </div>
     </NotificationProvider>

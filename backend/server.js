@@ -69,6 +69,8 @@ const initializeApp = async () => {
 };
 
 const app = express();
+const explicitAllowedOrigins = [process.env.FRONTEND_URL].filter(Boolean);
+const localhostOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/i;
 
 // Initialize application (connect DB, seed admin, init services)
 // We'll start the HTTP server only after initialization completes to avoid
@@ -82,10 +84,21 @@ app.use(helmetConfig);
 
 // CORS configuration
 app.use(cors({
-  origin: [
-    "http://localhost:5001",
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isExplicitlyAllowed = explicitAllowedOrigins.includes(origin);
+    const isLocalDevOrigin =
+      process.env.NODE_ENV !== "production" && localhostOriginPattern.test(origin);
+
+    if (isExplicitlyAllowed || isLocalDevOrigin) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
   credentials: true
 }));
 

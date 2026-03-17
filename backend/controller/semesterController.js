@@ -3,6 +3,7 @@ import Semester from "../models/semester.js";
 import Section from "../models/sections.js";
 import Subject from "../models/subjects.js";
 import Activity from "../models/activity.js";
+import Instructor from "../models/instructor.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
 const SCHOOL_YEAR_PATTERN = /^(\d{4})-(\d{4})$/;
@@ -226,6 +227,8 @@ export const archiveSemester = async (req, res) => {
 export const unarchiveSemester = async (req, res) => {
   try {
     const { id } = req.params;
+    const autoRestoreDependencies =
+      String(req.query?.autoRestoreDependencies).toLowerCase() === "true";
 
     const semester = await Semester.findById(id);
     if (!semester) {
@@ -242,19 +245,174 @@ export const unarchiveSemester = async (req, res) => {
       });
     }
 
+    const [archivedSubjects, archivedSections] = await Promise.all([
+      Subject.find({
+        semester: semester._id,
+        isArchived: true,
+      }).select("subjectCode subjectName"),
+      Section.find({
+        schoolYear: semester.schoolYear,
+        term: semester.term,
+        isArchived: true,
+      }).select("sectionName sectionCode subject instructor"),
+    ]);
+
+    if (
+      !autoRestoreDependencies &&
+      (archivedSubjects.length > 0 || archivedSections.length > 0)
+    ) {
+      const dependencySummary = [
+        archivedSubjects.length > 0
+          ? `${archivedSubjects.length} archived subject(s)`
+          : null,
+        archivedSections.length > 0
+          ? `${archivedSections.length} archived section(s)`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      return res.status(409).json({
+        success: false,
+        message:
+          "Some associated sections/subjects are still archived. Do you want to unarchive them automatically, or block this action?",
+        canAutoRestore: true,
+        dependencies: {
+          summary: dependencySummary,
+          archivedSubjects: archivedSubjects.map((subject) => ({
+            id: subject._id,
+            subjectCode: subject.subjectCode,
+            subjectName: subject.subjectName,
+          })),
+          archivedSections: archivedSections.map((section) => ({
+            id: section._id,
+            sectionName: section.sectionName,
+            sectionCode: section.sectionCode,
+          })),
+        },
+      });
+    }
+
     semester.isArchived = false;
     semester.archivedAt = null;
     semester.archivedBy = null;
     await semester.save();
 
+    let restoredSubjectsCount = 0;
+    if (archivedSubjects.length > 0) {
+      const subjectResult = await Subject.updateMany(
+        {
+          _id: { $in: archivedSubjects.map((subject) => subject._id) },
+        },
+        {
+          $set: {
+            isArchived: false,
+            archivedAt: null,
+            archivedBy: null,
+          },
+        },
+      );
+      restoredSubjectsCount = subjectResult.modifiedCount || 0;
+    }
+
+    let restoredSectionsCount = 0;
+    let skippedSections = [];
+    if (archivedSections.length > 0) {
+      const instructorIds = [
+        ...new Set(
+          archivedSections
+            .map((section) => section.instructor?.toString())
+            .filter(Boolean),
+        ),
+      ];
+
+      const instructors = await Instructor.find({
+        _id: { $in: instructorIds },
+      }).select("status isArchived");
+
+      const instructorStatusMap = new Map(
+        instructors.map((instructor) => [
+          instructor._id.toString(),
+          {
+            isArchived: instructor.isArchived,
+            status: instructor.status,
+          },
+        ]),
+      );
+
+      const sectionIdsToRestore = [];
+
+      for (const section of archivedSections) {
+        const instructorStatus = instructorStatusMap.get(
+          section.instructor?.toString(),
+        );
+
+        if (
+          !instructorStatus ||
+          instructorStatus.isArchived ||
+          instructorStatus.status !== "Active"
+        ) {
+          skippedSections.push({
+            id: section._id,
+            sectionName: section.sectionName,
+            sectionCode: section.sectionCode,
+            reason:
+              "Assigned instructor is inactive or archived and must be fixed before the section can be restored.",
+          });
+          continue;
+        }
+
+        sectionIdsToRestore.push(section._id);
+      }
+
+      if (sectionIdsToRestore.length > 0) {
+        const sectionResult = await Section.updateMany(
+          {
+            _id: { $in: sectionIdsToRestore },
+          },
+          {
+            $set: {
+              isArchived: false,
+              archivedAt: null,
+              archivedBy: null,
+            },
+          },
+        );
+        restoredSectionsCount = sectionResult.modifiedCount || 0;
+      }
+    }
+
+    const details = [];
+    if (restoredSubjectsCount > 0) {
+      details.push(`${restoredSubjectsCount} subject(s) restored`);
+    }
+    if (restoredSectionsCount > 0) {
+      details.push(`${restoredSectionsCount} section(s) restored`);
+    }
+    if (skippedSections.length > 0) {
+      details.push(
+        `${skippedSections.length} section(s) still archived due to inactive/archived instructors`,
+      );
+    }
+
+    const message =
+      details.length > 0
+        ? `Semester unarchived successfully. ${details.join(". ")}.`
+        : "Semester unarchived successfully.";
+
     res.status(200).json({
       success: true,
-      message: "Semester unarchived successfully",
+      message,
       semester: {
         id: semester._id,
         schoolYear: semester.schoolYear,
         term: semester.term,
         isArchived: semester.isArchived,
+      },
+      restoredDependencies: {
+        subjects: restoredSubjectsCount,
+        sections: restoredSectionsCount,
+        skippedSections,
       },
     });
   } catch (error) {

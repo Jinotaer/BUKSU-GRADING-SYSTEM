@@ -12,7 +12,7 @@ export function ActivityFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg p-6 w-full max-w-xl mx-4 max-h-[80vh] overflow-y-auto">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           {isEdit ? "Edit Activity" : "Add Activity"}

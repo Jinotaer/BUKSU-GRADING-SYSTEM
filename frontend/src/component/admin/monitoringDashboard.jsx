@@ -1,17 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import {
-  IconRefresh,
-  IconDownload
-} from '@tabler/icons-react';
-import { NavbarSimple } from './adminsidebar';
-import { authenticatedFetch } from '../../utils/auth';
-import { getFreshCachedJson } from '../../lib/apiCache';
+import React, { useState, useEffect } from "react";
+import { IconRefresh, IconDownload } from "@tabler/icons-react";
+import { NavbarSimple } from "./adminsidebar";
+import { authenticatedFetch } from "../../utils/auth";
+import { getFreshCachedJson } from "../../lib/apiCache";
 
 // Import separated components
-import MonitoringFilters from './ui/monitoring/MonitoringFilters';
-import ActivityLogs from './ui/monitoring/ActivityLogs';
-
-
+import MonitoringFilters from "./ui/monitoring/MonitoringFilters";
+import ActivityLogs from "./ui/monitoring/ActivityLogs";
 
 const MonitoringDashboard = () => {
   const initialLogsUrl =
@@ -19,60 +14,61 @@ const MonitoringDashboard = () => {
   const cachedLogsData = getFreshCachedJson(initialLogsUrl)?.data || null;
   const [logs, setLogs] = useState(cachedLogsData?.logs || []);
   const [loading, setLoading] = useState(!cachedLogsData);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   // Pagination states
   const [logsPagination, setLogsPagination] = useState({
     currentPage: cachedLogsData?.pagination?.currentPage || 1,
     totalPages: cachedLogsData?.pagination?.totalPages || 1,
     totalLogs: cachedLogsData?.pagination?.totalLogs || 0,
-    itemsPerPage: 20
+    itemsPerPage: 20,
   });
   const [filters, setFilters] = useState({
-    category: '',
-    userType: '',
-    success: ''
+    category: "",
+    userType: "",
+    success: "",
   });
 
   // Wrapper to reset pagination when filters change
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
-    setLogsPagination(prev => ({ ...prev, currentPage: 1 }));
+    setLogsPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   // Fetch monitoring data
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Build query parameters for logs endpoint
       const logsParams = new URLSearchParams({
         page: logsPagination.currentPage.toString(),
-        limit: logsPagination.itemsPerPage.toString()
+        limit: logsPagination.itemsPerPage.toString(),
       });
-      if (filters.category) logsParams.append('category', filters.category);
-      if (filters.userType) logsParams.append('userType', filters.userType);
-      if (filters.success) logsParams.append('success', filters.success);
-      
-      const logsRes = await authenticatedFetch(`http://localhost:5000/api/monitoring/logs?${logsParams}`);
+      if (filters.category) logsParams.append("category", filters.category);
+      if (filters.userType) logsParams.append("userType", filters.userType);
+      if (filters.success) logsParams.append("success", filters.success);
+
+      const logsRes = await authenticatedFetch(
+        `http://localhost:5000/api/monitoring/logs?${logsParams}`,
+      );
 
       if (logsRes.ok) {
         const logsData = await logsRes.json();
         setLogs(logsData.data?.logs || []);
-        
+
         // Update logs pagination
         if (logsData.data?.pagination) {
           setLogsPagination({
             currentPage: logsData.data.pagination.currentPage,
             totalPages: logsData.data.pagination.totalPages,
             totalLogs: logsData.data.pagination.totalLogs,
-            itemsPerPage: logsPagination.itemsPerPage
+            itemsPerPage: logsPagination.itemsPerPage,
           });
         }
       }
-
     } catch (err) {
-      setError('Failed to fetch monitoring data');
+      setError("Failed to fetch monitoring data");
       console.error(err);
     } finally {
       setLoading(false);
@@ -83,52 +79,67 @@ const MonitoringDashboard = () => {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.category, filters.userType, filters.success, logsPagination.currentPage, logsPagination.itemsPerPage]);
+  }, [
+    filters.category,
+    filters.userType,
+    filters.success,
+    logsPagination.currentPage,
+    logsPagination.itemsPerPage,
+  ]);
 
   const handleExport = async () => {
     try {
       const exportParams = new URLSearchParams({
-        format: 'pdf'
+        format: "pdf",
       });
-      if (filters.category) exportParams.append('category', filters.category);
+      if (filters.category) exportParams.append("category", filters.category);
 
-      if (filters.userType) exportParams.append('userType', filters.userType);
-      if (filters.success) exportParams.append('success', filters.success);
-      
+      if (filters.userType) exportParams.append("userType", filters.userType);
+      if (filters.success) exportParams.append("success", filters.success);
+
       const response = await authenticatedFetch(
-        `http://localhost:5000/api/monitoring/logs/export?${exportParams}`
+        `http://localhost:5000/api/monitoring/logs/export?${exportParams}`,
       );
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
+        const a = document.createElement("a");
+        a.style.display = "none";
         a.href = url;
-        a.download = `activity_logs_${new Date().toISOString().split('T')[0]}.pdf`;
+        a.download = `activity_logs_${new Date().toISOString().split("T")[0]}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
       }
     } catch (err) {
-      console.error('Export failed:', err);
+      console.error("Export failed:", err);
     }
   };
 
+  // D078: Format date with timezone abbreviation for log timezone verification
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    });
   };
 
   // Pagination handlers
   const handleLogsPageChange = (page) => {
-    setLogsPagination(prev => ({ ...prev, currentPage: page }));
+    setLogsPagination((prev) => ({ ...prev, currentPage: page }));
   };
 
   const handleLogsItemsPerPageChange = (itemsPerPage) => {
-    setLogsPagination(prev => ({ 
-      ...prev, 
-      itemsPerPage, 
-      currentPage: 1 // Reset to first page when changing items per page
+    setLogsPagination((prev) => ({
+      ...prev,
+      itemsPerPage,
+      currentPage: 1, // Reset to first page when changing items per page
     }));
   };
 
@@ -175,7 +186,10 @@ const MonitoringDashboard = () => {
             </div>
           </div>
 
-          <MonitoringFilters filters={filters} setFilters={handleFilterChange} />
+          <MonitoringFilters
+            filters={filters}
+            setFilters={handleFilterChange}
+          />
         </div>
 
         {error && (
@@ -184,9 +198,9 @@ const MonitoringDashboard = () => {
           </div>
         )}
 
-        <ActivityLogs 
-          logs={logs} 
-          loading={loading} 
+        <ActivityLogs
+          logs={logs}
+          loading={loading}
           formatDate={formatDate}
           totalLogs={logsPagination.totalLogs}
           currentPage={logsPagination.currentPage}

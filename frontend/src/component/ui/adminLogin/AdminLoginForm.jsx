@@ -42,12 +42,18 @@ export default function AdminLoginForm({
         />
       </div>
 
-      <CaptchaSection
-        sitekey={recaptchaKey}
-        onChange={onCaptchaChange}
-        onExpired={onCaptchaExpired}
-        onErrored={onCaptchaError}
-      />
+      <div>
+        <span className="block text-sm font-medium text-gray-700 mb-2">
+          Verification:
+        </span>
+        <CaptchaSection
+          sitekey={recaptchaKey}
+          onChange={onCaptchaChange}
+          onExpired={onCaptchaExpired}
+          onErrored={onCaptchaError}
+          alignment="start"
+        />
+      </div>
 
       <button
         type="submit"

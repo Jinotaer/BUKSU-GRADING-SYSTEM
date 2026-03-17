@@ -627,7 +627,7 @@ export const loginWithEmail = async (req, res) => {
       id: decryptedUser._id,
       email: decryptedUser.email,
       fullName: decryptedUser.fullName || `${decryptedUser.firstName} ${decryptedUser.lastName}`,
-      role: decryptedUser.role || actualUserType, // Use actual role from database
+      role: actualUserType,
       status: decryptedUser.status,
       authMethod: decryptedUser.authMethod || 'google'
     };

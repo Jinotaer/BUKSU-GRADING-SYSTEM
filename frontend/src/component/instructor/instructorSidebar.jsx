@@ -417,7 +417,7 @@ export function InstructorSidebar() {
 
           {/* Logout Confirmation Modal */}
           {showLogoutModal && (
-            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9999]">
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[9999]" onClick={(event) => event.target === event.currentTarget && setShowLogoutModal(false)}>
               <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
                 <div className="flex justify-center mb-2">
                   <IconAlertTriangle
@@ -451,7 +451,7 @@ export function InstructorSidebar() {
 
           {/* Notification Modal */}
           {notification.show && (
-            <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+            <div className="fixed inset-0 flex items-center justify-center z-[9999]" onClick={(event) => event.target === event.currentTarget && setNotification({ show: false, message: "", type: "" })}>
               <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full text-center">
                 <p
                   className={`mb-2 ${

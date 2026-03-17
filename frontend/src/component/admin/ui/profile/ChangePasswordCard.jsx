@@ -1,4 +1,5 @@
 import React from "react";
+import { ADMIN_PASSWORD_REQUIREMENTS_TEXT } from "../../../../utils/adminPasswordValidation";
 
 export function ChangePasswordCard({
   passwordForm,
@@ -123,7 +124,7 @@ export function ChangePasswordCard({
             />
           </div>
           <p className="text-xs text-gray-500">
-            Password must be at least 8 characters long
+            {ADMIN_PASSWORD_REQUIREMENTS_TEXT}
           </p>
           <div className="flex justify-end mt-6">
             <button

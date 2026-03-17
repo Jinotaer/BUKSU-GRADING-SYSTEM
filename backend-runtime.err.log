@@ -1,0 +1,37 @@
+(node:54500) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:54500) [MONGOOSE] Warning: Duplicate schema index on {"expiresAt":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:54500) [MONGOOSE] Warning: Duplicate schema index on {"timestamp":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+Auth status check error: TypeError: Cannot read properties of undefined (reading 'auth_token')
+    at checkAuthStatus (file:///C:/xampp/htdocs/BUKSU-GRADING-SYSTEM/backend/controller/loginController.js:688:29)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:117:3)
+    at handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:295:15
+    at processParams (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:582:12)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:291:5)
+    at Function.handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:186:3)
+Auth status check error: TypeError: Cannot read properties of undefined (reading 'auth_token')
+    at checkAuthStatus (file:///C:/xampp/htdocs/BUKSU-GRADING-SYSTEM/backend/controller/loginController.js:688:29)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:117:3)
+    at handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:295:15
+    at processParams (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:582:12)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:291:5)
+    at Function.handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:186:3)
+Auth status check error: TypeError: Cannot read properties of undefined (reading 'auth_token')
+    at checkAuthStatus (file:///C:/xampp/htdocs/BUKSU-GRADING-SYSTEM/backend/controller/loginController.js:688:29)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:157:13)
+    at Route.dispatch (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\route.js:117:3)
+    at handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:435:11)
+    at Layer.handleRequest (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\lib\layer.js:152:17)
+    at C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:295:15
+    at processParams (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:582:12)
+    at next (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:291:5)
+    at Function.handle (C:\xampp\htdocs\BUKSU-GRADING-SYSTEM\backend\node_modules\router\index.js:186:3)

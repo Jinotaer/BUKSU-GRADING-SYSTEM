@@ -155,7 +155,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
       actor.userId = req.user.id || req.user._id;
       actor.userEmail = req.user.email;
       actor.userType = normalizeUserType(
-        req.user.userType || req.user.role || req.user.type
+        req.user.userType || req.user.role || req.user.type,
       );
     }
   }
@@ -168,7 +168,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
     actor.userId = responseBody.user.id || responseBody.user._id;
     actor.userEmail = responseBody.user.email;
     actor.userType = normalizeUserType(
-      responseBody.user.role || responseBody.user.userType
+      responseBody.user.role || responseBody.user.userType,
     );
   } else if (!actor.userEmail && responseBody?.student) {
     actor.userId = responseBody.student.id || responseBody.student._id;
@@ -193,7 +193,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
       responseBody?.user?.role ||
       responseBody?.admin?.role ||
       responseBody?.student?.role ||
-      responseBody?.instructor?.role
+      responseBody?.instructor?.role,
   );
 
   return actor;
@@ -202,7 +202,7 @@ export const extractActorFromRequest = (req, responseBody = null) => {
 export const buildRequestMetadata = (
   req,
   res,
-  { responseBody = null, startTime = null, success = true, metadata = {} } = {}
+  { responseBody = null, startTime = null, success = true, metadata = {} } = {},
 ) => {
   const actor = extractActorFromRequest(req, responseBody);
   const requestId = ensureRequestId(req, res);
@@ -215,8 +215,12 @@ export const buildRequestMetadata = (
     : [];
   const realIp = getHeader(req, "x-real-ip");
   const remoteAddress =
-    req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip || null;
-  const clientIp = forwardedFor[0] || realIp || req.ip || remoteAddress || "unknown";
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    null;
+  const clientIp =
+    forwardedFor[0] || realIp || req.ip || remoteAddress || "unknown";
 
   const riskFlags = [];
   if (!success) {
@@ -279,6 +283,8 @@ export const buildRequestMetadata = (
       cookieAuthPresent: Boolean(req.cookies?.auth_token),
       tokenInQuery: Boolean(req.query?.token),
     },
+    // D078: Store server timezone for log timezone verification
+    serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...metadata,
   };
 };
@@ -302,7 +308,9 @@ export const createDetailedLogPayload = ({
     ...extractedActor,
     ...actorOverride,
   };
-  const actorUserType = normalizeUserType(actor.userType || actor.attemptedUserType);
+  const actorUserType = normalizeUserType(
+    actor.userType || actor.attemptedUserType,
+  );
   const requestMetadata = buildRequestMetadata(req, res, {
     responseBody,
     startTime,
@@ -314,8 +322,7 @@ export const createDetailedLogPayload = ({
     userId: actor.userId || undefined,
     userEmail: actor.userEmail || actor.attemptedEmail || undefined,
     userType: actorUserType,
-    adminId:
-      actorUserType === "admin" && actor.userId ? actor.userId : null,
+    adminId: actorUserType === "admin" && actor.userId ? actor.userId : null,
     adminEmail:
       actorUserType === "admin"
         ? actor.userEmail || actor.attemptedEmail || null
@@ -352,7 +359,7 @@ export const createDetailedLogPayload = ({
 
 export const writeDetailedActivityLog = async (
   logData,
-  { loggerMessage = null } = {}
+  { loggerMessage = null } = {},
 ) => {
   try {
     await ActivityLog.logActivity(logData);
@@ -364,7 +371,11 @@ export const writeDetailedActivityLog = async (
     });
   }
 
-  const level = logData.success ? "info" : logData.category === "SECURITY" ? "warn" : "warn";
+  const level = logData.success
+    ? "info"
+    : logData.category === "SECURITY"
+      ? "warn"
+      : "warn";
   logger[level](
     loggerMessage ||
       `${logData.userType || "anonymous"} ${logData.action.toLowerCase()}`,
@@ -381,7 +392,7 @@ export const writeDetailedActivityLog = async (
       statusCode: logData.metadata?.statusCode,
       target: logData.targetIdentifier || logData.targetType || null,
       errorMessage: logData.errorMessage || null,
-    }
+    },
   );
 };
 

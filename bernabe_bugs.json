@@ -1,0 +1,242 @@
+[
+  {
+    "rowIdx": 4,
+    "bugId": "D003",
+    "fixer": "Bernabe",
+    "severity": "Cosmetic",
+    "bugDesc": "Recaptcha Input Field Placement",
+    "status": ""
+  },
+  {
+    "rowIdx": 6,
+    "bugId": "D005",
+    "fixer": "Bernabe",
+    "severity": "Cosmetic",
+    "bugDesc": "Text Wrapping",
+    "status": ""
+  },
+  {
+    "rowIdx": 8,
+    "bugId": "D007",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Newly Invited Instructor Account Login via Gmail",
+    "status": ""
+  },
+  {
+    "rowIdx": 9,
+    "bugId": "D008",
+    "fixer": "Bernabe",
+    "severity": "Cosmetic",
+    "bugDesc": "\"Grading Info\" badge misalignment",
+    "status": ""
+  },
+  {
+    "rowIdx": 13,
+    "bugId": "D012",
+    "fixer": "Bernabe",
+    "severity": "Cosmetic",
+    "bugDesc": "Should be able to close modal when clicking outside the modal\r\n",
+    "status": ""
+  },
+  {
+    "rowIdx": 14,
+    "bugId": "D013",
+    "fixer": "Bernabe",
+    "severity": "Cosmetic",
+    "bugDesc": "No useful error message when creating a section when creating a section when no instructor is chosen",
+    "status": ""
+  },
+  {
+    "rowIdx": 15,
+    "bugId": "D014",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "When inviting an instructor, the system does not accept \"@buksu.edu.ph\" email and \"@student.buksu.edu.ph\"",
+    "status": ""
+  },
+  {
+    "rowIdx": 18,
+    "bugId": "D017",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Admins must be able to edit their information in the profile page",
+    "status": ""
+  },
+  {
+    "rowIdx": 19,
+    "bugId": "D018",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Logs must include more rebust information, like ip address of the request origin, device used, etc. to allow tracability of the used",
+    "status": ""
+  },
+  {
+    "rowIdx": 24,
+    "bugId": "D023",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: AI service is down or not responding\nTest Case ID: TC_STUD_15-1\nSteps to Reproduce:\n1. Click chatbot icon\n2. Type question and send\n3. AI service fails to respond\nTest Data: Query: \"What is m",
+    "status": ""
+  },
+  {
+    "rowIdx": 31,
+    "bugId": "D030",
+    "fixer": "Bernabe",
+    "severity": "Low",
+    "bugDesc": "Summary: Create Activity for Grading\nTest Case ID: TC_FAC_06\nSteps to Reproduce:\n1. Open Class Section.\n\n2. Click \"Create Activity\".\n\n3. Input Title and Max Score.\n\n4. Save.\nTest Data: Activity: \"Quiz",
+    "status": ""
+  },
+  {
+    "rowIdx": 32,
+    "bugId": "D031",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: Create Activity with Empty Title (Negative)\nTest Case ID: TC_FAC_06-1\nSteps to Reproduce:\n1. Open Class Section.\n\n2. Click \"Create Activity\".\n\n3. Leave title blank, enter max score.\n\n4. Save.",
+    "status": ""
+  },
+  {
+    "rowIdx": 33,
+    "bugId": "D032",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Create Duplicate Activity Name (Negative)\nTest Case ID: TC_FAC_06-3\nSteps to Reproduce:\n1. Open Class Section.\n\n2. Click \"Create Activity\".\n\n3. Enter existing activity name.\n\n4. Save.\nTest Da",
+    "status": ""
+  },
+  {
+    "rowIdx": 40,
+    "bugId": "D039",
+    "fixer": "Bernabe",
+    "severity": "Low",
+    "bugDesc": "Summary: Export Empty Gradebook (Negative)\nTest Case ID: TC_FAC_10-1\nSteps to Reproduce:\n1. Open class with no grades.\n\n2. Click \"Export Grade Sheet\".\nTest Data: Format: PDF\nExpected Result: System di",
+    "status": ""
+  },
+  {
+    "rowIdx": 54,
+    "bugId": "D053",
+    "fixer": "Bernabe",
+    "severity": "Low",
+    "bugDesc": "Summary: Reset Page Input Validation (Negative)\nTest Case ID: TC_ADMIN_03-5\nSteps to Reproduce:\n1. Request and click a valid password reset link. 2. On the reset page, attempt to set the new password ",
+    "status": ""
+  },
+  {
+    "rowIdx": 57,
+    "bugId": "D056",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Creation of Term with Special Characters (Negative)\nTest Case ID: TC_ADMIN_05-4\nSteps to Reproduce:\n1. Navigate to \"Semester Management\". 2. Enter special characters in the Year field (e.g., ",
+    "status": ""
+  },
+  {
+    "rowIdx": 59,
+    "bugId": "D058",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Section Name Special Character Validation (Boundary)\nTest Case ID: TC_ADMIN_06-5\nSteps to Reproduce:\n1. Navigate to \"Section Management\". 2. Enter Section Name with invalid characters (e.g., ",
+    "status": ""
+  },
+  {
+    "rowIdx": 60,
+    "bugId": "D059",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Attempt to Create Duplicate Subject Code (Negative)\nTest Case ID: TC_ADMIN_07-1\nSteps to Reproduce:\n1. Navigate to \"Subject Management\". 2. Attempt to create a new subject using a Code that a",
+    "status": ""
+  },
+  {
+    "rowIdx": 61,
+    "bugId": "D060",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Add Subject with Blank Description (Negative)\nTest Case ID: TC_ADMIN_07-2\nSteps to Reproduce:\n1. Navigate to \"Subject Management\". 2. Enter a unique Code (e.g., PE 102) and leave the Descript",
+    "status": ""
+  },
+  {
+    "rowIdx": 62,
+    "bugId": "D061",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Special Characters in Subject Code (Boundary)\nTest Case ID: TC_ADMIN_07-4\nSteps to Reproduce:\n1. Navigate to \"Subject Management\". 2. Enter a Code with invalid special characters (e.g., ``` I",
+    "status": ""
+  },
+  {
+    "rowIdx": 63,
+    "bugId": "D062",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Invite Already Registered User (Negative)\nTest Case ID: TC_ADMIN_09-1\nSteps to Reproduce:\n1. Navigate to \"User Management\". 2. Enter the email of an existing, active faculty member. 3. Click ",
+    "status": ""
+  },
+  {
+    "rowIdx": 67,
+    "bugId": "D066",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Attempt to Archive Active Section (Negative)\nTest Case ID: TC_ADMIN_12-1\nSteps to Reproduce:\n1. Navigate to \"Section Management\". 2. Search for a section that belongs to the current, active s",
+    "status": ""
+  },
+  {
+    "rowIdx": 69,
+    "bugId": "D068",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: Unarchival with Missing Password (Imperfect/Boundary)\nTest Case ID: TC_ADMIN_14-1\nSteps to Reproduce:\n1. Go to \"Archival Management\". 2. Select an archived user. 3. Click \"Unarchive\". 4. The ",
+    "status": ""
+  },
+  {
+    "rowIdx": 72,
+    "bugId": "D071",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Unarchival with Archived Dependencies (Negative/Boundary)\nTest Case ID: TC_ADMIN_17-1\nSteps to Reproduce:\n1. Go to \"Archival Management\". 2. Select an archived semester (AY 2023-2024). 3. Att",
+    "status": ""
+  },
+  {
+    "rowIdx": 75,
+    "bugId": "D074",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: Search/Filter in Archival Management (Positive/Boundary)\nTest Case ID: TC_ADMIN_18-5\nSteps to Reproduce:\n1. Access the Archival Management Page and select a tab (e.g., Archived Users). 2. Use",
+    "status": ""
+  },
+  {
+    "rowIdx": 79,
+    "bugId": "D078",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Log Timezone Verification (Boundary)\nTest Case ID: TC_ADMIN_19-5\nSteps to Reproduce:\n1. Check the system's defined timezone setting. 2. Perform an action (e.g., a test login) and note the exa",
+    "status": ""
+  },
+  {
+    "rowIdx": 80,
+    "bugId": "D079",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: Download Report in Different Format (Positive)\nTest Case ID: TC_ADMIN_20-1\nSteps to Reproduce:\n1. Navigate to \"Reports\". 2. Select a report type (e.g., \"Faculty Load\"). 3. Select a different ",
+    "status": ""
+  },
+  {
+    "rowIdx": 82,
+    "bugId": "D081",
+    "fixer": "Bernabe",
+    "severity": "High",
+    "bugDesc": "Summary: Report Generation Time for Large Data (Imperfect)\nTest Case ID: TC_ADMIN_20-3\nSteps to Reproduce:\n1. Navigate to \"Reports\". 2. Select a comprehensive report (e.g., \"All Historical Grades\"). 3",
+    "status": ""
+  },
+  {
+    "rowIdx": 89,
+    "bugId": "D088",
+    "fixer": "Bernabe",
+    "severity": "Medium",
+    "bugDesc": "Summary: Profile Update Audit Log Verification (Positive)\nTest Case ID: TC_ADMIN_21-4\nSteps to Reproduce:\n1. Successfully update a profile field (e.g., change the last name). 2. Navigate to \"Audit Log",
+    "status": ""
+  },
+  {
+    "rowIdx": 90,
+    "bugId": "D089",
+    "fixer": "Bernabe",
+    "severity": "Low",
+    "bugDesc": "Summary: UI Reflection Delay (Imperfect)\nTest Case ID: TC_ADMIN_21-5\nSteps to Reproduce:\n1. Successfully update the admin's name. 2. Immediately observe the name displayed in the top-right corner of t",
+    "status": ""
+  }
+]
