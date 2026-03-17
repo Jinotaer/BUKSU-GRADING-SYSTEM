@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import buksuLogo from "../assets/logo1.png";
 import landingPageBg from "../assets/landingpage1.png";
@@ -35,8 +35,16 @@ const formatRemainingAttemptsMessage = (message, remainingAttempts) => {
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState("");
   const [captchaValue, setCaptchaValue] = useState(null);
+
+  //D073
+  const redirectAfterLogin =
+    typeof location.state?.from === "string" &&
+    location.state.from.startsWith("/admin")
+      ? location.state.from
+      : "/admin";
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
@@ -58,7 +66,7 @@ export default function AdminLogin() {
         sessionStorage.setItem("userType", "Admin");
         sessionStorage.setItem("adminInfo", JSON.stringify(data.admin));
 
-        navigate("/admin");
+        navigate(redirectAfterLogin, { replace: true });
       } else {
         setError(data.message || "Admin login failed.");
       }

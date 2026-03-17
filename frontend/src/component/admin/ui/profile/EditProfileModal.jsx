@@ -12,8 +12,6 @@ export function EditProfileModal({
   alert,
   onAlertClose,
 }) {
-  const sanitizeNameInput = (value) => value.replace(/[^A-Za-z ]/g, "");
-
   if (!isOpen) return null;
 
   return (
@@ -44,7 +42,7 @@ export function EditProfileModal({
                 onChange={(e) =>
                   setEditForm({
                     ...editForm,
-                    firstName: sanitizeNameInput(e.target.value),
+                    firstName: e.target.value,
                   })
                 }
                 placeholder="Enter first name"
@@ -65,7 +63,7 @@ export function EditProfileModal({
                 onChange={(e) =>
                   setEditForm({
                     ...editForm,
-                    lastName: sanitizeNameInput(e.target.value),
+                    lastName: e.target.value,
                   })
                 }
                 placeholder="Enter last name"

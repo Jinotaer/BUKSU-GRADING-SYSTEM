@@ -8,6 +8,23 @@
 
 ---
 
+## Bug ID Quick Locator
+
+bug id | file name | code #
+---|---|---
+D001 | [SearchAndFilters.jsx:11](frontend/src/component/admin/ui/users/SearchAndFilters.jsx#L11) | 11
+D010 | [instructorManagement.jsx:94](frontend/src/component/admin/instructorManagement.jsx#L94) | 94
+D015 | [studentRegister.jsx:98](frontend/src/component/studentRegister.jsx#L98) | 98
+D016 | [PageHeader.jsx:32](frontend/src/component/instructor/ui/grades/PageHeader.jsx#L32) | 32
+D019 | [.env:3](frontend/.env#L3) | 3
+D050 | [adminController.js:185](backend/controller/adminController.js#L185) | 185
+D055 | [semesterManagement.jsx:29](frontend/src/component/admin/semesterManagement.jsx#L29) | 29
+D067 | [semesterController.js:200](backend/controller/semesterController.js#L200) | 200
+D069 | [sections.js:21](backend/models/sections.js#L21) | 21
+D069 | [sectionController.js:917](backend/controller/sectionController.js#L917) | 917
+
+---
+
 ## 1. AUTHENTICATION & LOGIN MODULE
 
 ### TC_AUTH_01: Student Login - Valid Credentials

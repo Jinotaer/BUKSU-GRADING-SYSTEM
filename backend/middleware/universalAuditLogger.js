@@ -166,6 +166,20 @@ function generateUniversalDescription(action, req, body, success, actor) {
       return success ? 
         `${baseDesc} deleted student account` : 
         `${baseDesc} failed to delete student account: ${failureReason}`;
+
+    case 'STUDENT_ARCHIVED': {
+      const sessionTerminated = body?.sessionTermination?.terminated === true;
+      return success
+        ? sessionTerminated
+          ? `${baseDesc} archived a student account and terminated the student's active session`
+          : `${baseDesc} archived a student account`
+        : `${baseDesc} failed to archive a student account: ${failureReason}`;
+    }
+
+    case 'STUDENT_UNARCHIVED':
+      return success
+        ? `${baseDesc} unarchived a student account`
+        : `${baseDesc} failed to unarchive a student account: ${failureReason}`;
         
     case 'INSTRUCTOR_INVITED':
       return success ? 

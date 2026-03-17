@@ -26,6 +26,7 @@ const normalizeSchoolYear = (schoolYear) =>
 const getSchoolYearValidationMessage = (schoolYear) => {
   const match = normalizeSchoolYear(schoolYear).match(SCHOOL_YEAR_PATTERN);
 
+  //D055
   if (!match) {
     return 'School year must use the "YYYY-YYYY" format.';
   }
@@ -94,10 +95,10 @@ export default function SemesterManagement() {
     setNotification({ show: false, type: "", title: "", message: "" });
 
   // Confirmation helpers
-  const showConfirmDialog = (title, message, onConfirm) =>
-    setConfirmDialog({ show: true, title, message, onConfirm });
+  const showConfirmDialog = (title, message, onConfirm, onCancel = null) =>
+    setConfirmDialog({ show: true, title, message, onConfirm, onCancel });
   const hideConfirmDialog = () =>
-    setConfirmDialog({ show: false, title: "", message: "", onConfirm: null });
+    setConfirmDialog({ show: false, title: "", message: "", onConfirm: null, onCancel: null });
 
   const fetchSemesters = useCallback(async () => {
     try {
@@ -244,18 +245,45 @@ export default function SemesterManagement() {
             { method: "PUT" }
           );
           if (res.ok) {
+            const result = await res.json();
             setSemesters((prev) => prev.filter((s) => (s._id || s.id) !== id));
             showNotification(
               "success",
               "Success",
               `Semester "${semesterLabel}" archived successfully!`
             );
+
+            if (result.warning) {
+              showNotification("error", "Attention Required", result.message);
+            }
           } else {
             const errorData = await res.json().catch(() => ({}));
+            let errorMessage = errorData.message || "Failed to archive semester.";
+
+            if (errorData.activeSections && errorData.activeSections.length > 0) {
+              errorMessage = (
+                <div className="text-left">
+                  <p className="mb-2 text-red-600 font-medium">
+                    Cannot archive semester. {errorData.activeSections.length} active section(s) are still linked to this term:
+                  </p>
+                  <ul className="list-disc pl-5 mt-2 max-h-32 overflow-y-auto bg-red-50 p-2 rounded text-sm text-gray-700">
+                    {errorData.activeSections.map((s) => (
+                      <li key={s._id}>
+                        <span className="font-semibold">{s.subjectCode}</span> - {s.sectionName}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Please archive all associated sections first.
+                  </p>
+                </div>
+              );
+            }
+
             showNotification(
               "error",
-              "Error",
-              errorData.message || "Failed to archive semester."
+              "Archival Blocked",
+              errorMessage
             );
           }
         } catch (err) {
@@ -275,6 +303,65 @@ export default function SemesterManagement() {
         refreshLocksWithDelay();
       }
     );
+  };
+
+  const handleSetActiveSemester = async (id) => {
+    if (!id) {
+      showNotification("error", "Error", "Invalid semester ID");
+      return;
+    }
+
+    const semester = semesters.find((s) => (s._id || s.id) === id);
+    if (!semester) {
+      showNotification("error", "Error", "Semester not found");
+      return;
+    }
+
+    const lockOk = await acquireLock(id, "semester");
+    if (!lockOk) {
+      showNotification(
+        "error",
+        "Locked",
+        "Unable to acquire an edit lock for this semester. Please try again."
+      );
+      refreshLocksWithDelay();
+      return;
+    }
+
+    try {
+      const res = await authenticatedFetch(
+        `${API_BASE}/api/admin/semesters/${id}/set-active`,
+        {
+          method: "PUT",
+        }
+      );
+
+      if (res.ok) {
+        await fetchSemesters();
+        showNotification(
+          "success",
+          "Active Term Updated",
+          `${semester.schoolYear} - ${semester.term} Semester is now the Current Active Term.`
+        );
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showNotification(
+          "error",
+          "Update Failed",
+          data.message || "Failed to set active semester"
+        );
+      }
+    } catch (err) {
+      showNotification(
+        "error",
+        "Error",
+        "There was an error processing your request."
+      );
+      console.error("Set active semester error:", err);
+    } finally {
+      await releaseLock(id, "semester");
+      refreshLocksWithDelay();
+    }
   };
 
   const resetForm = () => {
@@ -326,6 +413,8 @@ export default function SemesterManagement() {
     return options;
   };
 
+  const activeSemester = semesters.find((s) => s.isActive === true);
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <NavbarSimple />
@@ -336,6 +425,17 @@ export default function SemesterManagement() {
             setShowAddModal(true);
           }}
         />
+
+        {!loading && !activeSemester && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <h3 className="text-sm font-semibold text-amber-800">
+              No Current Active Term is set
+            </h3>
+            <p className="mt-1 text-sm text-amber-700">
+              Please set one semester as the Current Active Term before continuing term-dependent operations.
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <LoadingSpinner />
@@ -349,6 +449,7 @@ export default function SemesterManagement() {
                 lockedBy={getLockedBy}
                 onEdit={openEditModal}
                 onArchive={handleArchiveSemester}
+                onSetActive={handleSetActiveSemester}
               />
             ))}
 
@@ -412,10 +513,16 @@ export default function SemesterManagement() {
 
         <ConfirmationModal
           isOpen={confirmDialog.show}
-          onClose={hideConfirmDialog}
+          onClose={() => {
+            if (confirmDialog.onCancel) confirmDialog.onCancel();
+            hideConfirmDialog();
+          }}
           title={confirmDialog.title}
           message={confirmDialog.message}
-          onConfirm={confirmDialog.onConfirm}
+          onConfirm={async () => {
+            if (confirmDialog.onConfirm) await confirmDialog.onConfirm();
+            hideConfirmDialog();
+          }}
         />
       </div>
     </div>

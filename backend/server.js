@@ -1,8 +1,10 @@
 import express from "express";
+import dns from 'dns';
 import dotenv from "dotenv";
 import cors from "cors";
 import session from "express-session";
 import connectDB from "./config/db.js";
+import mongoose from 'mongoose';
 import configurePassport from "./config/passport.js";
 import passport from "passport";
 import helmetConfig from "./config/helmet.js";
@@ -30,13 +32,27 @@ import emailService from './services/emailService.js';
 
 dotenv.config();
 
+// Ensure Node's DNS resolver can resolve SRV records for Atlas. Some Windows
+// setups use a local resolver that doesn't support SRV over the protocol Node
+// uses. Set fallback public DNS servers so SRV lookups succeed.
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  console.log('DNS servers set for Node resolver:', dns.getServers());
+} catch (err) {
+  console.warn('Failed to set DNS servers for Node resolver:', err.message || err);
+}
+
 // Connect to database and seed admin account
 const initializeApp = async () => {
   try {
     await connectDB();
-    logger.database('MongoDB connected successfully');
-    await seedAdminAccount();
-    logger.info('Admin account seeding completed');
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      logger.database('MongoDB connected successfully');
+      await seedAdminAccount();
+      logger.info('Admin account seeding completed');
+    } else {
+      logger.warn('MongoDB not connected; skipping DB seeding and DB-dependent initialization');
+    }
     
     // Initialize and verify email service
     logger.info('Initializing email service...');
@@ -52,9 +68,14 @@ const initializeApp = async () => {
   }
 };
 
-initializeApp();
-
 const app = express();
+
+// Initialize application (connect DB, seed admin, init services)
+// We'll start the HTTP server only after initialization completes to avoid
+// handling requests before the DB or other services are ready.
+const startApp = async () => {
+  await initializeApp();
+};
 
 // Apply Helmet security headers (must be early in middleware chain)
 app.use(helmetConfig);
@@ -175,10 +196,18 @@ logger.info('OAuth Configuration:', {
   googleClientSecretConfigured: !!process.env.GOOGLE_CLIENT_SECRET,
 });
 
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🔒 Security headers enabled with Helmet`);
-  logger.info(`📊 Logging configured with Winston`);
-});
+const PORT = process.env.PORT || 5000;
+
+startApp()
+  .then(() => {
+    app.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+      logger.info(`🔒 Security headers enabled with Helmet`);
+      logger.info(`📊 Logging configured with Winston`);
+    });
+  })
+  .catch((err) => {
+    logger.error('Failed to start application:', err);
+    process.exit(1);
+  });

@@ -52,12 +52,12 @@ export const addSemester = async (req, res) => {
 export const listSemesters = async (req, res) => {
   try {
     const { includeArchived = false } = req.query;
-    
+
     const filter = {};
     if (includeArchived !== 'true') {
       filter.isArchived = { $ne: true };
     }
-    
+
     const semesters = await Semester.find(filter).sort({ schoolYear: -1, term: 1 });
     res.json({ success: true, semesters });
   } catch (err) {
@@ -82,12 +82,12 @@ export const updateSemester = async (req, res) => {
     }
 
     // Check if another semester exists with the same schoolYear and term
-    const exists = await Semester.findOne({ 
-      schoolYear, 
-      term, 
-      _id: { $ne: id } 
+    const exists = await Semester.findOne({
+      schoolYear,
+      term,
+      _id: { $ne: id }
     });
-    
+
     if (exists) {
       return res.status(400).json({ message: "Semester already exists" });
     }
@@ -115,8 +115,8 @@ export const updateSemester = async (req, res) => {
         // Update all sections that belong to these subjects
         const sectionUpdateResult = await Section.updateMany(
           { subject: { $in: subjectIds } },
-          { 
-            $set: { 
+          {
+            $set: {
               schoolYear: schoolYear,
               term: term
             }
@@ -128,8 +128,8 @@ export const updateSemester = async (req, res) => {
         // Update all activities that belong to these subjects
         const activityUpdateResult = await Activity.updateMany(
           { subject: { $in: subjectIds }, semester: id },
-          { 
-            $set: { 
+          {
+            $set: {
               schoolYear: schoolYear,
               term: term === "1st" ? "Midterm" : term === "2nd" ? "Finalterm" : "Summer"
             }
@@ -163,7 +163,7 @@ export const deleteSemester = async (req, res) => {
     const { id } = req.params;
 
     const semester = await Semester.findByIdAndDelete(id);
-    
+
     if (!semester) {
       return res.status(404).json({ message: "Semester not found" });
     }
@@ -172,6 +172,50 @@ export const deleteSemester = async (req, res) => {
   } catch (err) {
     console.error("deleteSemester:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+//D072
+export const setActiveSemester = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const semester = await Semester.findById(id);
+    if (!semester) {
+      return res.status(404).json({
+        success: false,
+        message: "Semester not found",
+      });
+    }
+
+    if (semester.isArchived) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot set an archived semester as active",
+      });
+    }
+
+    await Semester.updateMany({ isActive: true }, { $set: { isActive: false } });
+
+    semester.isActive = true;
+    await semester.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Current active term updated successfully",
+      semester: {
+        id: semester._id,
+        schoolYear: semester.schoolYear,
+        term: semester.term,
+        isActive: semester.isActive,
+      },
+    });
+  } catch (error) {
+    console.error("Set active semester error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
@@ -196,12 +240,51 @@ export const archiveSemester = async (req, res) => {
       });
     }
 
+
+    // D067
+    // FIXED: Check for active sections before archiving
+    console.log(`[Archive Semester] Attempting to archive semester ID: ${id}`);
+
+    // 1. Get all subjects associated with this semester
+    const subjects = await Subject.find({ semester: id });
+    const subjectIds = subjects.map(s => s._id);
+    console.log(`[Archive Semester] Found ${subjectIds.length} subjects for this semester.`);
+
+    // 2. Check for active (unarchived) sections linked to these subjects
+    if (subjectIds.length > 0) {
+      const activeSections = await Section.find({
+        subject: { $in: subjectIds },
+        isArchived: { $ne: true }
+      }).populate('subject', 'subjectCode subjectName');
+
+      console.log(`[Archive Semester] Found ${activeSections.length} active sections for those subjects.`);
+
+      if (activeSections.length > 0) {
+        console.log(`[Archive Semester] Blocking archival. ${activeSections.length} sections are still active.`);
+        return res.status(400).json({
+          success: false,
+          message: `Cannot archive semester. ${activeSections.length} active section(s) are still linked to this term. Please archive all associated sections first.`,
+          activeSections: activeSections.map(s => ({
+            _id: s._id,
+            sectionName: s.sectionName,
+            subjectCode: s.subject ? s.subject.subjectCode : 'Unknown'
+          }))
+        });
+      }
+    }
+
     semester.isArchived = true;
+    semester.isActive = false;
     semester.archivedAt = new Date();
     semester.archivedBy = adminEmail;
     await semester.save();
 
-    res.status(200).json({
+    const hasActiveSemester = await Semester.exists({
+      isArchived: { $ne: true },
+      isActive: true,
+    });
+
+    const responsePayload = {
       success: true,
       message: "Semester archived successfully",
       semester: {
@@ -212,7 +295,15 @@ export const archiveSemester = async (req, res) => {
         archivedAt: semester.archivedAt,
         archivedBy: semester.archivedBy,
       },
-    });
+    };
+
+    if (!hasActiveSemester) {
+      responsePayload.warning = true;
+      responsePayload.message =
+        "Semester archived successfully. No Current Active Term is set. Please set an active semester manually.";
+    }
+
+    res.status(200).json(responsePayload);
   } catch (error) {
     console.error("Archive semester error:", error);
     res.status(500).json({
@@ -247,7 +338,12 @@ export const unarchiveSemester = async (req, res) => {
     semester.archivedBy = null;
     await semester.save();
 
-    res.status(200).json({
+    const hasActiveSemester = await Semester.exists({
+      isArchived: { $ne: true },
+      isActive: true,
+    });
+
+    const responsePayload = {
       success: true,
       message: "Semester unarchived successfully",
       semester: {
@@ -255,8 +351,17 @@ export const unarchiveSemester = async (req, res) => {
         schoolYear: semester.schoolYear,
         term: semester.term,
         isArchived: semester.isArchived,
+        isActive: semester.isActive,
       },
-    });
+    };
+
+    if (!hasActiveSemester) {
+      responsePayload.warning = true;
+      responsePayload.message =
+        "Semester unarchived successfully. No Current Active Term is set. Please set an active semester manually.";
+    }
+
+    res.status(200).json(responsePayload);
   } catch (error) {
     console.error("Unarchive semester error:", error);
     res.status(500).json({

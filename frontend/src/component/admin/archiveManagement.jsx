@@ -13,6 +13,7 @@ import {
   ArchiveItem,
   EmptyState,
 } from "./ui/archive";
+import { NotificationModal } from "./ui/semester/NotificationModal";
 
 const LOCK_REQUIRED_TYPES = new Set(["semesters", "subjects", "sections"]);
 
@@ -35,6 +36,12 @@ export default function ArchiveManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { acquireLock, releaseLock } = useLock();
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
 
   const fetchData = useCallback(async (type) => {
     setLoading(true);
@@ -134,7 +141,16 @@ export default function ArchiveManagement() {
         );
 
         if (response.ok) {
+          const result = await response.json();
           await fetchData(activeTab);
+          if (result.warning) {
+            setNotification({
+              isOpen: true,
+              type: "warning",
+              title: "Attention Required",
+              message: result.message,
+            });
+          }
         } else {
           const errorData = await response.json();
           setError(errorData.message || `Failed to unarchive ${type}`);
@@ -217,6 +233,14 @@ export default function ArchiveManagement() {
           )}
         </div>
       </div>
+
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={() => setNotification((prev) => ({ ...prev, isOpen: false }))}
+        type={notification.type}
+        title={notification.title}
+        message={notification.message}
+      />
     </div>
   );
 }

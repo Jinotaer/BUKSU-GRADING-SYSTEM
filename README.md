@@ -2,6 +2,21 @@
 
 A comprehensive full-stack grading management system designed for Bukidnon State University. This platform streamlines grade management, student consultations, activity tracking, and academic monitoring with robust security features and seamless Google integration.
 
+## Bug ID Comment Index
+
+bug id | file name | code #
+---|---|---
+D001 | frontend/src/component/admin/ui/users/SearchAndFilters.jsx | 11
+D010 | frontend/src/component/admin/instructorManagement.jsx | 94
+D015 | frontend/src/component/studentRegister.jsx | 98
+D016 | frontend/src/component/instructor/ui/grades/PageHeader.jsx | 32
+D019 | frontend/.env | 3
+D050 | backend/controller/adminController.js | 185
+D055 | frontend/src/component/admin/semesterManagement.jsx | 29
+D067 | backend/controller/semesterController.js | 200
+D069 | backend/models/sections.js | 21
+D069 | backend/controller/sectionController.js | 917
+
 ## 🚀 Tech Stack
 
 ### 🖥️ Frontend

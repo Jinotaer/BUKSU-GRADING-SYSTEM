@@ -93,13 +93,14 @@ export function StudentRegister() {
           sessionStorage.setItem("userType", "student");
           setSuccess(
             data.message ||
-              "Registration successful! Redirecting to your dashboard..."
+            "Registration successful! Redirecting to your dashboard..."
           );
+          // D015
           navigate("/student", { replace: true });
         } else {
           setSuccess(
             data.message ||
-              "Registration successful! Your account has been automatically approved."
+            "Registration successful! Your account has been automatically approved."
           );
           setTimeout(() => {
             navigate("/");
@@ -127,7 +128,7 @@ export function StudentRegister() {
             subtitle="Complete your profile to get started"
             loginLink="/"
           />
-      
+
           {/* Form Card - Right Side */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
             <div className="p-8">
@@ -142,7 +143,7 @@ export function StudentRegister() {
                   icon={<EmailIcon />}
                   helperText="Your institutional email"
                 />
-                
+
                 {/* Student ID and Full Name - 2 Column Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <FormField
@@ -155,7 +156,7 @@ export function StudentRegister() {
                     required
                     icon={<StudentIdIcon />}
                   />
-                  
+
                   <FormField
                     id="fullName"
                     label="Full Name"
@@ -167,7 +168,7 @@ export function StudentRegister() {
                     icon={<UserIcon />}
                   />
                 </div>
-                
+
                 {/* College Field */}
                 <SelectField
                   id="college"
@@ -179,7 +180,7 @@ export function StudentRegister() {
                   required
                   icon={<CollegeIcon />}
                 />
-                
+
                 {/* Course Field */}
                 {college && courseOptions.length > 0 ? (
                   <SelectField
@@ -205,7 +206,7 @@ export function StudentRegister() {
                     icon={<CourseIcon />}
                   />
                 )}
-                
+
                 {/* Year Level Field */}
                 <SelectField
                   id="yearLevel"
@@ -220,7 +221,7 @@ export function StudentRegister() {
 
                 {/* Error Message */}
                 <MessageAlert message={error} type="error" />
-                
+
                 {/* Success Message */}
                 <MessageAlert message={success} type="success" />
 
@@ -228,9 +229,9 @@ export function StudentRegister() {
                 <SubmitButton loading={loading} />
               </form>
             </div>
-            
+
           </div>
-          
+
         </div>
       </div>
     </div>

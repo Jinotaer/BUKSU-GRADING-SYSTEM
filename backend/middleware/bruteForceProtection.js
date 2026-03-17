@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Student from "../models/student.js";
 import Instructor from "../models/instructor.js";
 import Admin from "../models/admin.js";
@@ -45,6 +46,12 @@ const getDecryptFunction = (userType) => {
 
 // Helper function to find user by decrypted email
 const findUserByEmail = async (email, userType) => {
+  // If DB is not connected, skip DB-dependent checks to avoid crashing the login flow
+  if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+    console.warn('Database not connected; skipping brute-force user lookup');
+    return null;
+  }
+
   const UserModel = getUserModel(userType);
   const decryptFn = getDecryptFunction(userType);
   

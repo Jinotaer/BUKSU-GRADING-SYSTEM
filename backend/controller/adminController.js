@@ -33,7 +33,7 @@ const findAdminByEmail = async (email) => {
     console.log(`🔍 Searching for admin with email: "${email}"`);
     const admins = await Admin.find({});
     console.log(`📊 Found ${admins.length} total admin records in database`);
-    
+
     // Decrypt each admin and check email match
     for (const admin of admins) {
       try {
@@ -41,7 +41,7 @@ const findAdminByEmail = async (email) => {
         console.log(`🔓 Decrypted admin email: "${decryptedAdmin.email}"`);
         console.log(`🔍 Comparing: "${decryptedAdmin.email.toLowerCase()}" === "${email.toLowerCase()}"`);
         console.log(`🔍 Match result: ${decryptedAdmin.email.toLowerCase() === email.toLowerCase()}`);
-        
+
         if (decryptedAdmin.email && decryptedAdmin.email.toLowerCase() === email.toLowerCase()) {
           console.log(`✅ Found matching admin: ${admin._id}`);
           return admin; // Return the original admin with encrypted data
@@ -51,7 +51,7 @@ const findAdminByEmail = async (email) => {
         continue;
       }
     }
-    
+
     console.log(`❌ No admin found with email: "${email}"`);
     return null;
   } catch (error) {
@@ -137,7 +137,7 @@ const findExistingInstructorByIdentity = async ({ email, instructorid }) => {
     return (
       normalizeEmail(decryptedInstructor.email) === email ||
       normalizeIdentifier(decryptedInstructor.instructorid) ===
-        normalizeIdentifier(instructorid)
+      normalizeIdentifier(instructorid)
     );
   }) || null;
 };
@@ -182,6 +182,7 @@ export const requestResetPassword = async (req, res) => {
     }
 
     const admin = await findAdminByEmail(email);
+    //D050
     if (!admin) {
       return res.status(404).json({
         ok: false,
@@ -365,7 +366,7 @@ export const loginAdmin = async (req, res) => {
     console.log(`🔍 Admin login attempt received`);
     console.log(`🔍 Request body:`, JSON.stringify(req.body));
     console.log(`🔍 ========================================`);
-    
+
     const { email, password, captchaResponse } = req.body;
 
     // Validate input
@@ -389,31 +390,31 @@ export const loginAdmin = async (req, res) => {
 
     console.log(`🔍 Verifying reCAPTCHA...`);
     const isCaptchaValid = await verifyCaptchaResponse(captchaResponse, req.ip);
-    
+
     if (!isCaptchaValid) {
       console.log(`❌ CAPTCHA verification failed`);
       // Record failed attempt for invalid CAPTCHA
       await handleFailedLogin(email, req.inferredUserType || "admin").catch(
-        () => {}
+        () => { }
       );
       return res.status(400).json({
         success: false,
         message: "CAPTCHA verification failed. Please try again.",
       });
     }
-    
+
     console.log(`✅ CAPTCHA verification successful`);
     console.log(`🔍 Searching for admin with email: "${email}"`);
 
     // Find admin by encrypted email
     const admin = await findAdminByEmail(email);
     console.log(`🔍 Admin found:`, admin ? `Yes (ID: ${admin._id})` : 'No');
-    
+
     if (!admin) {
       console.log(`❌ Admin not found for email: ${email}`);
       // Record failed attempt for non-existent admin
       await handleFailedLogin(email, req.inferredUserType || "admin").catch(
-        () => {}
+        () => { }
       );
       return res.status(401).json({
         success: false,
@@ -431,9 +432,8 @@ export const loginAdmin = async (req, res) => {
       if (hoursRemaining >= 1) {
         timeMessage = `${hoursRemaining} hour${hoursRemaining > 1 ? "s" : ""}`;
       } else {
-        timeMessage = `${minutesRemaining} minute${
-          minutesRemaining > 1 ? "s" : ""
-        }`;
+        timeMessage = `${minutesRemaining} minute${minutesRemaining > 1 ? "s" : ""
+          }`;
       }
 
       return res.status(423).json({
@@ -449,7 +449,7 @@ export const loginAdmin = async (req, res) => {
     if (admin.status !== "Active") {
       // Record failed attempt for inactive account
       await handleFailedLogin(email, req.inferredUserType || "admin").catch(
-        () => {}
+        () => { }
       );
       return res.status(401).json({
         success: false,
@@ -463,7 +463,7 @@ export const loginAdmin = async (req, res) => {
     console.log(`🔍 Stored password hash: ${admin.password.substring(0, 29)}...`);
     const isPasswordValid = await admin.comparePassword(password);
     console.log(`🔍 Password valid: ${isPasswordValid}`);
-    
+
     if (!isPasswordValid) {
       const result = await handleFailedLogin(
         email,
@@ -475,9 +475,8 @@ export const loginAdmin = async (req, res) => {
         result.remainingAttempts !== undefined &&
         result.remainingAttempts > 0
       ) {
-        message += ` ${result.remainingAttempts} attempt${
-          result.remainingAttempts > 1 ? "s" : ""
-        } remaining.`;
+        message += ` ${result.remainingAttempts} attempt${result.remainingAttempts > 1 ? "s" : ""
+          } remaining.`;
       } else if (result.locked) {
         message =
           "Account has been temporarily locked due to too many failed login attempts.";
@@ -501,7 +500,7 @@ export const loginAdmin = async (req, res) => {
 
     // Successful login - reset any failed attempts
     await handleSuccessfulLogin(email, req.inferredUserType || "admin").catch(
-      () => {}
+      () => { }
     );
 
     // Decrypt admin data for response
@@ -640,7 +639,7 @@ export const inviteInstructor = async (req, res) => {
     if (!emailResult.success) {
       // If email fails, we might want to delete the instructor record
       await Instructor.findByIdAndDelete(instructor._id);
-      
+
       // Log failed invitation
       await logUniversalActivity(
         adminId,
@@ -658,7 +657,7 @@ export const inviteInstructor = async (req, res) => {
           userAgent: req.get('User-Agent')
         }
       );
-      
+
       return res.status(500).json({
         success: false,
         message: "Failed to send invitation email",
@@ -1211,7 +1210,7 @@ export const getDashboardStats = async (req, res) => {
       recentStudents.map(s => s.toObject()),
       'student'
     );
-    
+
     const decryptedRecentInstructors = bulkDecryptUserData(
       recentInstructors.map(i => i.toObject()),
       'instructor'
@@ -1474,6 +1473,7 @@ export const archiveStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
     const adminEmail = req.admin.email;
+    const sessionTerminatedAt = new Date();
 
     const student = await Student.findById(studentId);
     if (!student) {
@@ -1491,13 +1491,18 @@ export const archiveStudent = async (req, res) => {
     }
 
     student.isArchived = true;
-    student.archivedAt = new Date();
+    student.archivedAt = sessionTerminatedAt;
     student.archivedBy = adminEmail;
     await student.save();
 
     res.status(200).json({
       success: true,
       message: "Student archived successfully",
+      sessionTermination: {
+        terminated: true,
+        terminatedAt: sessionTerminatedAt,
+        reason: "Student account archived by admin",
+      },
       student: {
         id: student._id,
         email: student.email,

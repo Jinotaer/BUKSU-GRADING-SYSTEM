@@ -18,7 +18,8 @@ const isValidSectionName = (sectionName) => {
 
 const sectionSchema = new mongoose.Schema({
   subject: { type: mongoose.Schema.Types.ObjectId, ref: "Subject", required: true },
-  instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor", required: true },
+  //D069-1
+  instructor: { type: mongoose.Schema.Types.ObjectId, ref: "Instructor" }, // optional for unassigned sections
   sectionName: {
     type: String,
     required: true,
@@ -63,11 +64,11 @@ const sectionSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false },
   archivedAt: { type: Date, default: null },
   archivedBy: { type: String, default: null }, // admin email or ID
-  archivedByStudents: [{ 
+  archivedByStudents: [{
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
     archivedAt: { type: Date, default: Date.now }
   }], // Students who have archived this section
-  hiddenByStudents: [{ 
+  hiddenByStudents: [{
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
     hiddenAt: { type: Date, default: Date.now }
   }], // Students who have hidden this section
