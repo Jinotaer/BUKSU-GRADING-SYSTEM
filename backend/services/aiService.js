@@ -1,11 +1,5 @@
 // backend/services/aiService.js
 import axios from 'axios';
-import Student from '../models/student.js';
-import Grade from '../models/grades.js';
-import Schedule from '../models/schedule.js';
-import Section from '../models/sections.js';
-import Subject from '../models/subjects.js';
-import { decryptStudentData } from '../controller/decryptionController.js';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 const GEMINI_REST_URL = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
@@ -60,131 +54,127 @@ export async function generateTextWithGemini(prompt, options = {}) {
   }
 }
 
-// Fetch student context data
-async function getStudentContext(studentId, options = {}) {
-  console.log('getStudentContext called with:', { studentId, options });
-  const context = { student: null, grades: [], schedule: [], subjects: [] };
-  
-  try {
-    // Get student info
-    console.log('Finding student with ID:', studentId);
-    const student = await Student.findById(studentId);
-    if (!student) {
-      console.error('Student not found with ID:', studentId);
-      throw new Error('Student not found');
-    }
-    
-    console.log('Student found, decrypting data...');
-    // Decrypt student data
-    const decryptedStudent = decryptStudentData(student);
-    context.student = {
-      fullName: decryptedStudent.fullName,
-      studid: decryptedStudent.studid,
-      college: decryptedStudent.college,
-      course: decryptedStudent.course,
-      yearLevel: decryptedStudent.yearLevel
-    };
-    console.log('Student data decrypted for:', decryptedStudent.fullName);
-    
-    if (options.includeGrades) {
-      console.log('Fetching grades...');
-      // Get student grades with section and subject details
-      const grades = await Grade.find({ student: studentId })
-        .populate({
-          path: 'section',
-          populate: {
-            path: 'subject',
-            model: 'Subject'
-          }
-        })
-        .lean();
-      
-      console.log('Found', grades.length, 'grades for student');
-      context.grades = grades.map(grade => ({
-        subject: grade.section?.subject?.subjectName || 'Unknown',
-        subjectCode: grade.section?.subject?.subjectCode || 'Unknown',
-        section: grade.section?.sectionName || 'Unknown',
-        midtermGrade: grade.midtermGrade,
-        finalTermGrade: grade.finalTermGrade,
-        finalGrade: grade.finalGrade,
-        equivalentGrade: grade.equivalentGrade,
-        remarks: grade.remarks,
-        classStanding: grade.classStanding,
-        laboratory: grade.laboratory,
-        majorOutput: grade.majorOutput
-      }));
-    }
-    
-    if (options.includeSchedule) {
-      console.log('Fetching schedule...');
-      // Get student schedule
-      const studentSections = await Grade.find({ student: studentId }).select('section');
-      const sectionIds = studentSections.map(g => g.section);
-      console.log('Student is in sections:', sectionIds);
-      
-      const schedule = await Schedule.find({ 
-        section: { $in: sectionIds },
-        startDateTime: { $gte: new Date() } // Only future/current events
-      })
-        .populate('section')
-        .populate('subject')
-        .sort({ startDateTime: 1 })
-        .limit(20) // Limit to next 20 events
-        .lean();
-      
-      console.log('Found', schedule.length, 'upcoming schedule items');
-      context.schedule = schedule.map(event => ({
-        title: event.title,
-        description: event.description,
-        eventType: event.eventType,
-        startDateTime: event.startDateTime,
-        endDateTime: event.endDateTime,
-        subject: event.subject?.subjectName || 'Unknown',
-        subjectCode: event.subject?.subjectCode || 'Unknown',
-        section: event.section?.sectionName || 'Unknown'
-      }));
-    }
-    
-    if (options.includeSubjects) {
-      console.log('Fetching subjects...');
-      // Get student's current subjects
-      const studentSections = await Section.find({
-        students: studentId
-      }).populate('subject').lean();
-      
-      console.log('Found', studentSections.length, 'sections with student enrolled');
-      context.subjects = studentSections.map(section => ({
-        subjectName: section.subject?.subjectName || 'Unknown',
-        subjectCode: section.subject?.subjectCode || 'Unknown',
-        description: section.subject?.description || '',
-        units: section.subject?.units || 0,
-        sectionName: section.sectionName,
-        semester: section.semester,
-        yearLevel: section.yearLevel
-      }));
-    }
-    
-  } catch (error) {
-    console.error('Error fetching student context:', error);
-    // Return partial context instead of failing completely
+const hasPostedGrade = (grade) => {
+  const numericFields = [
+    grade.midtermGrade,
+    grade.finalTermGrade,
+    grade.finalGrade,
+    grade.classStanding,
+    grade.laboratory,
+    grade.majorOutput,
+  ]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (numericFields.some((value) => value > 0)) {
+    return true;
   }
-  
-  console.log('Final context:', {
-    hasStudent: !!context.student,
-    gradesCount: context.grades.length,
-    scheduleCount: context.schedule.length,
-    subjectsCount: context.subjects.length
-  });
-  
-  return context;
-}
+
+  if (typeof grade.equivalentGrade === 'string' && grade.equivalentGrade.trim()) {
+    return true;
+  }
+
+  if (
+    typeof grade.remarks === 'string' &&
+    grade.remarks.trim() &&
+    grade.remarks.trim().toUpperCase() !== 'INC'
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const buildConversationHistoryString = (history = []) => {
+  if (!Array.isArray(history) || history.length === 0) {
+    return '';
+  }
+
+  const lines = history
+    .filter((message) => message && typeof message.text === 'string' && message.text.trim())
+    .slice(-8)
+    .map((message) => {
+      const role = message.role === 'assistant' ? 'Assistant' : 'Student';
+      return `${role}: ${message.text.trim()}`;
+    });
+
+  return lines.length > 0 ? `Recent conversation:\n${lines.join('\n')}\n\n` : '';
+};
+
+const buildStudentContextString = (studentContext, contextOptions = {}) => {
+  let contextString = 'Student Information:\n';
+
+  if (studentContext.student) {
+    contextString += `- Name: ${studentContext.student.fullName || 'Not available'}\n`;
+    contextString += `- Student ID: ${studentContext.student.studid || 'Not available'}\n`;
+    contextString += `- College: ${studentContext.student.college || 'Not available'}\n`;
+    contextString += `- Course: ${studentContext.student.course || 'Not available'}\n`;
+    contextString += `- Year Level: ${studentContext.student.yearLevel || 'Not available'}\n\n`;
+  } else {
+    contextString += '- Student profile data is not currently available.\n\n';
+  }
+
+  if (contextOptions.includeSubjects) {
+    contextString += 'Current Subjects:\n';
+    if (studentContext.subjects.length > 0) {
+      studentContext.subjects.forEach((subject) => {
+        const instructorText = subject.instructorName ? ` - Instructor ${subject.instructorName}` : '';
+        contextString += `- ${subject.subjectCode}: ${subject.subjectName} (${subject.units} units) - Section ${subject.sectionName}${instructorText}\n`;
+      });
+    } else {
+      contextString += '- No enrolled subjects found.\n';
+    }
+    contextString += '\n';
+  }
+
+  if (contextOptions.includeGrades) {
+    const postedGrades = studentContext.grades.filter(hasPostedGrade);
+    contextString += 'Current Grades:\n';
+
+    if (postedGrades.length > 0) {
+      postedGrades.forEach((grade) => {
+        contextString += `- ${grade.subjectCode} (${grade.section}): `;
+        contextString += `Midterm: ${grade.midtermGrade}, Final: ${grade.finalTermGrade}, `;
+        contextString += `Final Grade: ${grade.finalGrade} (${grade.equivalentGrade}) - ${grade.remarks}\n`;
+      });
+    } else {
+      contextString += '- No posted grades found.\n';
+    }
+
+    contextString += '\n';
+  }
+
+  if (contextOptions.includeSchedule) {
+    contextString += 'Upcoming Schedule:\n';
+
+    if (studentContext.schedule.length > 0) {
+      studentContext.schedule.forEach((event) => {
+        const startDate = new Date(event.startDateTime).toLocaleString();
+        contextString += `- ${event.title} (${event.eventType}): ${event.subjectCode} - ${startDate}\n`;
+        if (event.description) contextString += `  Description: ${event.description}\n`;
+      });
+    } else {
+      contextString += '- No upcoming schedule found.\n';
+    }
+
+    contextString += '\n';
+  }
+
+  return contextString;
+};
 
 // Generate AI response with student context
-export async function generateTextWithStudentContext(prompt, studentId, options = {}, contextOptions = {}) {
+export async function generateTextWithStudentContext(
+  prompt,
+  studentContext,
+  history = [],
+  options = {},
+  contextOptions = {}
+) {
   console.log('generateTextWithStudentContext called with:', {
-    studentId,
     options,
     contextOptions,
+    historyCount: Array.isArray(history) ? history.length : 0,
     promptLength: prompt?.length
   });
 
@@ -194,56 +184,28 @@ export async function generateTextWithStudentContext(prompt, studentId, options 
     throw e;
   }
 
-  // Get student context
-  console.log('Fetching student context...');
-  const studentContext = await getStudentContext(studentId, contextOptions);
-  console.log('Student context fetched:', {
+  console.log('Student context received:', {
     hasStudent: !!studentContext.student,
     gradesCount: studentContext.grades.length,
     scheduleCount: studentContext.schedule.length,
     subjectsCount: studentContext.subjects.length
   });
-  
-  // Build context string
-  let contextString = `Student Information:\n`;
-  if (studentContext.student) {
-    contextString += `- Name: ${studentContext.student.fullName}\n`;
-    contextString += `- Student ID: ${studentContext.student.studid}\n`;
-    contextString += `- College: ${studentContext.student.college}\n`;
-    contextString += `- Course: ${studentContext.student.course}\n`;
-    contextString += `- Year Level: ${studentContext.student.yearLevel}\n\n`;
-  }
-  
-  if (contextOptions.includeSubjects && studentContext.subjects.length > 0) {
-    contextString += `Current Subjects:\n`;
-    studentContext.subjects.forEach(subject => {
-      contextString += `- ${subject.subjectCode}: ${subject.subjectName} (${subject.units} units) - Section ${subject.sectionName}\n`;
-    });
-    contextString += `\n`;
-  }
-  
-  if (contextOptions.includeGrades && studentContext.grades.length > 0) {
-    contextString += `Current Grades:\n`;
-    studentContext.grades.forEach(grade => {
-      contextString += `- ${grade.subjectCode} (${grade.section}): `;
-      contextString += `Midterm: ${grade.midtermGrade}, Final: ${grade.finalTermGrade}, `;
-      contextString += `Final Grade: ${grade.finalGrade} (${grade.equivalentGrade}) - ${grade.remarks}\n`;
-    });
-    contextString += `\n`;
-  }
-  
-  if (contextOptions.includeSchedule && studentContext.schedule.length > 0) {
-    contextString += `Upcoming Schedule:\n`;
-    studentContext.schedule.forEach(event => {
-      const startDate = new Date(event.startDateTime).toLocaleString();
-      contextString += `- ${event.title} (${event.eventType}): ${event.subjectCode} - ${startDate}\n`;
-      if (event.description) contextString += `  Description: ${event.description}\n`;
-    });
-    contextString += `\n`;
-  }
-  
+
+  const contextString = buildStudentContextString(studentContext, contextOptions);
+  const historyString = buildConversationHistoryString(history);
+
   // Combine context with user prompt
-  const fullPrompt = `${contextString}Based on the above student information, please answer the following question:\n\n${prompt}`;
+  const fullPrompt = `${contextString}${historyString}Instructions:
+- Use the student system data above for factual statements about grades, subjects, instructors, sections, schedule, and profile.
+- You may still give helpful academic advice, study tips, time-management guidance, and explanations using general best practices.
+- When giving advice, separate facts from the system and your suggestions. Do not invent new grades, schedules, instructors, or subjects.
+- Do not ask for the student's name, student ID, college, course, or year level if they are already present in the system data.
+- If the system data says there are no posted grades, no schedule, or no subjects, say that clearly and then continue with helpful guidance when the question is advisory.
+- Use the recent conversation to understand follow-up questions, but rely on the system data for facts.
+- Keep the answer concise and practical.
+
+Student question:
+${prompt}`;
   
   // Build request body
   const body = {

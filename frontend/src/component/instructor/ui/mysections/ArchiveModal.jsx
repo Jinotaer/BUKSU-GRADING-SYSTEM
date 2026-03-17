@@ -11,7 +11,7 @@ export function ArchiveModal({
   if (!isOpen || !section) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 bg-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/20 bg-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">

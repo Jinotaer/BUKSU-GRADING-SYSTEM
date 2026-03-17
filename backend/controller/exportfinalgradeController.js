@@ -1,8 +1,11 @@
 // controllers/exportFinalGradeController.js
-import dotenv from 'dotenv';
-import { HttpError, normalizeSheetTitleLength } from '../utils/googleSheetsHelpers.js';
-import { getGoogleClients } from '../utils/googleSheetsHelpers.js';
-import { computeScoresByStudent } from '../utils/gradeUtils.js';
+import dotenv from "dotenv";
+import {
+  HttpError,
+  normalizeSheetTitleLength,
+} from "../utils/googleSheetsHelpers.js";
+import { getGoogleClients } from "../utils/googleSheetsHelpers.js";
+import { computeScoresByStudent } from "../utils/gradeUtils.js";
 import {
   createSpreadsheet,
   writeValues,
@@ -14,8 +17,11 @@ import {
   tryShareWithInstructor,
   trySetPublicAccess,
   GOOGLE_DRIVE_FOLDER_ID,
-} from '../services/googleSheetsService.js';
-import { applyFinalGradeFormatting, addFinalGradeStudentDataBorders } from '../services/sheetFormattingService.js';
+} from "../services/googleSheetsService.js";
+import {
+  applyFinalGradeFormatting,
+  addFinalGradeStudentDataBorders,
+} from "../services/sheetFormattingService.js";
 import {
   loadSection,
   authorizeInstructor,
@@ -24,7 +30,7 @@ import {
   buildFinalGradeSheet,
   persistGrades,
   updateSectionMetadata,
-} from '../services/sheetDataService.js';
+} from "../services/sheetDataService.js";
 
 dotenv.config();
 
@@ -32,23 +38,31 @@ dotenv.config();
 /* Final Grade Export Controller                                              */
 /* -------------------------------------------------------------------------- */
 export const exportFinalGrade = async (req, res) => {
-  console.log('[exportFinalGrade] ========== Final Grade Export Started ==========');
+  console.log(
+    "[exportFinalGrade] ========== Final Grade Export Started ==========",
+  );
   const warnings = [];
 
   // 1) Extract and validate request data
   const { sectionId } = req.params;
   const instructorId = req?.instructor?.id;
   const { schedule } = req.body || {};
-  
-  console.log('[exportFinalGrade] SectionId:', sectionId, 'InstructorId:', instructorId);
-  
+
+  console.log(
+    "[exportFinalGrade] SectionId:",
+    sectionId,
+    "InstructorId:",
+    instructorId,
+  );
+
   if (!sectionId) {
-    return res.status(400).json({ message: 'Missing sectionId' });
+    return res.status(400).json({ message: "Missing sectionId" });
   }
-  
+
   if (!schedule?.day || !schedule?.time || !schedule?.room) {
-    return res.status(400).json({ 
-      message: 'Missing required schedule information. Please provide day, time, and room.' 
+    return res.status(400).json({
+      message:
+        "Missing required schedule information. Please provide day, time, and room.",
     });
   }
 
@@ -66,10 +80,10 @@ export const exportFinalGrade = async (req, res) => {
   let activities = [];
   let activityScores = [];
   let scoresByStudent = {};
-  
+
   try {
     // Load all activities regardless of term for final grade calculation
-    activities = await loadActivities(section, ''); // Empty term = all terms
+    activities = await loadActivities(section, ""); // Empty term = all terms
     const allActivityIds = activities.map((a) => a._id);
     activityScores = await loadActivityScores(allActivityIds);
     scoresByStudent = computeScoresByStudent(activityScores);
@@ -78,32 +92,42 @@ export const exportFinalGrade = async (req, res) => {
     return res.status(status).json({ message: err.message });
   }
 
+  // D039: Block export when no activities have been created (empty gradebook)
+  if (activities.length === 0) {
+    return res.status(400).json({
+      message:
+        "Cannot export: No activities have been created yet. Please create activities and enter grades before exporting.",
+    });
+  }
+
   // 4) Initialize Google clients
-  console.log('[exportFinalGrade] Initializing Google clients...');
+  console.log("[exportFinalGrade] Initializing Google clients...");
   let sheets, drive;
   let forceServiceAccount = false;
   try {
     ({ sheets, drive } = await getGoogleClients(forceServiceAccount));
-    console.log('[exportFinalGrade] Google clients initialized successfully');
+    console.log("[exportFinalGrade] Google clients initialized successfully");
   } catch (err) {
-    console.error('[exportFinalGrade] Failed to initialize Google clients');
+    console.error("[exportFinalGrade] Failed to initialize Google clients");
     const status = err instanceof HttpError ? err.status : 500;
     return res.status(status).json({ message: err.message });
   }
 
   // 5) Prepare spreadsheet titles
-  const subjectCode = section.subject?.subjectCode || 'SUBJ';
-  const sectionCodeForTitle = section.sectionCode || section.sectionName || '';
-  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ''}_${section.term || ''}_FinalGrade`;
-  const desiredSheetTitleBase = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}_FinalGrade`;
-  const desiredSheetTitleNormalized = normalizeSheetTitleLength(desiredSheetTitleBase);
-  
+  const subjectCode = section.subject?.subjectCode || "SUBJ";
+  const sectionCodeForTitle = section.sectionCode || section.sectionName || "";
+  const spreadsheetTitle = `${subjectCode}_${sectionCodeForTitle}_${section.schoolYear || ""}_${section.term || ""}_FinalGrade`;
+  const desiredSheetTitleBase = `${subjectCode}_${section.sectionCode || section.sectionName || "SECTION"}_${section.term || ""}_FinalGrade`;
+  const desiredSheetTitleNormalized = normalizeSheetTitleLength(
+    desiredSheetTitleBase,
+  );
+
   // IMPORTANT: Create section folder name WITHOUT the "_FinalGrade" suffix
   // This ensures both regular exports and final grade exports use the SAME folder
-  const sectionFolderBaseName = `${subjectCode}_${section.sectionCode || section.sectionName || 'SECTION'}_${section.term || ''}`;
+  const sectionFolderBaseName = `${subjectCode}_${section.sectionCode || section.sectionName || "SECTION"}_${section.term || ""}`;
 
   // 6) Handle spreadsheet creation or reuse
-  const metadataKey = 'exportMetadata_finalgrade';
+  const metadataKey = "exportMetadata_finalgrade";
   const existingExport = section[metadataKey] || {};
   const expectedSpreadsheetId = existingExport?.spreadsheetId || null;
   const expectedSheetId = existingExport?.sheetId ?? null;
@@ -117,44 +141,89 @@ export const exportFinalGrade = async (req, res) => {
   // Try to reuse existing spreadsheet
   if (expectedSpreadsheetId) {
     try {
-      ({ sheetId, sheetTitle } = await resolveExistingSheet(sheets, expectedSpreadsheetId, expectedSheetId, expectedSheetTitle));
+      ({ sheetId, sheetTitle } = await resolveExistingSheet(
+        sheets,
+        expectedSpreadsheetId,
+        expectedSheetId,
+        expectedSheetTitle,
+      ));
       spreadsheetId = expectedSpreadsheetId;
       reusedExisting = true;
-      console.log('[exportFinalGrade] Reusing existing spreadsheet:', spreadsheetId, 'sheet:', sheetTitle);
+      console.log(
+        "[exportFinalGrade] Reusing existing spreadsheet:",
+        spreadsheetId,
+        "sheet:",
+        sheetTitle,
+      );
     } catch (reuseErr) {
-      console.warn('[exportFinalGrade] Unable to reuse previous spreadsheet:', reuseErr.message);
+      console.warn(
+        "[exportFinalGrade] Unable to reuse previous spreadsheet:",
+        reuseErr.message,
+      );
       warnings.push(`Previous export could not be reused: ${reuseErr.message}`);
     }
   }
 
   // Create new spreadsheet if needed
   if (!reusedExisting) {
-    console.log('[exportFinalGrade] Creating a new spreadsheet...');
+    console.log("[exportFinalGrade] Creating a new spreadsheet...");
     try {
-      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle, false, drive));
-      console.log('[exportFinalGrade] Spreadsheet created:', spreadsheetId);
+      ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(
+        sheets,
+        spreadsheetTitle,
+        false,
+        drive,
+      ));
+      console.log("[exportFinalGrade] Spreadsheet created:", spreadsheetId);
       try {
-        sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+        sheetTitle = await setSheetTitle(
+          sheets,
+          spreadsheetId,
+          sheetId,
+          desiredSheetTitleBase,
+        );
       } catch (renameErr) {
-        warnings.push(`Unable to rename sheet to desired title: ${renameErr.message}`);
+        warnings.push(
+          `Unable to rename sheet to desired title: ${renameErr.message}`,
+        );
       }
     } catch (err) {
-      console.error('[exportFinalGrade] Failed to create spreadsheet - attempting with service account');
+      console.error(
+        "[exportFinalGrade] Failed to create spreadsheet - attempting with service account",
+      );
       try {
         ({ sheets, drive } = await getGoogleClients(true));
-        ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(sheets, spreadsheetTitle, true, drive));
-        console.log('[exportFinalGrade] Spreadsheet created with service account:', spreadsheetId);
+        ({ spreadsheetId, sheetId, sheetTitle } = await createSpreadsheet(
+          sheets,
+          spreadsheetTitle,
+          true,
+          drive,
+        ));
+        console.log(
+          "[exportFinalGrade] Spreadsheet created with service account:",
+          spreadsheetId,
+        );
         try {
-          sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+          sheetTitle = await setSheetTitle(
+            sheets,
+            spreadsheetId,
+            sheetId,
+            desiredSheetTitleBase,
+          );
         } catch (renameErr) {
-          warnings.push(`Unable to rename sheet to desired title: ${renameErr.message}`);
+          warnings.push(
+            `Unable to rename sheet to desired title: ${renameErr.message}`,
+          );
         }
       } catch (retryErr) {
-        console.error('[exportFinalGrade] Failed to create spreadsheet with service account');
+        console.error(
+          "[exportFinalGrade] Failed to create spreadsheet with service account",
+        );
         const status = retryErr instanceof HttpError ? retryErr.status : 500;
-        return res.status(status).json({ 
+        return res.status(status).json({
           message: `Failed to create final grade spreadsheet: ${retryErr.message}`,
-          suggestion: 'Please check Google Drive storage quota and API permissions'
+          suggestion:
+            "Please check Google Drive storage quota and API permissions",
         });
       }
     }
@@ -164,15 +233,24 @@ export const exportFinalGrade = async (req, res) => {
     const shouldAttemptRename = sheetTitle !== desiredSheetTitleNormalized;
     if (shouldAttemptRename) {
       try {
-        sheetTitle = await setSheetTitle(sheets, spreadsheetId, sheetId, desiredSheetTitleBase);
+        sheetTitle = await setSheetTitle(
+          sheets,
+          spreadsheetId,
+          sheetId,
+          desiredSheetTitleBase,
+        );
       } catch (renameErr) {
-        warnings.push(`Could not align sheet title with desired format: ${renameErr.message}`);
+        warnings.push(
+          `Could not align sheet title with desired format: ${renameErr.message}`,
+        );
       }
     }
     try {
       await resetSheet(sheets, spreadsheetId, sheetId, sheetTitle);
     } catch (err) {
-      console.error('[exportFinalGrade] Failed resetting existing sheet before rewrite');
+      console.error(
+        "[exportFinalGrade] Failed resetting existing sheet before rewrite",
+      );
       const status = err instanceof HttpError ? err.status : 500;
       return res.status(status).json({ message: err.message });
     }
@@ -182,53 +260,90 @@ export const exportFinalGrade = async (req, res) => {
   // Ensures final grade exports use the SAME folder as regular class record exports
   if (!reusedExisting) {
     let createdFolderId = null;
-    
-    // CRITICAL: Use sectionFolderBaseName (without _FinalGrade suffix) 
+
+    // CRITICAL: Use sectionFolderBaseName (without _FinalGrade suffix)
     // to share the same folder with regular exports
     const sectionFolderName = sectionFolderBaseName; // This matches the regular export folder name
     const parentFolder = GOOGLE_DRIVE_FOLDER_ID;
-    
+
     if (parentFolder) {
-      console.log('[exportFinalGrade] 🔍 Checking for existing section folder...');
-      console.log('[exportFinalGrade] - Section folder name:', sectionFolderName);
-      console.log('[exportFinalGrade] - Parent folder ID:', parentFolder);
-      
+      console.log(
+        "[exportFinalGrade] 🔍 Checking for existing section folder...",
+      );
+      console.log(
+        "[exportFinalGrade] - Section folder name:",
+        sectionFolderName,
+      );
+      console.log("[exportFinalGrade] - Parent folder ID:", parentFolder);
+
       // findOrCreateSectionFolder will reuse existing folder if found
-      const existingFolderRes = await findOrCreateSectionFolder(drive, sectionFolderName, parentFolder);
-      console.log('[exportFinalGrade] 📁 Folder result:', existingFolderRes);
-      
+      const existingFolderRes = await findOrCreateSectionFolder(
+        drive,
+        sectionFolderName,
+        parentFolder,
+      );
+      console.log("[exportFinalGrade] 📁 Folder result:", existingFolderRes);
+
       if (existingFolderRes.ok && existingFolderRes.id) {
         createdFolderId = existingFolderRes.id;
-        
+
         if (existingFolderRes.wasExisting) {
-          console.log(`[exportFinalGrade] ✅ Using existing section folder: ${sectionFolderName} (${createdFolderId})`);
-          console.log(`[exportFinalGrade] 📂 Both regular export and final grade will be in the same folder!`);
+          console.log(
+            `[exportFinalGrade] ✅ Using existing section folder: ${sectionFolderName} (${createdFolderId})`,
+          );
+          console.log(
+            `[exportFinalGrade] 📂 Both regular export and final grade will be in the same folder!`,
+          );
         } else {
-          console.log(`[exportFinalGrade] 📁 Created new section folder: ${sectionFolderName} (${createdFolderId})`);
+          console.log(
+            `[exportFinalGrade] 📁 Created new section folder: ${sectionFolderName} (${createdFolderId})`,
+          );
         }
-        
+
         // Move the final grade spreadsheet to the section folder
-        const moveRes = await moveFileToFolder(drive, spreadsheetId, createdFolderId);
+        const moveRes = await moveFileToFolder(
+          drive,
+          spreadsheetId,
+          createdFolderId,
+        );
         if (!moveRes.ok) {
-          warnings.push(`Could not move spreadsheet to section folder: ${moveRes.message}`);
+          warnings.push(
+            `Could not move spreadsheet to section folder: ${moveRes.message}`,
+          );
         } else {
-          console.log(`[exportFinalGrade] ✅ Final grade spreadsheet moved to section folder`);
+          console.log(
+            `[exportFinalGrade] ✅ Final grade spreadsheet moved to section folder`,
+          );
         }
       } else {
-        warnings.push(`Could not create/find section folder "${sectionFolderName}": ${existingFolderRes.message}`);
-        
+        warnings.push(
+          `Could not create/find section folder "${sectionFolderName}": ${existingFolderRes.message}`,
+        );
+
         // Fallback: move directly to parent folder
-        const moveRes = await moveFileToFolder(drive, spreadsheetId, parentFolder);
+        const moveRes = await moveFileToFolder(
+          drive,
+          spreadsheetId,
+          parentFolder,
+        );
         if (!moveRes.ok) {
-          warnings.push(`Could not move spreadsheet to parent folder: ${moveRes.message}`);
+          warnings.push(
+            `Could not move spreadsheet to parent folder: ${moveRes.message}`,
+          );
         } else {
           createdFolderId = parentFolder;
-          warnings.push('Moved to parent folder as fallback since section folder creation failed.');
+          warnings.push(
+            "Moved to parent folder as fallback since section folder creation failed.",
+          );
         }
       }
     } else {
-      console.warn('[exportFinalGrade] No parent folder configured; spreadsheet left in Drive root');
-      warnings.push('No target folder configured; spreadsheet remains in Drive root.');
+      console.warn(
+        "[exportFinalGrade] No parent folder configured; spreadsheet left in Drive root",
+      );
+      warnings.push(
+        "No target folder configured; spreadsheet remains in Drive root.",
+      );
     }
 
     if (createdFolderId) {
@@ -239,9 +354,18 @@ export const exportFinalGrade = async (req, res) => {
   }
 
   // 8) Build final grade sheet data using the new screenshot design
-  const scheduleInfo = { day: schedule.day, time: schedule.time, room: schedule.room };
-  const sheetDataResult = buildFinalGradeSheet(section, activities, scoresByStudent, scheduleInfo);
-  
+  const scheduleInfo = {
+    day: schedule.day,
+    time: schedule.time,
+    room: schedule.room,
+  };
+  const sheetDataResult = buildFinalGradeSheet(
+    section,
+    activities,
+    scoresByStudent,
+    scheduleInfo,
+  );
+
   const {
     allData,
     tableHeaderRows,
@@ -263,7 +387,7 @@ export const exportFinalGrade = async (req, res) => {
   const sectionInfoLength = sheetDataResult.sectionInfo?.length || 5;
   const tableHeaderStartRow = headerDataLength + sectionInfoLength;
   const headerRowCount = tableHeaderRows.length;
-  
+
   try {
     await applyFinalGradeFormatting(
       sheets,
@@ -275,7 +399,7 @@ export const exportFinalGrade = async (req, res) => {
       headerRowCount,
       headerColorRanges,
       baseColumns,
-      totalColumns
+      totalColumns,
     );
   } catch (err) {
     warnings.push(`Formatting failed: ${err.message}`);
@@ -284,18 +408,36 @@ export const exportFinalGrade = async (req, res) => {
   // 11) Add borders to student data
   const studentRowCount = section.students.length;
   try {
-    await addFinalGradeStudentDataBorders(sheets, spreadsheetId, sheetId, tableHeaderStartRow, headerRowCount, studentRowCount, totalColumns);
+    await addFinalGradeStudentDataBorders(
+      sheets,
+      spreadsheetId,
+      sheetId,
+      tableHeaderStartRow,
+      headerRowCount,
+      studentRowCount,
+      totalColumns,
+    );
   } catch (err) {
     warnings.push(`Failed adding borders to student data: ${err.message}`);
   }
 
   // 12) Share with instructor and set public access
   const instructorEmail = section?.instructor?.email || null;
-  const shareRes = await tryShareWithInstructor(drive, spreadsheetId, instructorEmail);
-  if (!shareRes.ok) warnings.push(`Could not share with instructor: ${shareRes.message || 'unknown error'}`);
+  const shareRes = await tryShareWithInstructor(
+    drive,
+    spreadsheetId,
+    instructorEmail,
+  );
+  if (!shareRes.ok)
+    warnings.push(
+      `Could not share with instructor: ${shareRes.message || "unknown error"}`,
+    );
 
   const publicRes = await trySetPublicAccess(drive, spreadsheetId);
-  if (!publicRes.ok) warnings.push(`Could not set public access: ${publicRes.message || 'unknown error'}`);
+  if (!publicRes.ok)
+    warnings.push(
+      `Could not set public access: ${publicRes.message || "unknown error"}`,
+    );
 
   // 13) Build spreadsheet URL
   const spreadsheetUrl =
@@ -306,9 +448,16 @@ export const exportFinalGrade = async (req, res) => {
 
   // 14) Persist grades
   try {
-    const gradeResult = await persistGrades(section, activities, scoresByStudent, instructorId);
+    const gradeResult = await persistGrades(
+      section,
+      activities,
+      scoresByStudent,
+      instructorId,
+    );
     if (gradeResult.failedCount > 0) {
-      warnings.push(`Grades persisted with ${gradeResult.failedCount} upsert error(s). Check server logs.`);
+      warnings.push(
+        `Grades persisted with ${gradeResult.failedCount} upsert error(s). Check server logs.`,
+      );
     }
   } catch (err) {
     warnings.push(`Grade persistence failed: ${err?.message || err}`);
@@ -316,15 +465,20 @@ export const exportFinalGrade = async (req, res) => {
 
   // 15) Update section metadata
   try {
-    await updateSectionMetadata(sectionId, scheduleInfo, {
-      spreadsheetId,
-      sheetId,
-      sheetTitle,
-      spreadsheetTitle,
-      spreadsheetUrl,
-      folderId: res.locals?.createdFolderId || null,
-      sectionFolderName: res.locals?.sectionFolderName || null,
-    }, 'finalgrade');
+    await updateSectionMetadata(
+      sectionId,
+      scheduleInfo,
+      {
+        spreadsheetId,
+        sheetId,
+        sheetTitle,
+        spreadsheetTitle,
+        spreadsheetUrl,
+        folderId: res.locals?.createdFolderId || null,
+        sectionFolderName: res.locals?.sectionFolderName || null,
+      },
+      "finalgrade",
+    );
   } catch (err) {
     warnings.push(`Failed to record export metadata: ${err?.message || err}`);
   }
@@ -332,14 +486,16 @@ export const exportFinalGrade = async (req, res) => {
   // 16) Send success response
   return res.json({
     success: true,
-    message: 'Final grades exported successfully',
+    message: "Final grades exported successfully",
     spreadsheetId,
     spreadsheetUrl,
     title: spreadsheetTitle,
     sheetTitle,
     reusedExisting,
     sectionFolderName: res.locals?.sectionFolderName || null,
-    folderUrl: res.locals?.createdFolderId ? `https://drive.google.com/drive/folders/${res.locals.createdFolderId}` : null,
+    folderUrl: res.locals?.createdFolderId
+      ? `https://drive.google.com/drive/folders/${res.locals.createdFolderId}`
+      : null,
     serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     warnings,
   });

@@ -2,6 +2,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { generateTextWithGemini, generateTextWithStudentContext } from '../services/aiService.js';
+import { getStudentAcademicContext, resolveDirectStudentAcademicQuery } from '../services/studentAcademicQueryService.js';
 import { studentAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -49,8 +50,14 @@ router.post('/generate-with-context', aiLimiter, studentAuth, async (req, res) =
     console.log('AI generate-with-context request received');
     console.log('Student from token:', req.student);
     
-    const { prompt, maxOutputTokens, temperature, includeGrades, includeSchedule, includeSubjects } = req.body;
-    console.log('Request body:', { prompt: prompt?.substring(0, 100) + '...', includeGrades, includeSchedule, includeSubjects });
+    const { prompt, history, maxOutputTokens, temperature, includeGrades, includeSchedule, includeSubjects } = req.body;
+    console.log('Request body:', {
+      prompt: prompt?.substring(0, 100) + '...',
+      includeGrades,
+      includeSchedule,
+      includeSubjects,
+      historyCount: Array.isArray(history) ? history.length : 0,
+    });
     
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -71,17 +78,32 @@ router.post('/generate-with-context', aiLimiter, studentAuth, async (req, res) =
     };
     
     console.log('Context options:', contextOptions);
+    console.log('Fetching student academic context...');
+
+    const studentContext = await getStudentAcademicContext(req.student.id, contextOptions);
+    const directResponse = resolveDirectStudentAcademicQuery(prompt, studentContext, contextOptions);
+
+    if (directResponse) {
+      console.log('Responding with direct academic query result:', directResponse.type);
+      return res.json({
+        ok: true,
+        text: directResponse.text,
+        source: 'direct',
+      });
+    }
+
     console.log('Calling generateTextWithStudentContext...');
 
     const result = await generateTextWithStudentContext(
       prompt, 
-      req.student.id, // Changed from req.user.id to req.student.id
+      studentContext,
+      Array.isArray(history) ? history : [],
       options, 
       contextOptions
     );
 
     console.log('AI response generated successfully');
-    res.json({ ok: true, text: result.text, raw: result.raw });
+    res.json({ ok: true, text: result.text, raw: result.raw, source: 'ai' });
   } catch (err) {
     console.error('[AI] generate-with-context error', err?.message || err);
     console.error('Full error:', err);

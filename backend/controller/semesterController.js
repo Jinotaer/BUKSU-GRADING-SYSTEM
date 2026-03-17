@@ -3,6 +3,7 @@ import Semester from "../models/semester.js";
 import Section from "../models/sections.js";
 import Subject from "../models/subjects.js";
 import Activity from "../models/activity.js";
+import Instructor from "../models/instructor.js";
 import { calculateAndUpdateAllGradesInSection } from "../utils/gradeCalculator.js";
 
 const SCHOOL_YEAR_PATTERN = /^(\d{4})-(\d{4})$/;
@@ -175,7 +176,7 @@ export const deleteSemester = async (req, res) => {
   }
 };
 
-//D072
+// D072
 export const setActiveSemester = async (req, res) => {
   try {
     const { id } = req.params;
@@ -240,35 +241,25 @@ export const archiveSemester = async (req, res) => {
       });
     }
 
-
-    // D067
-    // FIXED: Check for active sections before archiving
-    console.log(`[Archive Semester] Attempting to archive semester ID: ${id}`);
-
-    // 1. Get all subjects associated with this semester
+    // D067: block semester archival while linked sections are still active.
     const subjects = await Subject.find({ semester: id });
-    const subjectIds = subjects.map(s => s._id);
-    console.log(`[Archive Semester] Found ${subjectIds.length} subjects for this semester.`);
+    const subjectIds = subjects.map((subject) => subject._id);
 
-    // 2. Check for active (unarchived) sections linked to these subjects
     if (subjectIds.length > 0) {
       const activeSections = await Section.find({
         subject: { $in: subjectIds },
-        isArchived: { $ne: true }
-      }).populate('subject', 'subjectCode subjectName');
-
-      console.log(`[Archive Semester] Found ${activeSections.length} active sections for those subjects.`);
+        isArchived: { $ne: true },
+      }).populate("subject", "subjectCode subjectName");
 
       if (activeSections.length > 0) {
-        console.log(`[Archive Semester] Blocking archival. ${activeSections.length} sections are still active.`);
         return res.status(400).json({
           success: false,
           message: `Cannot archive semester. ${activeSections.length} active section(s) are still linked to this term. Please archive all associated sections first.`,
-          activeSections: activeSections.map(s => ({
-            _id: s._id,
-            sectionName: s.sectionName,
-            subjectCode: s.subject ? s.subject.subjectCode : 'Unknown'
-          }))
+          activeSections: activeSections.map((section) => ({
+            _id: section._id,
+            sectionName: section.sectionName,
+            subjectCode: section.subject ? section.subject.subjectCode : "Unknown",
+          })),
         });
       }
     }
@@ -317,6 +308,8 @@ export const archiveSemester = async (req, res) => {
 export const unarchiveSemester = async (req, res) => {
   try {
     const { id } = req.params;
+    const autoRestoreDependencies =
+      String(req.query?.autoRestoreDependencies).toLowerCase() === "true";
 
     const semester = await Semester.findById(id);
     if (!semester) {
@@ -333,10 +326,160 @@ export const unarchiveSemester = async (req, res) => {
       });
     }
 
+    const [archivedSubjects, archivedSections] = await Promise.all([
+      Subject.find({
+        semester: semester._id,
+        isArchived: true,
+      }).select("subjectCode subjectName"),
+      Section.find({
+        schoolYear: semester.schoolYear,
+        term: semester.term,
+        isArchived: true,
+      }).select("sectionName sectionCode subject instructor"),
+    ]);
+
+    if (
+      !autoRestoreDependencies &&
+      (archivedSubjects.length > 0 || archivedSections.length > 0)
+    ) {
+      const dependencySummary = [
+        archivedSubjects.length > 0
+          ? `${archivedSubjects.length} archived subject(s)`
+          : null,
+        archivedSections.length > 0
+          ? `${archivedSections.length} archived section(s)`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      return res.status(409).json({
+        success: false,
+        message:
+          "Some associated sections/subjects are still archived. Do you want to unarchive them automatically, or block this action?",
+        canAutoRestore: true,
+        dependencies: {
+          summary: dependencySummary,
+          archivedSubjects: archivedSubjects.map((subject) => ({
+            id: subject._id,
+            subjectCode: subject.subjectCode,
+            subjectName: subject.subjectName,
+          })),
+          archivedSections: archivedSections.map((section) => ({
+            id: section._id,
+            sectionName: section.sectionName,
+            sectionCode: section.sectionCode,
+          })),
+        },
+      });
+    }
+
     semester.isArchived = false;
     semester.archivedAt = null;
     semester.archivedBy = null;
     await semester.save();
+
+    let restoredSubjectsCount = 0;
+    if (archivedSubjects.length > 0) {
+      const subjectResult = await Subject.updateMany(
+        {
+          _id: { $in: archivedSubjects.map((subject) => subject._id) },
+        },
+        {
+          $set: {
+            isArchived: false,
+            archivedAt: null,
+            archivedBy: null,
+          },
+        },
+      );
+      restoredSubjectsCount = subjectResult.modifiedCount || 0;
+    }
+
+    let restoredSectionsCount = 0;
+    let skippedSections = [];
+    if (archivedSections.length > 0) {
+      const instructorIds = [
+        ...new Set(
+          archivedSections
+            .map((section) => section.instructor?.toString())
+            .filter(Boolean),
+        ),
+      ];
+
+      const instructors = await Instructor.find({
+        _id: { $in: instructorIds },
+      }).select("status isArchived");
+
+      const instructorStatusMap = new Map(
+        instructors.map((instructor) => [
+          instructor._id.toString(),
+          {
+            isArchived: instructor.isArchived,
+            status: instructor.status,
+          },
+        ]),
+      );
+
+      const sectionIdsToRestore = [];
+
+      for (const section of archivedSections) {
+        const instructorStatus = instructorStatusMap.get(
+          section.instructor?.toString(),
+        );
+
+        if (
+          !instructorStatus ||
+          instructorStatus.isArchived ||
+          instructorStatus.status !== "Active"
+        ) {
+          skippedSections.push({
+            id: section._id,
+            sectionName: section.sectionName,
+            sectionCode: section.sectionCode,
+            reason:
+              "Assigned instructor is inactive or archived and must be fixed before the section can be restored.",
+          });
+          continue;
+        }
+
+        sectionIdsToRestore.push(section._id);
+      }
+
+      if (sectionIdsToRestore.length > 0) {
+        const sectionResult = await Section.updateMany(
+          {
+            _id: { $in: sectionIdsToRestore },
+          },
+          {
+            $set: {
+              isArchived: false,
+              archivedAt: null,
+              archivedBy: null,
+            },
+          },
+        );
+        restoredSectionsCount = sectionResult.modifiedCount || 0;
+      }
+    }
+
+    const details = [];
+    if (restoredSubjectsCount > 0) {
+      details.push(`${restoredSubjectsCount} subject(s) restored`);
+    }
+    if (restoredSectionsCount > 0) {
+      details.push(`${restoredSectionsCount} section(s) restored`);
+    }
+    if (skippedSections.length > 0) {
+      details.push(
+        `${skippedSections.length} section(s) still archived due to inactive/archived instructors`,
+      );
+    }
+
+    const message =
+      details.length > 0
+        ? `Semester unarchived successfully. ${details.join(". ")}.`
+        : "Semester unarchived successfully.";
 
     const hasActiveSemester = await Semester.exists({
       isArchived: { $ne: true },
@@ -345,7 +488,7 @@ export const unarchiveSemester = async (req, res) => {
 
     const responsePayload = {
       success: true,
-      message: "Semester unarchived successfully",
+      message,
       semester: {
         id: semester._id,
         schoolYear: semester.schoolYear,
@@ -353,12 +496,18 @@ export const unarchiveSemester = async (req, res) => {
         isArchived: semester.isArchived,
         isActive: semester.isActive,
       },
+      restoredDependencies: {
+        subjects: restoredSubjectsCount,
+        sections: restoredSectionsCount,
+        skippedSections,
+      },
     };
 
     if (!hasActiveSemester) {
       responsePayload.warning = true;
-      responsePayload.message =
-        "Semester unarchived successfully. No Current Active Term is set. Please set an active semester manually.";
+      responsePayload.message = message.endsWith(".")
+        ? `${message} No Current Active Term is set. Please set an active semester manually.`
+        : `${message}. No Current Active Term is set. Please set an active semester manually.`;
     }
 
     res.status(200).json(responsePayload);

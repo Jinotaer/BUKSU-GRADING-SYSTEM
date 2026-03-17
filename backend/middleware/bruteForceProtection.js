@@ -8,12 +8,21 @@ import { logRequestSecurityEvent } from "../utils/activityLogUtils.js";
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
 // const LOCK_TIME = 2 * 1000; // 2 seconds in milliseconds
+const SUPPORTED_USER_TYPES = ['student', 'instructor', 'admin'];
 
 const getTargetType = (userType) => {
   if (userType === "admin") return "Admin";
   if (userType === "instructor") return "Instructor";
   if (userType === "student") return "Student";
   return "System";
+};
+
+const resolveSearchTypes = (userType) => {
+  if (!userType) {
+    return SUPPORTED_USER_TYPES;
+  }
+
+  return SUPPORTED_USER_TYPES.includes(userType) ? [userType] : [];
 };
 
 // Helper function to get user model based on type
@@ -52,22 +61,26 @@ const findUserByEmail = async (email, userType) => {
     return null;
   }
 
-  const UserModel = getUserModel(userType);
-  const decryptFn = getDecryptFunction(userType);
-  
-  // Fetch all users and decrypt to find match
-  const users = await UserModel.find({});
-  for (const user of users) {
-    try {
-      const decrypted = decryptFn(user.toObject());
-      if (decrypted.email && decrypted.email.toLowerCase() === email.toLowerCase()) {
-        return user; // Return the Mongoose document for updates
+  const searchTypes = resolveSearchTypes(userType);
+
+  for (const type of searchTypes) {
+    const UserModel = getUserModel(type);
+    const decryptFn = getDecryptFunction(type);
+    const users = await UserModel.find({});
+
+    for (const user of users) {
+      try {
+        const decrypted = decryptFn(user.toObject());
+        if (decrypted.email && decrypted.email.toLowerCase() === email.toLowerCase()) {
+          return { user, userType: type };
+        }
+      } catch (error) {
+        console.warn(`Failed to decrypt ${type} ${user._id}:`, error.message);
+        continue;
       }
-    } catch (error) {
-      console.warn(`Failed to decrypt user ${user._id}:`, error.message);
-      continue;
     }
   }
+
   return null;
 };
 
@@ -79,11 +92,13 @@ export const isAccountLocked = (user) => {
 // Handle failed login attempt
 export const handleFailedLogin = async (email, userType) => {
   try {
-    const user = await findUserByEmail(email, userType);
+    const userResult = await findUserByEmail(email, userType);
     
-    if (!user) {
+    if (!userResult?.user) {
       return { locked: false };
     }
+
+    const { user } = userResult;
 
     // If previous lock has expired, reset attempts
     if (user.accountLockedUntil && user.accountLockedUntil < Date.now()) {
@@ -121,9 +136,10 @@ export const handleFailedLogin = async (email, userType) => {
 // Handle successful login (reset failed attempts)
 export const handleSuccessfulLogin = async (email, userType) => {
   try {
-    const user = await findUserByEmail(email, userType);
+    const userResult = await findUserByEmail(email, userType);
     
-    if (user) {
+    if (userResult?.user) {
+      const { user } = userResult;
       user.failedLoginAttempts = undefined;
       user.accountLockedUntil = undefined;
       user.lastFailedLogin = undefined;
@@ -139,17 +155,20 @@ export const handleSuccessfulLogin = async (email, userType) => {
 // Check account status before login
 export const checkAccountStatus = async (email, userType) => {
   try {
-    const user = await findUserByEmail(email, userType);
+    const userResult = await findUserByEmail(email, userType);
     
-    if (!user) {
+    if (!userResult?.user) {
       return { exists: false };
     }
+
+    const { user, userType: resolvedUserType } = userResult;
 
     const locked = isAccountLocked(user);
     const timeUntilUnlock = locked ? user.accountLockedUntil - Date.now() : 0;
     
     return {
       exists: true,
+      userType: resolvedUserType,
       locked,
       timeUntilUnlock,
       failedAttempts: user.failedLoginAttempts || 0,
@@ -185,39 +204,20 @@ export const bruteForceProtection = async (req, res, next) => {
       });
     }
 
-    // For admin login, we infer userType from the presence of password field
+    // For admin login, we infer userType from the presence of password field.
+    // Passwordless Google login may omit userType so the login handler can
+    // resolve ambiguous institutional domains.
     let inferredUserType = userType;
     if (!userType && password) {
       inferredUserType = 'admin'; // Admin login has password field
-    } else if (!userType) {
-      logRequestSecurityEvent({
-        req,
-        res,
-        action: "SECURITY_VIOLATION",
-        description: `Blocked malformed login request for ${email.toLowerCase()} with no user type`,
-        statusCode: 400,
-        errorMessage: "User type is required",
-        actorOverride: {
-          attemptedEmail: email.toLowerCase(),
-        },
-        targetInfo: {
-          targetType: "System",
-          targetIdentifier: email.toLowerCase(),
-        },
-        metadata: {
-          violationType: "missing_user_type",
-          securityLayer: "brute_force_protection",
-        },
-      }).catch(() => {});
-
-      return res.status(400).json({ 
-        message: 'User type is required' 
-      });
     }
 
     const accountStatus = await checkAccountStatus(email, inferredUserType);
+    const resolvedUserType = accountStatus.userType || inferredUserType;
     
     if (!accountStatus.exists) {
+      req.accountStatus = accountStatus;
+      req.inferredUserType = inferredUserType;
       return next(); // Let the login handler deal with non-existent accounts
     }
 
@@ -241,14 +241,15 @@ export const bruteForceProtection = async (req, res, next) => {
         errorMessage: "Account is temporarily locked",
         actorOverride: {
           attemptedEmail: email.toLowerCase(),
-          attemptedUserType: inferredUserType,
+          attemptedUserType: resolvedUserType,
         },
         targetInfo: {
-          targetType: getTargetType(inferredUserType),
+          targetType: getTargetType(resolvedUserType),
           targetIdentifier: email.toLowerCase(),
         },
         metadata: {
           securityLayer: "brute_force_protection",
+          resolvedUserType,
           failedAttempts: accountStatus.failedAttempts,
           remainingAttempts: accountStatus.remainingAttempts,
           timeUntilUnlockMs: accountStatus.timeUntilUnlock,
@@ -265,7 +266,7 @@ export const bruteForceProtection = async (req, res, next) => {
 
     // Add account status and inferred user type to request for use in login handlers
     req.accountStatus = accountStatus;
-    req.inferredUserType = inferredUserType;
+    req.inferredUserType = resolvedUserType || inferredUserType;
     next();
   } catch (error) {
     console.error('Brute force protection error:', error);

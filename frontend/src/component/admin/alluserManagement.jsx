@@ -215,10 +215,10 @@ export default function AllUserManagement() {
 
   return (
     <NotificationProvider notifications={notifications}>
-      <div className="flex min-h-screen bg-[#E8EDF2]">
+      <div className="flex min-h-screen overflow-x-hidden bg-[#E8EDF2]">
         <NavbarSimple />
-        <div className="flex-1 p-2 sm:p-4 md:p-6 lg:p-8 ml-0 max-[880px]:ml-0 min-[881px]:ml-65 max-[880px]:pt-16 sm:max-[880px]:pt-20">
-          <div className="max-w-full mx-auto">
+        <div className="w-full min-w-0 p-2 sm:p-4 md:p-6 lg:p-8 ml-0 max-[880px]:ml-0 min-[881px]:ml-65 min-[881px]:w-[calc(100%_-_16.25rem)] max-[880px]:pt-16 sm:max-[880px]:pt-20">
+          <div className="max-w-full min-w-0 mx-auto">
             <PageHeader />
 
             {isLoading || isInstructorsLoading || isMutating ? (
@@ -228,7 +228,7 @@ export default function AllUserManagement() {
                 {combinedError.message || "Failed to fetch users"}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border-2 border-gray-200">
+              <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 md:p-6 border-2 border-gray-200 min-w-0 overflow-hidden">
                 <SearchAndFilters
                   searchTerm={searchTerm}
                   onSearchChange={setSearchTerm}

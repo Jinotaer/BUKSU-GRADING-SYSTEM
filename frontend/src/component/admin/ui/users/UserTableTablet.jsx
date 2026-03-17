@@ -3,8 +3,8 @@ import { IconArchive } from "@tabler/icons-react";
 
 export function UserTableTablet({ users, onArchive, getStatusBadge }) {
   return (
-    <div className="hidden md:block xl:hidden overflow-x-auto">
-      <table className="min-w-full table-auto">
+    <div className="hidden md:block xl:hidden w-full max-w-full overflow-x-auto">
+      <table className="min-w-[980px] table-auto">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="px-3 py-2 text-left text-sm font-medium text-gray-500 uppercase">
@@ -31,10 +31,12 @@ export function UserTableTablet({ users, onArchive, getStatusBadge }) {
               className="hover:bg-gray-50 align-top"
             >
               <td className="px-3 py-2 text-sm">
-                <div className="font-medium">{user.name}</div>
-                <div className="text-sm text-gray-500">ID: {user.id}</div>
+                <div className="font-medium whitespace-normal break-words">
+                  {user.name}
+                </div>
+                <div className="text-sm text-gray-500 break-all">ID: {user.id}</div>
               </td>
-              <td className="px-3 py-2 text-sm text-blue-600 truncate max-w-[150px]">
+              <td className="px-3 py-2 text-sm text-blue-600 whitespace-normal break-all min-w-[240px]">
                 {user.email}
               </td>
               <td className="px-3 py-2 text-sm min-w-[220px]">

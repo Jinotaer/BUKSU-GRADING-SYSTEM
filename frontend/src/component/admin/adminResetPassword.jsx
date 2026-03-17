@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminAuth from "../../utils/adminAuth";
 import {
+  ADMIN_PASSWORD_REQUIREMENTS_TEXT,
+  getAdminPasswordValidationErrors,
+  getAdminPasswordValidationMessage,
+} from "../../utils/adminPasswordValidation";
+import {
   AuthLayout,
   FormHeader,
   FormInput,
@@ -14,9 +19,20 @@ export default function AdminResetPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [passcode, setPasscode] = useState(() =>
     sessionStorage.getItem("admin_reset_passcode") || ""
   );
+
+  const passwordValidationErrors = getAdminPasswordValidationErrors(newPassword);
+  const passwordsMatch = !confirmPassword || newPassword === confirmPassword;
+  const canSubmit =
+    passcode &&
+    newPassword &&
+    confirmPassword &&
+    passwordsMatch &&
+    passwordValidationErrors.length === 0;
 
   useEffect(() => {
     if (!passcode) {
@@ -32,14 +48,19 @@ export default function AdminResetPassword() {
     setError("");
     setSuccess("");
 
-    const newPassword = event.target.newPassword.value;
-    const confirmPassword = event.target.confirmPassword.value;
     const storedPasscode = sessionStorage.getItem("admin_reset_passcode");
     const resetRequestId = sessionStorage.getItem("admin_reset_request_id");
 
     if (!storedPasscode || !resetRequestId) {
       setError("Reset code not found. Please request a new one.");
       setPasscode("");
+      return;
+    }
+
+    const passwordValidationMessage =
+      getAdminPasswordValidationMessage(newPassword);
+    if (passwordValidationMessage) {
+      setError(passwordValidationMessage);
       return;
     }
 
@@ -60,6 +81,8 @@ export default function AdminResetPassword() {
         setSuccess("Password successfully updated!");
         sessionStorage.removeItem("admin_reset_passcode");
         sessionStorage.removeItem("admin_reset_request_id");
+        setNewPassword("");
+        setConfirmPassword("");
         event.target.reset();
         navigate("/admin/admin-login");
       } else {
@@ -87,6 +110,10 @@ export default function AdminResetPassword() {
           name="newPassword"
           id="newPassword"
           required
+          minLength={8}
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(event) => setNewPassword(event.target.value)}
         />
 
         <FormInput
@@ -95,9 +122,30 @@ export default function AdminResetPassword() {
           name="confirmPassword"
           id="confirmPassword"
           required
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
         />
 
-        <SubmitButton loading={loading} loadingText="Updating...">
+        <div className="space-y-2 text-sm text-gray-600">
+          <p>{ADMIN_PASSWORD_REQUIREMENTS_TEXT}</p>
+          {newPassword && passwordValidationErrors.length > 0 && (
+            <ul className="space-y-1 text-red-600">
+              {passwordValidationErrors.map((validationError) => (
+                <li key={validationError}>{validationError}</li>
+              ))}
+            </ul>
+          )}
+          {!passwordsMatch && (
+            <p className="text-red-600">New passwords do not match.</p>
+          )}
+        </div>
+
+        <SubmitButton
+          loading={loading}
+          loadingText="Updating..."
+          disabled={!canSubmit}
+        >
           Update Password
         </SubmitButton>
       </form>

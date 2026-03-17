@@ -21,7 +21,7 @@ export function NotificationModal({ isOpen, onClose, type, title, message }) {
     ? "bg-amber-600 hover:bg-amber-700"
     : "bg-red-600 hover:bg-red-700";
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="text-center">
           <div

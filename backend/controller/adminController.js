@@ -21,6 +21,7 @@ import {
   normalizeEmail,
   normalizeIdentifier,
 } from "../utils/userLookup.js";
+import { getAdminPasswordValidationMessage } from "../utils/adminPasswordValidation.js";
 
 /**
  * Find admin by decrypting email field
@@ -69,6 +70,15 @@ const sanitizeInstructorInvitePayload = (payload = {}) => ({
   department:
     typeof payload.department === "string" ? payload.department.trim() : "",
 });
+const ALLOWED_INSTRUCTOR_EMAIL_DOMAINS = [
+  "@gmail.com",
+  "@buksu.edu.ph",
+  "@student.buksu.edu.ph",
+];
+const isAllowedInstructorEmail = (email) =>
+  ALLOWED_INSTRUCTOR_EMAIL_DOMAINS.some((domain) => email.endsWith(domain));
+const INVALID_INSTRUCTOR_EMAIL_MESSAGE =
+  "Invalid instructor email domain. Use @gmail.com, @buksu.edu.ph, or @student.buksu.edu.ph";
 
 const getInstructorDuplicateMessage = (duplicateSource, { email, instructorid }) => {
   try {
@@ -247,6 +257,15 @@ export const resetPassword = async (req, res) => {
 
     if (!passcode || !newPassword || !resetRequestId) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const passwordValidationMessage =
+      getAdminPasswordValidationMessage(newPassword);
+    if (passwordValidationMessage) {
+      return res.status(400).json({
+        success: false,
+        message: passwordValidationMessage,
+      });
     }
 
     const resetRecord = await findResetRequestById(resetRequestId);
@@ -575,10 +594,10 @@ export const inviteInstructor = async (req, res) => {
     }
 
     // Validate email domain
-    if (!email.endsWith("@gmail.com")) {
+    if (!isAllowedInstructorEmail(email)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid instructor email domain",
+        message: INVALID_INSTRUCTOR_EMAIL_MESSAGE,
       });
     }
 
@@ -763,10 +782,10 @@ export const inviteMultipleInstructors = async (req, res) => {
       }
 
       // Validate email domain
-      if (!email.endsWith("@gmail.com")) {
+      if (!isAllowedInstructorEmail(email)) {
         results.failed.push({
           data: instructorData,
-          reason: "Invalid instructor email domain"
+          reason: INVALID_INSTRUCTOR_EMAIL_MESSAGE
         });
         continue;
       }
@@ -1714,11 +1733,12 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Validate new password strength
-    if (newPassword.length < 8) {
+    const passwordValidationMessage =
+      getAdminPasswordValidationMessage(newPassword);
+    if (passwordValidationMessage) {
       return res.status(400).json({
         success: false,
-        message: "New password must be at least 8 characters long"
+        message: passwordValidationMessage,
       });
     }
 

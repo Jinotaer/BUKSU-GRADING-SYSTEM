@@ -63,6 +63,13 @@ export default function AIHelper() {
 
     try {
       console.log('Sending AI request with context options:', contextOptions);
+      const recentHistory = messages
+        .filter((message) => !message.typing && typeof message.text === 'string' && message.text.trim())
+        .slice(-8)
+        .map((message) => ({
+          role: message.role,
+          text: message.text,
+        }));
       
       const response = await authenticatedFetch('http://localhost:5000/api/ai/generate-with-context', {
         method: 'POST',
@@ -71,6 +78,7 @@ export default function AIHelper() {
         },
         body: JSON.stringify({
           prompt: t,
+          history: recentHistory,
           ...contextOptions,
           maxOutputTokens: 500,
           temperature: 0.7

@@ -6,10 +6,14 @@ export default function CaptchaSection({
   onChange,
   onExpired,
   onErrored,
+  alignment = "center",
+  className = "",
 }) {
+  const justifyClass = alignment === "start" ? "justify-start" : "justify-center";
+
   return (
-    <div className="flex justify-center mt-4 sm:mt-6 mb-4 sm:mb-6">
-      <div className="w-full max-w-xs flex justify-center">
+    <div className={`w-full overflow-x-auto ${className}`.trim()}>
+      <div className={`flex min-w-[304px] ${justifyClass}`}>
         <ReCAPTCHA
           sitekey={sitekey}
           onChange={onChange}
@@ -28,4 +32,6 @@ CaptchaSection.propTypes = {
   onChange: PropTypes.func.isRequired,
   onExpired: PropTypes.func.isRequired,
   onErrored: PropTypes.func.isRequired,
+  alignment: PropTypes.oneOf(["center", "start"]),
+  className: PropTypes.string,
 };

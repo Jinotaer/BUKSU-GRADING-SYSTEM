@@ -48,7 +48,7 @@ export function ScheduleDetailModal({
   if (!isOpen || !schedule) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg max-w-lg w-full">
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">

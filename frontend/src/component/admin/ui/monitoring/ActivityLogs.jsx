@@ -45,6 +45,20 @@ const truncateText = (value, maxLength = 110) => {
   return `${value.slice(0, maxLength - 3)}...`;
 };
 
+// D078: Format timestamp with timezone abbreviation for timezone verification
+const formatTimestampWithTimezone = (timestamp) => {
+  if (!timestamp) return "N/A";
+  return new Date(timestamp).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZoneName: "short",
+  });
+};
+
 const renderDetailBlock = (label, value, monospace = false) => (
   <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
     <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -275,26 +289,28 @@ const ActivityLogs = ({
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {renderDetailBlock(
                               "Timestamp",
-                              metadata.timestamp || log.timestamp
+                              formatTimestampWithTimezone(
+                                metadata.timestamp || log.timestamp,
+                              ),
                             )}
                             {renderDetailBlock(
                               "Request ID",
                               metadata.requestId,
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "Actor",
                               log.userEmail ||
                                 metadata.actor?.attemptedEmail ||
                                 log.adminEmail ||
-                                "Unknown"
+                                "Unknown",
                             )}
                             {renderDetailBlock(
                               "Endpoint",
                               `${metadata.method || "N/A"} ${
                                 metadata.url || "N/A"
                               }`,
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "Target",
@@ -302,58 +318,58 @@ const ActivityLogs = ({
                                 ? `${log.targetType}: ${
                                     log.targetIdentifier || "Unknown"
                                   }`
-                                : "No target captured"
+                                : "No target captured",
                             )}
                             {renderDetailBlock(
                               "Response",
-                              responseSummary || "No response details"
+                              responseSummary || "No response details",
                             )}
                             {renderDetailBlock(
                               "Client IP",
                               network.clientIp || log.ipAddress || "N/A",
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "Forwarded Chain",
                               network.forwardedFor?.length
                                 ? network.forwardedFor.join(", ")
                                 : "N/A",
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "User Agent",
                               client.userAgent || log.userAgent || "N/A",
-                              true
+                              true,
                             )}
                             {renderDetailBlock("Origin", network.origin, true)}
                             {renderDetailBlock(
                               "Referer",
                               network.referer,
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "Security Flags",
                               security.riskFlags?.length
                                 ? security.riskFlags.join(", ")
-                                : "None"
+                                : "None",
                             )}
                             {renderDetailBlock(
                               "Request Payload",
                               formatJsonPreview(requestBody.preview),
-                              true
+                              true,
                             )}
                             {renderDetailBlock(
                               "Captured Keys",
                               requestBody.keys?.length
                                 ? requestBody.keys.join(", ")
                                 : "N/A",
-                              true
+                              true,
                             )}
                             {log.errorMessage &&
                               renderDetailBlock(
                                 "Failure Reason",
                                 log.errorMessage,
-                                true
+                                true,
                               )}
                           </div>
                         </td>
@@ -373,9 +389,7 @@ const ActivityLogs = ({
             <span className="text-sm text-gray-700">Show</span>
             <select
               value={localItemsPerPage}
-              onChange={(e) =>
-                handleItemsPerPageChange(Number(e.target.value))
-              }
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
               className="rounded-md border border-gray-300 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value={10}>10</option>

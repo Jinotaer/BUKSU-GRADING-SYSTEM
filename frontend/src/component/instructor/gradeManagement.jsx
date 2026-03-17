@@ -4,8 +4,8 @@ import { authenticatedFetch } from "../../utils/auth";
 import { getFreshCachedJson } from "../../lib/apiCache";
 import { useNotifications } from "../../hooks/useNotifications";
 import { NotificationProvider } from "../common/NotificationModals";
-import { 
-  getEquivalentGrade, 
+import {
+  getEquivalentGrade,
   calculateCategoryAverage,
   calculateStudentFinalSummary,
 } from "../../utils/gradeUtils";
@@ -21,6 +21,10 @@ import {
   ScheduleModal,
   LoadingSpinner,
 } from "./ui/grades";
+import {
+  ExportProgressOverlay,
+  EXPORT_STEPS,
+} from "./ui/grades/ExportProgressOverlay";
 
 /* ---------- toast refs ---------- */
 function useToastRefs(notifications) {
@@ -40,11 +44,17 @@ const organizeActivitiesByCategory = (allActivities, termFilter = null) => {
 
   return {
     classStanding:
-      filteredActivities.filter((activity) => activity.category === "classStanding") || [],
+      filteredActivities.filter(
+        (activity) => activity.category === "classStanding",
+      ) || [],
     laboratory:
-      filteredActivities.filter((activity) => activity.category === "laboratory") || [],
+      filteredActivities.filter(
+        (activity) => activity.category === "laboratory",
+      ) || [],
     majorOutput:
-      filteredActivities.filter((activity) => activity.category === "majorOutput") || [],
+      filteredActivities.filter(
+        (activity) => activity.category === "majorOutput",
+      ) || [],
   };
 };
 
@@ -66,13 +76,14 @@ const buildCachedGradeState = () => {
 
   const cachedActivities =
     getFreshCachedJson(
-      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/activities`
+      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/activities`,
     )?.activities || [];
-  const allActivitiesUnfiltered = organizeActivitiesByCategory(cachedActivities);
+  const allActivitiesUnfiltered =
+    organizeActivitiesByCategory(cachedActivities);
   const activities = organizeActivitiesByCategory(cachedActivities);
   const roster =
     getFreshCachedJson(
-      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students`
+      `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students`,
     )?.students || [];
 
   const flattenedActivities = [
@@ -85,10 +96,10 @@ const buildCachedGradeState = () => {
     const activityScores = flattenedActivities.map((activity) => {
       const scoreRows =
         getFreshCachedJson(
-          `http://localhost:5000/api/activityScores/activities/${activity._id}/scores?sectionId=${selectedSection._id}`
+          `http://localhost:5000/api/activityScores/activities/${activity._id}/scores?sectionId=${selectedSection._id}`,
         )?.rows || [];
       const matchedScore = scoreRows.find(
-        (row) => String(row.studentId) === String(student._id)
+        (row) => String(row.studentId) === String(student._id),
       );
 
       return {
@@ -109,7 +120,7 @@ const buildCachedGradeState = () => {
   const studentsWithSummaries = students.map((student) => {
     const getScoreForActivity = (studentData, activity) => {
       const matchedScore = (studentData.activityScores || []).find(
-        (row) => String(row.activity_id) === String(activity._id)
+        (row) => String(row.activity_id) === String(activity._id),
       );
 
       if (
@@ -135,7 +146,7 @@ const buildCachedGradeState = () => {
           student,
           allActivitiesUnfiltered,
           gradingSchemaOrHasLab,
-          getScoreForActivity
+          getScoreForActivity,
         ),
       },
     };
@@ -155,13 +166,13 @@ export default function GradeManagement() {
   /* ---------- state ---------- */
   const [sections, setSections] = useState(cachedGradeState.sections);
   const [selectedSection, setSelectedSection] = useState(
-    cachedGradeState.selectedSection
+    cachedGradeState.selectedSection,
   );
   const [students, setStudents] = useState(cachedGradeState.students);
   const [_grades, setGrades] = useState({});
   const [activities, setActivities] = useState(cachedGradeState.activities);
   const [allActivitiesUnfiltered, setAllActivitiesUnfiltered] = useState(
-    cachedGradeState.allActivitiesUnfiltered
+    cachedGradeState.allActivitiesUnfiltered,
   );
   const [loading, setLoading] = useState(!cachedGradeState.selectedSection);
   const [filterTerm, setFilterTerm] = useState("");
@@ -175,6 +186,8 @@ export default function GradeManagement() {
     chairperson: "",
     dean: "",
   });
+  // D081: Export progress tracking
+  const [exportStep, setExportStep] = useState(null);
 
   const notifications = useNotifications();
   const { showErrorRef, showSuccessRef } = useToastRefs(notifications);
@@ -190,7 +203,7 @@ export default function GradeManagement() {
   const hasLaboratory = useCallback(() => {
     if (!selectedSection) return false;
     const schema = selectedSection.gradingSchema;
-    if (schema && typeof schema === 'object') {
+    if (schema && typeof schema === "object") {
       return Boolean(schema.laboratory && Number(schema.laboratory) > 0);
     }
     // Fallback to legacy hasLab property
@@ -201,7 +214,7 @@ export default function GradeManagement() {
     try {
       setLoading(sections.length === 0 && !selectedSection);
       const res = await authenticatedFetch(
-        "http://localhost:5000/api/instructor/sections"
+        "http://localhost:5000/api/instructor/sections",
       );
       if (!res.ok) {
         const e = await res.json();
@@ -224,46 +237,49 @@ export default function GradeManagement() {
     }
   }, [showErrorRef]);
 
-  const fetchActivities = useCallback(async (termFilter = null) => {
-    if (!selectedSection?._id) return null;
-    try {
-      const res = await authenticatedFetch(
-        `http://localhost:5000/api/instructor/sections/${selectedSection._id}/activities`
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      const allActivities = data.activities || [];
-      
-      // Store unfiltered activities organized by category (for grade calculations)
-      const unfilteredOrganized = {
-        classStanding:
-          allActivities.filter((a) => a.category === "classStanding") || [],
-        laboratory:
-          allActivities.filter((a) => a.category === "laboratory") || [],
-        majorOutput:
-          allActivities.filter((a) => a.category === "majorOutput") || [],
-      };
-      
-      // Filter by term if specified (for display tabs)
-      const filteredByTerm = termFilter 
-        ? allActivities.filter((a) => a.term === termFilter)
-        : allActivities;
-      
-      const organized = {
-        classStanding:
-          filteredByTerm.filter((a) => a.category === "classStanding") || [],
-        laboratory:
-          filteredByTerm.filter((a) => a.category === "laboratory") || [],
-        majorOutput:
-          filteredByTerm.filter((a) => a.category === "majorOutput") || [],
-      };
-      
-      return { organized, unfilteredOrganized };
-    } catch (err) {
-      console.error("Error fetching activities:", err);
-      return null;
-    }
-  }, [selectedSection?._id]);
+  const fetchActivities = useCallback(
+    async (termFilter = null) => {
+      if (!selectedSection?._id) return null;
+      try {
+        const res = await authenticatedFetch(
+          `http://localhost:5000/api/instructor/sections/${selectedSection._id}/activities`,
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        const allActivities = data.activities || [];
+
+        // Store unfiltered activities organized by category (for grade calculations)
+        const unfilteredOrganized = {
+          classStanding:
+            allActivities.filter((a) => a.category === "classStanding") || [],
+          laboratory:
+            allActivities.filter((a) => a.category === "laboratory") || [],
+          majorOutput:
+            allActivities.filter((a) => a.category === "majorOutput") || [],
+        };
+
+        // Filter by term if specified (for display tabs)
+        const filteredByTerm = termFilter
+          ? allActivities.filter((a) => a.term === termFilter)
+          : allActivities;
+
+        const organized = {
+          classStanding:
+            filteredByTerm.filter((a) => a.category === "classStanding") || [],
+          laboratory:
+            filteredByTerm.filter((a) => a.category === "laboratory") || [],
+          majorOutput:
+            filteredByTerm.filter((a) => a.category === "majorOutput") || [],
+        };
+
+        return { organized, unfilteredOrganized };
+      } catch (err) {
+        console.error("Error fetching activities:", err);
+        return null;
+      }
+    },
+    [selectedSection?._id],
+  );
 
   const fetchStudentsAndGrades = useCallback(
     async (currentActivities, unfilteredActivities) => {
@@ -274,7 +290,7 @@ export default function GradeManagement() {
 
         // 1) roster
         const studentsRes = await authenticatedFetch(
-          `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students`
+          `http://localhost:5000/api/instructor/sections/${selectedSection._id}/students`,
         );
         if (!studentsRes.ok) {
           const e = await studentsRes.json().catch(() => ({}));
@@ -302,9 +318,9 @@ export default function GradeManagement() {
         const results = await Promise.allSettled(
           allActivities.map((a) =>
             authenticatedFetch(
-              `http://localhost:5000/api/activityScores/activities/${a._id}/scores?sectionId=${selectedSection._id}`
-            )
-          )
+              `http://localhost:5000/api/activityScores/activities/${a._id}/scores?sectionId=${selectedSection._id}`,
+            ),
+          ),
         );
 
         // Build a map: activityId -> rows[]
@@ -344,14 +360,14 @@ export default function GradeManagement() {
               try {
                 const e = await res.json();
                 showErrorRef.current(
-                  e?.message || "Error loading activity scores."
+                  e?.message || "Error loading activity scores.",
                 );
               } catch {
                 showErrorRef.current("Error loading activity scores.");
               }
             }
             activityRowsMap.set(String(activity._id), []);
-          })
+          }),
         );
 
         // 4) attach activityScores per student and compute final summaries
@@ -362,7 +378,13 @@ export default function GradeManagement() {
             return {
               activity_id: a._id,
               // If there's no hit (no score row), treat it as blank (null)
-              score: hit ? (hit.score === null || hit.score === undefined || hit.score === "" ? null : Number(hit.score)) : null,
+              score: hit
+                ? hit.score === null ||
+                  hit.score === undefined ||
+                  hit.score === ""
+                  ? null
+                  : Number(hit.score)
+                : null,
               maxScore: Number(hit?.maxScore ?? a.maxScore ?? 100),
             };
           });
@@ -374,21 +396,28 @@ export default function GradeManagement() {
           // helper to read a student's score for an activity (returns null for blank)
           const getScoreForActivity = (studentObj, activity) => {
             const hit = (studentObj.activityScores || []).find(
-              (r) => String(r.activity_id) === String(activity._id)
+              (r) => String(r.activity_id) === String(activity._id),
             );
-            if (!hit || hit.score === null || hit.score === undefined || hit.score === "") return null;
+            if (
+              !hit ||
+              hit.score === null ||
+              hit.score === undefined ||
+              hit.score === ""
+            )
+              return null;
             return Number(hit.score);
           };
 
           // grading schema or legacy hasLab flag
-          const gradingSchemaOrHasLab = selectedSection?.gradingSchema ?? selectedSection?.hasLab ?? false;
+          const gradingSchemaOrHasLab =
+            selectedSection?.gradingSchema ?? selectedSection?.hasLab ?? false;
 
           // Compute final summary (includes midterm/final percents and final equivalent)
           const summary = calculateStudentFinalSummary(
             stu,
             unfilteredActivities,
             gradingSchemaOrHasLab,
-            getScoreForActivity
+            getScoreForActivity,
           );
 
           return { ...stu, grade: { ...(stu.grade || {}), ...summary } };
@@ -429,7 +458,7 @@ export default function GradeManagement() {
         setLoading(false);
       }
     },
-    [selectedSection, showErrorRef]
+    [selectedSection, showErrorRef],
   );
 
   /* ---------- effects ---------- */
@@ -440,38 +469,44 @@ export default function GradeManagement() {
   useEffect(() => {
     const loadSectionData = async () => {
       if (!selectedSection?._id) return;
-      
+
       try {
         setLoading(
           students.length === 0 &&
             activities.classStanding.length === 0 &&
             activities.laboratory.length === 0 &&
-            activities.majorOutput.length === 0
+            activities.majorOutput.length === 0,
         );
-        
+
         // Fetch activities with current term filter
         const result = await fetchActivities(selectedTerm);
-        
+
         if (result) {
           const { organized, unfilteredOrganized } = result;
-          
+
           // Update state
           setActivities(organized);
           setAllActivitiesUnfiltered(unfilteredOrganized);
-          
+
           // Fetch students and grades with the fetched activities
           await fetchStudentsAndGrades(organized, unfilteredOrganized);
         }
       } catch (error) {
-        console.error('Error loading section data:', error);
-        showErrorRef.current('Failed to load section data');
+        console.error("Error loading section data:", error);
+        showErrorRef.current("Failed to load section data");
       } finally {
         setLoading(false);
       }
     };
-    
+
     loadSectionData();
-  }, [selectedSection?._id, selectedTerm, fetchActivities, fetchStudentsAndGrades, showErrorRef]);
+  }, [
+    selectedSection?._id,
+    selectedTerm,
+    fetchActivities,
+    fetchStudentsAndGrades,
+    showErrorRef,
+  ]);
 
   useEffect(() => {
     if (!students.length) return;
@@ -511,64 +546,74 @@ export default function GradeManagement() {
   const selectedSectionIdRef = useRef(selectedSection?._id);
   const selectedTermRef = useRef(selectedTerm);
   const fetchStudentsAndGradesRef = useRef(fetchStudentsAndGrades);
-  
+
   useEffect(() => {
     selectedSectionIdRef.current = selectedSection?._id;
   }, [selectedSection?._id]);
-  
+
   useEffect(() => {
     selectedTermRef.current = selectedTerm;
   }, [selectedTerm]);
-  
+
   useEffect(() => {
     fetchStudentsAndGradesRef.current = fetchStudentsAndGrades;
   }, [fetchStudentsAndGrades]);
-  
+
   useEffect(() => {
     if (refreshRef.current) {
       clearInterval(refreshRef.current);
       refreshRef.current = null;
     }
-    
+
     if (selectedSection?._id) {
       refreshRef.current = setInterval(async () => {
         if (!selectedSectionIdRef.current) return;
-        
+
         try {
           const res = await authenticatedFetch(
-            `http://localhost:5000/api/instructor/sections/${selectedSectionIdRef.current}/activities`
+            `http://localhost:5000/api/instructor/sections/${selectedSectionIdRef.current}/activities`,
           );
           if (!res.ok) return;
           const data = await res.json();
           const allActivities = data.activities || [];
-          
+
           const unfilteredOrganized = {
-            classStanding: allActivities.filter((a) => a.category === "classStanding") || [],
-            laboratory: allActivities.filter((a) => a.category === "laboratory") || [],
-            majorOutput: allActivities.filter((a) => a.category === "majorOutput") || [],
+            classStanding:
+              allActivities.filter((a) => a.category === "classStanding") || [],
+            laboratory:
+              allActivities.filter((a) => a.category === "laboratory") || [],
+            majorOutput:
+              allActivities.filter((a) => a.category === "majorOutput") || [],
           };
-          
-          const filteredByTerm = selectedTermRef.current 
+
+          const filteredByTerm = selectedTermRef.current
             ? allActivities.filter((a) => a.term === selectedTermRef.current)
             : allActivities;
-          
+
           const organized = {
-            classStanding: filteredByTerm.filter((a) => a.category === "classStanding") || [],
-            laboratory: filteredByTerm.filter((a) => a.category === "laboratory") || [],
-            majorOutput: filteredByTerm.filter((a) => a.category === "majorOutput") || [],
+            classStanding:
+              filteredByTerm.filter((a) => a.category === "classStanding") ||
+              [],
+            laboratory:
+              filteredByTerm.filter((a) => a.category === "laboratory") || [],
+            majorOutput:
+              filteredByTerm.filter((a) => a.category === "majorOutput") || [],
           };
-          
+
           setAllActivitiesUnfiltered(unfilteredOrganized);
           setActivities(organized);
-          
+
           // Refresh students with latest activities
-          await fetchStudentsAndGradesRef.current(organized, unfilteredOrganized);
+          await fetchStudentsAndGradesRef.current(
+            organized,
+            unfilteredOrganized,
+          );
         } catch (error) {
-          console.error('Auto-refresh error:', error);
+          console.error("Auto-refresh error:", error);
         }
       }, 300000);
     }
-    
+
     return () => {
       if (refreshRef.current) {
         clearInterval(refreshRef.current);
@@ -581,7 +626,7 @@ export default function GradeManagement() {
     try {
       setLoading(true);
       await fetchInstructorSections();
-      
+
       const result = await fetchActivities(selectedTerm);
       if (result) {
         const { organized, unfilteredOrganized } = result;
@@ -589,7 +634,7 @@ export default function GradeManagement() {
         setAllActivitiesUnfiltered(unfilteredOrganized);
         await fetchStudentsAndGrades(organized, unfilteredOrganized);
       }
-      
+
       showSuccessRef.current("Data refreshed successfully!");
     } catch {
       showErrorRef.current("Failed to refresh data");
@@ -602,12 +647,25 @@ export default function GradeManagement() {
     fetchStudentsAndGrades,
     selectedTerm,
     showSuccessRef,
-    showErrorRef
+    showErrorRef,
   ]);
 
   const openScheduleModal = () => {
     if (!selectedSection) return;
-    
+
+    // D039: Block export when no activities have been created (empty gradebook)
+    const hasActivities =
+      activities.classStanding?.length > 0 ||
+      activities.laboratory?.length > 0 ||
+      activities.majorOutput?.length > 0;
+
+    if (!hasActivities) {
+      showErrorRef.current(
+        "Cannot export: No activities have been created yet. Please create activities and enter grades before exporting.",
+      );
+      return;
+    }
+
     // Pre-fill form with existing schedule data or defaults
     setScheduleForm({
       day: selectedSection.schedule?.day || "",
@@ -616,62 +674,75 @@ export default function GradeManagement() {
       chairperson: selectedSection.chairperson || "",
       dean: selectedSection.dean || "",
     });
-    
+
     setShowScheduleModal(true);
   };
 
   const exportToGoogleSheets = async () => {
     if (!selectedSection) return;
 
-  // Parent Drive folder where per-section folders will be created
-  const PARENT_FOLDER_ID = "1kzlYesJutCqHSMa3WEf8sq7CrUoMixXi";
+    // Parent Drive folder where per-section folders will be created
+    const PARENT_FOLDER_ID = "1kzlYesJutCqHSMa3WEf8sq7CrUoMixXi";
 
-  const getSheetName = (section) => {
-    if (!section) return `Sheet_${Date.now()}`;
+    const getSheetName = (section) => {
+      if (!section) return `Sheet_${Date.now()}`;
 
-    const extract = (val, keys = []) => {
-      if (!val) return '';
-      if (typeof val === 'string') return val.trim();
-      if (typeof val === 'number') return String(val);
-      if (typeof val === 'object') {
-        for (const k of keys) {
-          if (val[k]) return String(val[k]);
+      const extract = (val, keys = []) => {
+        if (!val) return "";
+        if (typeof val === "string") return val.trim();
+        if (typeof val === "number") return String(val);
+        if (typeof val === "object") {
+          for (const k of keys) {
+            if (val[k]) return String(val[k]);
+          }
         }
-      }
-      return '';
+        return "";
+      };
+
+      const subjectCode =
+        extract(section.subject, [
+          "code",
+          "subjectCode",
+          "subjectName",
+          "name",
+        ]) ||
+        extract(section, ["subjectCode", "subject"]) ||
+        "";
+      const sectionCode =
+        extract(section, ["sectionCode", "code", "sectionName", "section"]) ||
+        extract(section, ["code", "section"]) ||
+        "";
+      const term =
+        extract(section.semester, ["term", "name"]) ||
+        extract(section, ["term", "semester"]) ||
+        "";
+
+      const parts = [subjectCode, sectionCode, term]
+        .map((p) => p && String(p).replace(/\s+/g, ""))
+        .filter(Boolean);
+      return parts.length ? parts.join("_") : `Section_${section._id}`;
     };
 
-    const subjectCode =
-      extract(section.subject, ['code', 'subjectCode', 'subjectName', 'name']) ||
-      extract(section, ['subjectCode', 'subject']) ||
-      '';
-    const sectionCode =
-      extract(section, ['sectionCode', 'code', 'sectionName', 'section']) ||
-      extract(section, ['code', 'section']) ||
-      '';
-    const term =
-      extract(section.semester, ['term', 'name']) || extract(section, ['term', 'semester']) || '';
-
-    const parts = [subjectCode, sectionCode, term].map((p) => p && String(p).replace(/\s+/g, '')).filter(Boolean);
-    return parts.length ? parts.join('_') : `Section_${section._id}`;
-  };
-
-  // Validate form
-  if (
-    !scheduleForm.day ||
-    !scheduleForm.time ||
-    !scheduleForm.room ||
-    !scheduleForm.chairperson ||
-    !scheduleForm.dean
-  ) {
-    showErrorRef.current("Please fill in all schedule information");
-    return;
-  }
+    // Validate form
+    if (
+      !scheduleForm.day ||
+      !scheduleForm.time ||
+      !scheduleForm.room ||
+      !scheduleForm.chairperson ||
+      !scheduleForm.dean
+    ) {
+      showErrorRef.current("Please fill in all schedule information");
+      return;
+    }
 
     try {
       // Debug: log payload so we can inspect sheetName/parentFolderId when troubleshooting
-      console.log('[gradeManagement] export payload preview:', {
-        schedule: { day: scheduleForm.day, time: scheduleForm.time, room: scheduleForm.room },
+      console.log("[gradeManagement] export payload preview:", {
+        schedule: {
+          day: scheduleForm.day,
+          time: scheduleForm.time,
+          room: scheduleForm.room,
+        },
         chairperson: scheduleForm.chairperson,
         dean: scheduleForm.dean,
         parentFolderId: PARENT_FOLDER_ID,
@@ -679,6 +750,13 @@ export default function GradeManagement() {
       });
       setLoading(true);
       setShowScheduleModal(false);
+
+      // D081: Start export progress overlay
+      setExportStep(0);
+      const stepTimer1 = setTimeout(() => setExportStep(1), 1500);
+      const stepTimer2 = setTimeout(() => setExportStep(2), 3500);
+      const stepTimer3 = setTimeout(() => setExportStep(3), 6000);
+
       showSuccessRef.current("Exporting to Google Sheets...");
 
       const res = await authenticatedFetch(
@@ -700,16 +778,18 @@ export default function GradeManagement() {
             sheetName: getSheetName(selectedSection),
             term: selectedTerm || undefined, // Include term filter if selected
           }),
-        }
+        },
       );
 
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to export to Google Sheets");
       }
-      
+
       const data = await res.json();
 
+      // D081: Show final step before closing overlay
+      setExportStep(EXPORT_STEPS.length - 1);
       showSuccessRef.current("Successfully exported to Google Sheets!");
 
       // Open the spreadsheet in a new tab
@@ -719,10 +799,12 @@ export default function GradeManagement() {
     } catch (error) {
       console.error("Export error:", error);
       showErrorRef.current(
-        error.message || "Failed to export to Google Sheets"
+        error.message || "Failed to export to Google Sheets",
       );
     } finally {
       setLoading(false);
+      // D081: Clear progress overlay after a brief delay
+      setTimeout(() => setExportStep(null), 800);
     }
   };
 
@@ -736,51 +818,60 @@ export default function GradeManagement() {
       if (!section) return `FinalGrade_${Date.now()}`;
 
       const extract = (val, keys = []) => {
-        if (!val) return '';
-        if (typeof val === 'string') return val.trim();
-        if (typeof val === 'number') return String(val);
-        if (typeof val === 'object') {
+        if (!val) return "";
+        if (typeof val === "string") return val.trim();
+        if (typeof val === "number") return String(val);
+        if (typeof val === "object") {
           for (const k of keys) {
             if (val[k]) return String(val[k]);
           }
         }
-        return '';
+        return "";
       };
 
       const subjectCode =
-        extract(section.subject, ['code', 'subjectCode', 'subjectName', 'name']) ||
-        extract(section, ['subjectCode', 'subject']) ||
-        '';
+        extract(section.subject, [
+          "code",
+          "subjectCode",
+          "subjectName",
+          "name",
+        ]) ||
+        extract(section, ["subjectCode", "subject"]) ||
+        "";
       const sectionCode =
-        extract(section, ['sectionCode', 'code', 'sectionName', 'section']) ||
-        extract(section, ['code', 'section']) ||
-        '';
+        extract(section, ["sectionCode", "code", "sectionName", "section"]) ||
+        extract(section, ["code", "section"]) ||
+        "";
       const term =
-        extract(section.semester, ['term', 'name']) || extract(section, ['term', 'semester']) || '';
+        extract(section.semester, ["term", "name"]) ||
+        extract(section, ["term", "semester"]) ||
+        "";
 
-      const parts = [subjectCode, sectionCode, 'FinalGrade', term].map((p) => p && String(p).replace(/\s+/g, '')).filter(Boolean);
-      return parts.length ? parts.join('_') : `FinalGrade_${section._id}`;
+      const parts = [subjectCode, sectionCode, "FinalGrade", term]
+        .map((p) => p && String(p).replace(/\s+/g, ""))
+        .filter(Boolean);
+      return parts.length ? parts.join("_") : `FinalGrade_${section._id}`;
     };
 
     // Use default schedule values for final grade export
     const defaultSchedule = {
-      day: selectedSection.schedule?.day || 'TBA',
-      time: selectedSection.schedule?.time || 'TBA', 
-      room: selectedSection.schedule?.room || 'TBA'
+      day: selectedSection.schedule?.day || "TBA",
+      time: selectedSection.schedule?.time || "TBA",
+      room: selectedSection.schedule?.room || "TBA",
     };
-    const defaultChairperson = selectedSection.chairperson || 'TBA';
-    const defaultDean = selectedSection.dean || 'TBA';
+    const defaultChairperson = selectedSection.chairperson || "TBA";
+    const defaultDean = selectedSection.dean || "TBA";
 
     try {
-      console.log('[gradeManagement] final grade export payload preview:', {
+      console.log("[gradeManagement] final grade export payload preview:", {
         schedule: defaultSchedule,
         chairperson: defaultChairperson,
         dean: defaultDean,
         parentFolderId: PARENT_FOLDER_ID,
         sheetName: getSheetName(selectedSection),
-        term: 'Final Grade'
+        term: "Final Grade",
       });
-      
+
       setLoading(true);
       showSuccessRef.current("Exporting Final Grade to Google Sheets...");
 
@@ -798,17 +889,21 @@ export default function GradeManagement() {
             parentFolderId: PARENT_FOLDER_ID,
             sheetName: getSheetName(selectedSection),
           }),
-        }
+        },
       );
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || "Failed to export final grade to Google Sheets");
+        throw new Error(
+          error.message || "Failed to export final grade to Google Sheets",
+        );
       }
 
       const data = await res.json();
 
-      showSuccessRef.current("Final Grade successfully exported to Google Sheets!");
+      showSuccessRef.current(
+        "Final Grade successfully exported to Google Sheets!",
+      );
 
       // Open the spreadsheet in a new tab
       if (data.spreadsheetUrl) {
@@ -817,7 +912,7 @@ export default function GradeManagement() {
     } catch (error) {
       console.error("Final grade export error:", error);
       showErrorRef.current(
-        error.message || "Failed to export final grade to Google Sheets"
+        error.message || "Failed to export final grade to Google Sheets",
       );
     } finally {
       setLoading(false);
@@ -830,10 +925,10 @@ export default function GradeManagement() {
   const getWeight = (cat) => {
     const gs = selectedSection?.gradingSchema || {};
     return cat === "classStanding"
-      ? gs.classStanding ?? 0
+      ? (gs.classStanding ?? 0)
       : cat === "laboratory"
-      ? gs.laboratory ?? 0
-      : gs.majorOutput ?? 0;
+        ? (gs.laboratory ?? 0)
+        : (gs.majorOutput ?? 0);
   };
 
   const categoryAverage = (student, cat) => {
@@ -847,16 +942,16 @@ export default function GradeManagement() {
   const filteredStudents = students.filter(
     (s) =>
       s.fullName?.toLowerCase().includes(filterTerm.toLowerCase()) ||
-      s.studid?.toLowerCase().includes(filterTerm.toLowerCase())
+      s.studid?.toLowerCase().includes(filterTerm.toLowerCase()),
   );
 
   const getActivityScore = (student, activity) => {
     const hit =
       student.activityScores?.find(
-        (s) => String(s.activity_id) === String(activity._id)
+        (s) => String(s.activity_id) === String(activity._id),
       ) ||
       student.grades?.find(
-        (g) => String(g.activity_id) === String(activity._id)
+        (g) => String(g.activity_id) === String(activity._id),
       );
     // Only display a number if score is not blank (null, undefined, empty string)
     if (hit?.score === null || hit?.score === undefined || hit?.score === "") {
@@ -921,14 +1016,17 @@ export default function GradeManagement() {
                 />
 
                 {selectedSection && (
-                  <SectionDetails section={selectedSection} studentCount={students.length} />
+                  <SectionDetails
+                    section={selectedSection}
+                    studentCount={students.length}
+                  />
                 )}
 
                 {selectedSection && (
                   <>
-                    <TabNavigation 
-                      activeTab={activeTab} 
-                      onTabChange={setActiveTab} 
+                    <TabNavigation
+                      activeTab={activeTab}
+                      onTabChange={setActiveTab}
                       selectedTerm={selectedTerm}
                       hasLaboratory={hasLaboratory()}
                     />
@@ -1045,6 +1143,9 @@ export default function GradeManagement() {
           onExport={exportToGoogleSheets}
           loading={loading}
         />
+
+        {/* D081: Export progress overlay */}
+        <ExportProgressOverlay currentStep={exportStep} />
       </div>
     </NotificationProvider>
   );

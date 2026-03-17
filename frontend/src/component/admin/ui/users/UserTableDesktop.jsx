@@ -3,8 +3,8 @@ import { IconArchive } from "@tabler/icons-react";
 
 export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
   return (
-    <div className="hidden xl:block overflow-x-auto">
-      <table className="min-w-full table-auto">
+    <div className="hidden xl:block w-full max-w-full overflow-x-auto">
+      <table className="min-w-[1300px] table-auto">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -39,13 +39,13 @@ export function UserTableDesktop({ users, onArchive, getStatusBadge }) {
               key={`${user.userType}-${user._id}-${index}`}
               className="hover:bg-gray-50 align-top"
             >
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-sm truncate max-w-[80px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-sm whitespace-normal break-all min-w-[110px]">
                 {user.id}
               </td>
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm truncate max-w-[120px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm whitespace-normal break-words min-w-[180px]">
                 {user.name}
               </td>
-              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-blue-600 truncate max-w-[150px]">
+              <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-blue-600 whitespace-normal break-all min-w-[240px]">
                 {user.email}
               </td>
               <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm whitespace-normal break-words min-w-[180px]">

@@ -4,7 +4,7 @@ import { IconAlertCircle } from "@tabler/icons-react";
 export function ConfirmationModal({ isOpen, onClose, title, message, onConfirm }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-50 mb-4">

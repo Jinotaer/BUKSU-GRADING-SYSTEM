@@ -11,7 +11,7 @@ export const HideModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[10000]">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[10000]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">

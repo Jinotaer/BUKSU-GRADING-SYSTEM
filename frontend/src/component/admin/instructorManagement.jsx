@@ -18,6 +18,13 @@ import {
 
 const normalizeLookupValue = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
+const ALLOWED_INSTRUCTOR_EMAIL_DOMAINS = [
+  "@gmail.com",
+  "@buksu.edu.ph",
+  "@student.buksu.edu.ph",
+];
+const isAllowedInstructorEmail = (email) =>
+  ALLOWED_INSTRUCTOR_EMAIL_DOMAINS.some((domain) => email.endsWith(domain));
 
 export default function InstructorManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -137,8 +144,10 @@ export default function InstructorManagement() {
       return;
     }
 
-    if (!payload.email.endsWith("@gmail.com")) {
-      showError("Invalid instructor email domain.");
+    if (!isAllowedInstructorEmail(payload.email)) {
+      showError(
+        "Invalid instructor email domain. Use @gmail.com, @buksu.edu.ph, or @student.buksu.edu.ph."
+      );
       return;
     }
 
