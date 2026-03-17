@@ -35,7 +35,6 @@ export const saveTokens = (accessToken, refreshToken) => {
  */
 export const clearTokens = () => {
   sessionStorage.removeItem("accessToken");
-  sessionStorage.removeItem("sessionToken");
   sessionStorage.removeItem("refreshToken");
   clearApiCache();
 };
