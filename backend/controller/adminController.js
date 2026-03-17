@@ -1473,7 +1473,6 @@ export const archiveStudent = async (req, res) => {
   try {
     const { studentId } = req.params;
     const adminEmail = req.admin.email;
-    const sessionTerminatedAt = new Date();
 
     const student = await Student.findById(studentId);
     if (!student) {
@@ -1491,18 +1490,13 @@ export const archiveStudent = async (req, res) => {
     }
 
     student.isArchived = true;
-    student.archivedAt = sessionTerminatedAt;
+    student.archivedAt = new Date();
     student.archivedBy = adminEmail;
     await student.save();
 
     res.status(200).json({
       success: true,
       message: "Student archived successfully",
-      sessionTermination: {
-        terminated: true,
-        terminatedAt: sessionTerminatedAt,
-        reason: "Student account archived by admin",
-      },
       student: {
         id: student._id,
         email: student.email,
