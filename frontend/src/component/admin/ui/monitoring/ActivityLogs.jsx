@@ -112,26 +112,26 @@ const ActivityLogs = ({
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-[1280px] w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[210px] px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Action
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[190px] px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Category
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[150px] px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[260px] px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Request
               </th>
-              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[360px] px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Description
               </th>
-              <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[120px] px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Details
               </th>
             </tr>
@@ -220,9 +220,9 @@ const ActivityLogs = ({
                       </td>
 
                       <td className="px-6 py-6 text-sm text-gray-900">
-                        <div className="font-mono text-xs break-all">
+                        <div className="font-mono text-xs break-words" title={`${(metadata.method || "N/A").toUpperCase()} ${metadata.url || "N/A"}`}>
                           {(metadata.method || "N/A").toUpperCase()}{" "}
-                          {truncateText(metadata.url || "N/A", 40)}
+                          {truncateText(metadata.url || "N/A", 90)}
                         </div>
                         <div className="mt-2 text-xs text-gray-500">
                           IP: {network.clientIp || log.ipAddress || "N/A"}
@@ -236,7 +236,7 @@ const ActivityLogs = ({
                         className="px-6 py-6 text-sm text-gray-900"
                         title={log.description}
                       >
-                        <div className="max-w-md break-words">
+                        <div className="break-words leading-relaxed">
                           {truncateText(log.description, 180)}
                         </div>
                         {log.errorMessage && (
