@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Ajabb/.claude/projects/c--Users-Ajabb-OneDrive-Desktop-Buksu-Grading-System/1591bd67-95d3-4621-b0e1-1041bfd493ec/tool-results/**)"
+    ]
+  }
+}
